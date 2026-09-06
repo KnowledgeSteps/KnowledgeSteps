@@ -1,0 +1,11 @@
+:root {
+  font-family: Inter, "Microsoft YaHei", system-ui, sans-serif;
+  color: #1f2937;
+  background: #f8fafc;
+}
+
+body { margin: 0; }
+main { max-width: 720px; margin: 0 auto; padding: 96px 24px; }
+h1 { font-size: clamp(2.5rem, 7vw, 4.5rem); margin: 8px 0 16px; }
+p { font-size: 1.1rem; line-height: 1.75; }
+.eyebrow { color: #0f766e; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
