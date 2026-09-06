@@ -1,0 +1,104 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify merged main
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Verify frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run lint
+          npm run typecheck
+          npm run build
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Verify backend
+        working-directory: backend
+        run: ./mvnw --batch-mode verify
+
+  deploy_frontend:
+    name: Deploy frontend to Vercel
+    needs: verify
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    outputs:
+      deployment_url: ${{ steps.vercel_deploy.outputs.url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build and deploy the verified frontend artifact
+        id: vercel_deploy
+        working-directory: frontend
+        run: |
+          npm install --global vercel@47.0.5
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          vercel build --prod --token="$VERCEL_TOKEN"
+          DEPLOYMENT_URL="$(vercel deploy --prebuilt --prod --yes --token="$VERCEL_TOKEN" | tail -n 1)"
+          test -n "$DEPLOYMENT_URL"
+          echo "url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+
+  deploy_backend:
+    name: Trigger backend deployment
+    needs: verify
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    env:
+      BACKEND_DEPLOY_WEBHOOK_URL: ${{ secrets.BACKEND_DEPLOY_WEBHOOK_URL }}
+    steps:
+      - name: Trigger the configured backend platform
+        run: |
+          test -n "$BACKEND_DEPLOY_WEBHOOK_URL"
+          curl --fail --silent --show-error --request POST "$BACKEND_DEPLOY_WEBHOOK_URL"
+
+  health_check:
+    name: Verify production health
+    needs: [deploy_frontend, deploy_backend]
+    if: vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    env:
+      FRONTEND_DEPLOYMENT_URL: ${{ needs.deploy_frontend.outputs.deployment_url }}
+      BACKEND_HEALTHCHECK_URL: ${{ secrets.BACKEND_HEALTHCHECK_URL }}
+    steps:
+      - name: Verify the deployed core page
+        run: |
+          test -n "$FRONTEND_DEPLOYMENT_URL"
+          curl --fail --silent --show-error --location "$FRONTEND_DEPLOYMENT_URL" | grep -q '知乎知识炼金场'
+      - name: Wait for the backend health endpoint
+        run: |
+          test -n "$BACKEND_HEALTHCHECK_URL"
+          for attempt in {1..12}; do
+            if curl --fail --silent --show-error "$BACKEND_HEALTHCHECK_URL" | grep -q '"status":"UP"'; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Backend health check did not become UP."
+          exit 1
