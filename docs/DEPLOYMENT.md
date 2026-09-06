@@ -6,7 +6,7 @@
 
 ## 后端与 SQLite
 
-后端必须部署在支持 Java 或 Docker、并提供持久化磁盘的服务上。设置 `SQLITE_JDBC_URL`，例如：
+后端部署在支持 Java 或 Docker、并提供持久化磁盘的服务上。设置 `SQLITE_JDBC_URL`，例如：
 
 ```text
 jdbc:sqlite:/var/lib/zhihu-learning/hackathon.db
