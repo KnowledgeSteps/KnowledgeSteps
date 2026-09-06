@@ -36,9 +36,7 @@ jobs:
           cache: maven
       - name: Verify backend
         working-directory: backend
-        run: |
-          chmod +x mvnw
-          ./mvnw --batch-mode verify
+        run: ./mvnw --batch-mode verify
 
   deploy_frontend:
     name: Deploy frontend to Vercel

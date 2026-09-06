@@ -3,6 +3,7 @@ package com.zhihu.hackathon.learning;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 @Repository
 public class LearningRecordRepository {
@@ -12,6 +13,7 @@ public class LearningRecordRepository {
     this.jdbc = jdbc;
   }
 
+  @Transactional
   public LearningRecord create(String userId, String sourceUrl, String status) {
     jdbc.sql("INSERT INTO learning_records(user_id, source_url, status) VALUES (:userId, :sourceUrl, :status)")
         .param("userId", userId)

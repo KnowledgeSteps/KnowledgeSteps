@@ -41,7 +41,6 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - run: chmod +x mvnw
       - run: ./mvnw --batch-mode verify
       - uses: actions/upload-artifact@v4
         if: always()
