@@ -12,6 +12,7 @@ PR 标题格式：类型: English description/中文说明
 - CI：持续集成与部署
 
 提交前请删除所有无关提示，并填写每个适用章节。
+完整协作规范见 CONTRIBUTING.md。
 -->
 
 ## 改动目的
