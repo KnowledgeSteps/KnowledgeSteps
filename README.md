@@ -41,4 +41,6 @@ cd backend
 
 每个成员从最新的 `main` 创建功能分支，提交 PR。PR 必须通过前端 lint、TypeScript、生产构建，以及后端测试与打包；获得一位队友审查后使用 Squash and merge 合入 `main`。
 
+PR 标题统一使用 `类型: English description/中文说明`，例如 `Fix: fix login callback/修复登录回调`。PR 正文须使用中文，按模板详细说明改动目的、主要改动、影响范围、验证结果、配置变化和已知问题，并使用 Markdown 正常换行，不能把 `\n` 当作换行符写入正文。
+
 详细部署配置见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
