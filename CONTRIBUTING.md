@@ -8,18 +8,18 @@
 2. 将自己的 Fork 克隆到本地：
 
 ```bash
-git clone https://github.com/你的用户名/Hackathon.git
-cd Hackathon
+git clone https://github.com/你的用户名/KnowledgeSteps.git
+cd KnowledgeSteps
 ```
 
 3. 把团队主仓库添加为 `upstream`：
 
 ```bash
-git remote add upstream https://github.com/yin-bo-Final/Hackathon.git
+git remote add upstream https://github.com/KnowledgeSteps/KnowledgeSteps.git
 git remote -v
 ```
 
-其中，`origin` 指向自己的 Fork，`upstream` 指向团队主仓库。
+其中，`origin` 应指向自己的 Fork，`upstream` 应指向团队主仓库。2026-09-08 经 GitHub 仓库 API 确认，`yin-bo-Final/KnowledgeSteps` 的父仓库为 `KnowledgeSteps/KnowledgeSteps`。操作前仍用 `git remote -v` 核实，不根据目录名或旧文档推断仓库归属。
 
 ## 二、开始开发
 

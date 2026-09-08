@@ -1,6 +1,11 @@
-# 知乎黑客松 知识炼金场
+# 知阶 KnowledgeSteps
 
-使用用户授权的知乎收藏、创作与关注内容，构建可追溯的个性化学习体验。
+每一个知识，都有它的台阶。
+
+一次性知识寻路工具：告诉我你想学什么，我只告诉你还缺什么。
+输入目标后生成前置依赖、搜索知乎资料并完成自评，最终展示待补齐节点、目标及依赖关系。已掌握节点只隐藏，不删除记录。
+
+当前已实现基础工程、旧学习记录仓储、Flyway 迁移和本地上游测试接口；六个核心业务接口尚未实现。产品范围见 [项目计划](docs/PROJECT.md)，接口和测试启动方式见 [接口约定](docs/API_CONTRACT.md)。
 
 ## 目录
 
@@ -38,9 +43,11 @@ cd backend
 
 健康检查：`GET http://localhost:8080/actuator/health`。
 
+本地凭证：复制 `backend/secrets.properties.example` 为 `backend/secrets.properties`，在等号后填写知乎和硅基流动密钥，不加引号。该私密文件已被 Git 忽略，后端从工作目录自动读取；不要填写到示例文件或强制加入 Git。IDEA 工作目录设置为 `$PROJECT_DIR$/backend`，普通启动时有效配置文件保持为空。
+
 ## 协作流程
 
-每个成员从最新的 `main` 创建功能分支，通过 PR 提交改动。PR 必须通过自动检查并获得至少一位队友审查，之后使用 Squash and merge 合入 `main`。
+每个成员在个人 Fork 的 `main` 开发，推送个人 Fork 后向组织仓库 `main` 提交 PR。PR 必须通过自动检查并获得至少一位队友审查，之后使用 Squash and merge 合入 `main`。操作前用 `git remote -v` 核实远程地址。
 
 分支、Commit、PR、代码审查和合并规范请阅读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
