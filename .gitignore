@@ -6,6 +6,9 @@ frontend/.env.*
 !frontend/.env.example
 
 # Backend
+backend/secrets.properties
+backend/secrets.properties.*
+!backend/secrets.properties.example
 backend/target/
 backend/**/*.db
 backend/**/*.db-*

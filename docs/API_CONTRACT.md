@@ -202,9 +202,36 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
 
 知乎搜索在后端执行，每个前置节点独立请求、限并发、超时控制，限次重试；返回结果以 node_id 绑定并缓存。所有节点处理完毕后再生成答卷，符合当前产品流程。具体上游参数和额度以赛事官方文档为准。
 
+已根据团队提供的接口说明添加 `ZhihuSearchClient`，但尚未接入业务任务流程或完成真实请求验证：GET `https://developer.zhihu.com/api/v1/content/zhihu_search`，Query 和 Count 参数区分大小写，客户端请求 Count=3；发送 Bearer 凭证、秒级 X-Request-Timestamp 和 application/json。凭证读取后端 `ZHIHU_ACCESS_SECRET`。响应 Code=0 时读取 Data.Items，将 Title、Url、ContentText、AuthorName、VoteUpCount 映射到资料字段，保留 Url 的 UTM 参数；缺失赞同数返回 null。空数组表示无结果，结构异常或上游错误不能当作空搜索成功。
+
+客户端连接超时 5 秒、读取超时 15 秒，不跟随重定向，不在异常中携带上游正文或凭证。业务调度器仍待实现：限并发、有限重试、节点状态持久化与缓存不由当前适配器承担。
+
 每个接口改动都要在 PR 中更新本文件，并提供请求、成功响应和失败响应示例。
 
 ## 当前基础接口
+
+### 本地上游测试接口（已实现）
+
+仅启用 `local-test` 配置时开放，默认仅监听 127.0.0.1。无需登录，不用于部署或正式业务；不写入业务数据，不自动重试。凭证读取 `backend/secrets.properties`，不通过请求传入。
+
+在 backend 目录启动：
+
+```powershell
+.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=local-test"
+```
+
+IDEA 也可仅为本地测试把有效配置文件设为 `local-test`（不是目录），工作目录仍为 `$PROJECT_DIR$/backend`。普通启动保持有效配置文件为空，不注册这两个接口。
+
+| 方法 | 路径 | 请求 | 成功响应 |
+| --- | --- | --- | --- |
+| GET | `/api/test/zhihu/search?query=Transformer` | query 去空白后 1～100 字符 | `{"resources":[...]}`，最多 3 条真实资料，字段为 title、url、summary、authorName、voteCount |
+| POST | `/api/test/ai` | `{"prompt":"用一句话解释 Transformer"}`，prompt 去空白后 1～2000 字符 | `{"model":"deepseek-ai/DeepSeek-V4-Flash","content":"模型实际生成的文本"}` |
+
+AI 使用 model.base-url、model.api-key 和 model.graph-model；当前 A、B 配置相同。非流式调用 `/chat/completions`，最大输出 1024 Token，读取超时 60 秒。此接口只测试文本生成，不承诺业务 JSON 结构。返回达到长度上限时报告 AI_OUTPUT_TRUNCATED。
+
+失败响应示例：400 `{"error":{"code":"INVALID_INPUT"}}`；缺失密钥返回 503；上游失败返回 502 和脱敏代码（例如 AI_UPSTREAM_HTTP_401、AI_REQUEST_FAILED、ZHIHU_AUTH_FAILED），不返回上游错误正文。
+
+2026-09-08 实测：Java 21 完整 verify 通过，现有 12 项测试全部通过；独立测试数据库下，知乎测试接口 HTTP 200 返回 3 条资料，硅基流动测试接口 HTTP 200 返回非空文本；空 prompt、空 query 均返回 400。未修改实际业务数据库。
 
 | 接口 | 用途 | 状态 |
 | --- | --- | --- |
