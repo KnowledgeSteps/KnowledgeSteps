@@ -1,6 +1,6 @@
 # 开发与协作规范
 
-本文档说明团队成员如何获取代码、开发功能、提交改动和合并 PR。所有成员都应遵守同一套流程，避免直接修改 `main` 分支。
+本文档说明团队成员如何获取代码、开发功能、提交改动和合并 PR。所有成员都在自己 Fork 仓库的 `main` 分支开发，再通过 PR 合并到团队主仓库的 `main` 分支。
 
 ## 一、准备自己的仓库
 
@@ -32,24 +32,7 @@ git pull --ff-only upstream main
 git push origin main
 ```
 
-从最新的 `main` 创建独立分支：
-
-```bash
-git switch -c feat/learning-cards
-```
-
-分支名称使用小写英文和连字符，推荐格式如下：
-
-| 类型 | 用途 | 示例 |
-| --- | --- | --- |
-| `feat/` | 新功能 | `feat/learning-cards` |
-| `fix/` | 修复问题 | `fix/oauth-callback` |
-| `docs/` | 文档修改 | `docs/api-guide` |
-| `refactor/` | 代码重构 | `refactor/search-service` |
-| `test/` | 测试调整 | `test/user-isolation` |
-| `chore/` | 工程配置 | `chore/update-dependencies` |
-
-一个分支只处理一项明确任务，不要把无关改动放进同一个 PR。
+不需要为每项任务创建功能分支，直接在自己 Fork 的 `main` 分支开发。团队主仓库的 `main` 只通过 PR 接收改动，不要直接向团队主仓库推送。
 
 ## 三、提交代码
 
@@ -78,17 +61,17 @@ git diff
 | `Chore` | 工程配置或维护 | `Chore: update dependencies/更新依赖` |
 | `CI` | 持续集成或部署 | `CI: add backend checks/增加后端检查` |
 
-完成提交后，将分支推送到自己的 Fork：
+完成提交后，将 `main` 推送到自己的 Fork：
 
 ```bash
-git push -u origin feat/learning-cards
+git push origin main
 ```
 
 不要把密钥、Token、密码、真实用户数据、本地数据库、依赖目录或构建产物提交到仓库。
 
 ## 四、创建 PR
 
-在 GitHub 上从自己 Fork 的功能分支向团队主仓库的 `main` 创建 PR。
+在 GitHub 上从自己 Fork 的 `main` 分支向团队主仓库的 `main` 创建 PR。
 
 PR 标题与提交信息使用相同格式：
 
@@ -148,14 +131,14 @@ PR 创建后按以下顺序处理：
 3. 对每条审查意见进行修复或说明，并在确认处理完成后解决对应讨论。
 4. 代码更新后再次确认所有自动检查通过。
 5. 使用 **Squash and merge** 合并到 `main`。
-6. 合并后删除已经完成的功能分支，并在开始下一项任务前重新同步 `main`。
+6. 合并后，在开始下一项任务前重新同步自己 Fork 的 `main`。
 
-禁止绕过检查直接向 `main` 推送代码。发生冲突时，在自己的功能分支同步 `upstream/main` 并解决冲突，然后重新推送。
+禁止绕过检查直接向团队主仓库的 `main` 推送代码。发生冲突时，先在自己的 `main` 分支同步 `upstream/main` 并解决冲突，然后重新推送并更新 PR。
 
 ## 七、CI/CD 流程
 
 ```text
-个人提交 PR
+个人 Fork 的 main 提交 PR
     ↓
 自动检查 + 队友审查
     ↓
