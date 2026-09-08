@@ -1,9 +1,48 @@
+import { lazy, Suspense } from 'react'
+import { Route, Routes } from 'react-router-dom'
+import { AppShell } from './components/layout/AppShell'
+
+const HomePage = lazy(() =>
+  import('./pages/HomePage').then((m) => ({ default: m.HomePage })),
+)
+const SessionQuestionsPage = lazy(() =>
+  import('./pages/SessionQuestionsPage').then((m) => ({
+    default: m.SessionQuestionsPage,
+  })),
+)
+const SessionResultPage = lazy(() =>
+  import('./pages/SessionResultPage').then((m) => ({
+    default: m.SessionResultPage,
+  })),
+)
+const NotFoundPage = lazy(() =>
+  import('./pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+)
+
 export function App() {
   return (
-    <main>
-      <p className="eyebrow">Zhihu Hackathon 2026</p>
-      <h1>知识炼金场</h1>
-      <p>用你授权的知乎收藏和创作，开始一次可追溯的学习体验。</p>
-    </main>
+    <Suspense
+      fallback={
+        <div className="loading-page">
+          <span className="spark">✧</span>
+          <p>页面加载中…</p>
+        </div>
+      }
+    >
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<HomePage />} />
+          <Route
+            path="/sessions/:sessionId/questions"
+            element={<SessionQuestionsPage />}
+          />
+          <Route
+            path="/sessions/:sessionId/result"
+            element={<SessionResultPage />}
+          />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </Suspense>
   )
 }
