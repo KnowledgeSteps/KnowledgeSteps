@@ -15,6 +15,12 @@ public class LearningSessionService {
     this.store=store;this.pipeline=pipeline;
     store.recoverInterrupted();
   }
+
+  public QuestionsResponse questions(long userId, String sessionId) {
+    try { return store.findQuestionsOwned(userId, parseSessionId(sessionId)); }
+    catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务不存在。"); }
+  }
+
   public record Created(String sessionId,String status) {}
   public synchronized Created create(long userId,String value) {
     String target=value==null?"":value.strip();
@@ -31,8 +37,12 @@ public class LearningSessionService {
     return new Created(Long.toString(id),"GENERATING_GRAPH");
   }
   public SessionStore.Snapshot find(long userId,String id) {
-    try { if(!id.matches("[1-9][0-9]{0,18}")) throw new NumberFormatException();return store.findOwned(userId,Long.parseLong(id)); }
+    try { return store.findOwned(userId, parseSessionId(id)); }
     catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务不存在。"); }
+  }
+  private long parseSessionId(String value) {
+    if(value == null || !value.matches("[1-9][0-9]{0,18}")) throw new NumberFormatException();
+    return Long.parseLong(value);
   }
   @PreDestroy public void close() { executor.shutdownNow(); }
 }
