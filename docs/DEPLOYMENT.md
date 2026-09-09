@@ -14,6 +14,8 @@ jdbc:sqlite:/var/lib/zhihu-learning/hackathon.db
 
 不要把 SQLite 文件放在临时目录、容器镜像或 Git 仓库。单实例运行；每次数据库结构变更前备份数据文件。
 
+生产 HTTPS 部署设置 `SESSION_COOKIE_SECURE=true`，不要启用 local-test（它提供固定开发身份和上游测试接口）。会话默认空闲 30 分钟过期，Cookie 为 HttpOnly、SameSite=Lax。若前后端跨站部署，需要另行设计 CORS、SameSite 和 CSRF 配置，不能直接放开所有来源。
+
 ## GitHub Secrets 与 Variables
 
 部署前，在仓库 Settings → Secrets and variables → Actions 中添加：

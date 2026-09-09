@@ -1,6 +1,6 @@
 # API 约定
 
-> 下列寻路及登录接口为第一版设计，尚不代表已实现。数据库字段见 [数据库设计](DATABASE_DESIGN.md)。
+> 创建任务、查询状态及当前用户接口已实现；答卷、答案、结果、节点资料及 OAuth 登录仍待实现。数据库字段见 [数据库设计](DATABASE_DESIGN.md)。
 
 ## 一、整体流程
 
@@ -20,7 +20,7 @@
 
 ## 三、接口清单
 
-以下接口均为待实现；健康检查状态见文末。
+前两个接口已实现，其余四个为待实现约定；健康检查状态见文末。
 
 | 方法 | 路径 | 作用 |
 | --- | --- | --- |
@@ -45,7 +45,7 @@
 { "sessionId": "101", "status": "GENERATING_GRAPH" }
 ```
 
-失败：400 `INVALID_TARGET`（空白或超长），401 `UNAUTHORIZED`，429 `RATE_LIMITED`。按钮提交期间禁用；重新创建属于新任务。
+失败：400 `INVALID_TARGET`（空白、超长或请求体格式错误），401 `UNAUTHORIZED`，403 `CSRF_INVALID`，429 `RATE_LIMITED`。按钮提交期间禁用；重新创建属于新任务。
 
 ### 2. 查询任务
 
@@ -62,7 +62,7 @@
 }
 ```
 
-进度数仅表示当前搜索阶段已处理节点数，未生成节点时 totalNodes 为 0。单节点搜索失败放入 warnings，继续生成答卷。模型生成失败时本接口仍返回 200，但 status 为 FAILED，error 为错误对象，例如：
+进度数表示已处理前置节点数，搜索结束后保留最终计数，未生成节点时 totalNodes 为 0。单节点搜索失败放入 warnings，继续生成答卷。模型生成失败时本接口仍返回 200，但 status 为 FAILED，error 为错误对象，例如：
 
 ```json
 {
@@ -196,15 +196,64 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
 
 ## 五、登录与外部服务边界
 
-登录接口建议预留 `GET /api/v1/auth/zhihu/login`（跳转授权）、`GET /api/v1/auth/zhihu/callback`（验证 state、换取身份、建立本地会话）、`GET /api/v1/auth/me`（返回当前用户）、`POST /api/v1/auth/logout`（销毁会话）。OAuth 的具体 URL、授权范围和用户字段需按官方 skill 核实后补充，不能假定授权后可读取所有用户数据。
+### 知乎 OAuth 原理图（接入设计）
+
+![知阶与知乎 OAuth 授权码登录流程](../images/OAuth原理图.png)
+
+浏览器负责跳转及用户授权，知阶后端负责交换令牌、查询知乎身份并建立自己的登录会话；数据库用知乎稳定用户标识关联内部 users.id。OAuth 当前仍在申请，图中登录和回调流程尚未实现。
+
+依据已提供的知乎接入说明，授权地址为 `https://openapi.zhihu.com/authorize`；回调参数名为 `authorization_code`。换令牌请求为 `POST https://openapi.zhihu.com/access_token`，使用 `application/x-www-form-urlencoded` 提交 app_id、app_key、grant_type=authorization_code、redirect_uri 及 code（值取自回调的 authorization_code）。app_key 和 access_token 不返回浏览器。
+
+用户信息接口、稳定身份字段、state 参数支持与回传，以及 localhost 回调是否允许，仍需知乎确认。申请公开内容权限后，收藏夹推荐也需单独对接相应接口；不能据此假设能读取私密收藏夹。搜索 Access Secret 与 OAuth 应用凭证、用户令牌用途不同，不能互相替代。
+
+### 当前身份接入与本地调试
+
+`GET /api/v1/auth/me` 已实现，成功返回 `{"userId":"1","csrfToken":"会话绑定的随机令牌"}`，同时建立会话 Cookie；普通配置下没有登录会话返回 401。OAuth 回调尚未实现，普通配置不会自行获得登录身份。
+
+认证代码集中在 `com.zhihu.hackathon.auth` 模块（Java 包，尚未拆成独立 Maven 工程），不依赖学习任务模块。`CurrentUserProvider` 是业务读取身份的入口；`AuthUserStore` 隔离用户存储，`SessionAuthentication` 负责会话生命周期，`CsrfTokens` 负责写请求校验，`AuthException` 及其处理器统一返回 401/403。
+
+普通配置从服务器会话的 `knowledgeSteps.userId` 读取内部用户 ID，并确认该用户仍存在且不是 local-test: 测试身份。OAuth 后续完成授权验证、令牌交换、用户信息查询和用户落库后，再调用 `SessionAuthentication.establish`：旧会话失效，新会话与 CSRF 令牌重新生成，避免沿用登录前会话。该方法不对浏览器提供设置用户 ID 的接口。
+
+local-test 配置创建固定测试用户，每个进程第一次读取身份时初始化一次，后续轮询不重复写 users 表。名称由服务器配置 `learning.local-user` 决定（默认 developer），不能从请求头或参数切换。此模式仍是开发身份旁路，禁止在正式环境启用。
+
+`GET /api/v1/auth/me` 的成功和认证失败响应包含 `Cache-Control: no-store`。会话空闲超时 30 分钟，只接受 Cookie 会话跟踪，Cookie 设置 HttpOnly、SameSite=Lax；本地 HTTP 默认 Secure=false，生产 HTTPS 必须设置 `SESSION_COOKIE_SECURE=true`。
+
+`POST /api/v1/auth/logout` 已实现：携带会话 Cookie 和 X-CSRF-Token，无请求体；成功返回 204，无响应体并使服务器会话失效。未登录返回 401，CSRF 校验失败返回 403，错误结构与其他认证接口一致。local-test 下退出只销毁当前 Cookie 会话，再次访问 auth/me 仍会按固定测试身份创建新会话；正式登录不会自动恢复身份。
+
+Apifox 调试顺序：
+
+1. 在 backend 目录启用 local-test 启动后端，默认端口 8080。
+2. GET `/api/v1/auth/me`，保留 Cookie，复制响应中的 csrfToken。
+3. POST `/api/v1/learning-sessions`，Headers 添加 `X-CSRF-Token`，JSON 为 `{"target":"Transformer"}`。
+4. 每两秒 GET `/api/v1/learning-sessions/{sessionId}`；到 READY 或 FAILED 停止。READY 表示节点、依赖、资料状态和完整题目已保存，答卷读取接口仍待实现。
+
+缺少或错误 CSRF 令牌：403 `{"error":{"code":"CSRF_INVALID","message":"请刷新页面获取有效令牌。"}}`。跨用户访问或非法任务编号：404 `{"error":{"code":"NOT_FOUND","message":"任务不存在。"}}`。额外 userId 字段不参与身份判断。
+
+当前使用一个工作线程、最多八个排队任务；队列已满时在创建记录之前返回 429 `{"error":{"code":"RATE_LIMITED","message":"生成任务繁忙，请稍后重试。"}}`，响应头 Retry-After: 5。此限制是单实例全局容量控制，尚未实现每用户时间窗口限流。
+
+### 生成职责划分
+
+GraphGenerator、QuestionGenerator、ResourceSearch 为上游端口，SessionStore 为存储端口；GenerationPipeline 负责步骤编排，GraphValidator 只做纯数据校验。默认使用硅基流动实现两个模型端口，读取 model.graph-model 和 model.question-model；网络请求与数据库短事务分离。更换供应商不需要修改 Controller 或 JDBC 存储。
+
+模型 A 输出 `{"nodes":[{"key":"n1","name":"矩阵运算","description":"用途"}],"edges":[{"from":"n1","to":"target"}]}`；nodes 仅含前置节点，目标由后端加入。拒绝超量、规范化重名、未知引用、重复边、自环、循环、目标出边和无法到达目标的节点，按最长依赖路径分层。
+
+模型 B 输出 `{"questions":[{"nodeId":"数据库节点ID","questionText":"自评问题","hint":"用途"}]}`，必须恰好覆盖全部前置节点。空前置图跳过搜索与模型 B，保存目标后进入 READY。搜索失败的 warnings 元素为 `{"nodeId":"节点ID","code":"RESOURCE_SEARCH_FAILED","message":"该节点资料搜索失败。"}`。
+
+模型使用 JSON Object 模式，不保证上游严格遵循 JSON Schema；本地拒绝未知字段、重复 JSON 属性、尾随数据、截断和非法结构，语义质量仍需人工验收。模型不自动重试，失败码为 GRAPH_GENERATION_FAILED 或 QUESTION_GENERATION_FAILED。重启时将未完成任务标记为 FAILED / GENERATION_INTERRUPTED，保留已存数据。
+
+2026-09-09 验证：Java 21 完整 verify 的 49 项测试全部通过；独立测试库中真实 Transformer 任务到达 READY，保存 10 个前置节点、1 个目标、10 条依赖、30 条知乎资料及10道自评题，warnings 为空，外键检查无错误。该结果验证生成链路，不表示 OAuth 或剩余四个业务接口已完成。
+
+OAuth 尚待实现的接口为 `GET /api/v1/auth/zhihu/login`（跳转授权）和 `GET /api/v1/auth/zhihu/callback`（校验授权响应、换取身份、建立会话）。除 app_id/app_key 外，还需确认用户信息接口、稳定 ID 字段、state 回传及回调白名单；接入时应实现授权事务有效期、一次性消费与拒绝重复回调、上游超时和错误脱敏。PKCE 是否可用需官方确认，不能假定支持。返回站内页面应使用固定或白名单地址，不接受任意跳转 URL。
+
+认证模块回归：Java 21 verify 共 55 项测试通过，新增覆盖会话与 CSRF 轮换、跨会话 CSRF 拒绝、无效用户、测试用户单次初始化、退出与禁止缓存。此结果不表示 OAuth 授权码交换已经完成。
 
 模型 A 输入目标，输出稳定临时节点标识、名称、描述、依赖边；由后端分配数据库 ID。模型 B 输入已校验节点及数据库 ID，为每个前置节点输出一道题目和提示。后端校验题目覆盖完整且不重复。
 
 知乎搜索在后端执行，每个前置节点独立请求、限并发、超时控制，限次重试；返回结果以 node_id 绑定并缓存。所有节点处理完毕后再生成答卷，符合当前产品流程。具体上游参数和额度以赛事官方文档为准。
 
-已根据团队提供的接口说明添加 `ZhihuSearchClient`，但尚未接入业务任务流程或完成真实请求验证：GET `https://developer.zhihu.com/api/v1/content/zhihu_search`，Query 和 Count 参数区分大小写，客户端请求 Count=3；发送 Bearer 凭证、秒级 X-Request-Timestamp 和 application/json。凭证读取后端 `ZHIHU_ACCESS_SECRET`。响应 Code=0 时读取 Data.Items，将 Title、Url、ContentText、AuthorName、VoteUpCount 映射到资料字段，保留 Url 的 UTM 参数；缺失赞同数返回 null。空数组表示无结果，结构异常或上游错误不能当作空搜索成功。
+已根据团队提供的接口说明添加 `ZhihuSearchClient`，已接入生成流程，并已通过真实请求验证：GET `https://developer.zhihu.com/api/v1/content/zhihu_search`，Query 和 Count 参数区分大小写，客户端请求 Count=3；发送 Bearer 凭证、秒级 X-Request-Timestamp 和 application/json。凭证读取后端 `ZHIHU_ACCESS_SECRET`。响应 Code=0 时读取 Data.Items，将 Title、Url、ContentText、AuthorName、VoteUpCount 映射到资料字段，保留 Url 的 UTM 参数；缺失赞同数返回 null。空数组表示无结果，结构异常或上游错误不能当作空搜索成功。
 
-客户端连接超时 5 秒、读取超时 15 秒，不跟随重定向，不在异常中携带上游正文或凭证。业务调度器仍待实现：限并发、有限重试、节点状态持久化与缓存不由当前适配器承担。
+客户端连接超时 5 秒、读取超时 15 秒，不跟随重定向，不在异常中携带上游正文或凭证。生成任务串行执行，每个前置节点最多搜索两次（只有可重试错误才重试，间隔1秒），结果按节点持久化；单节点最终失败保存 FAILED，继续出题，不建立跨用户缓存。
 
 每个接口改动都要在 PR 中更新本文件，并提供请求、成功响应和失败响应示例。
 

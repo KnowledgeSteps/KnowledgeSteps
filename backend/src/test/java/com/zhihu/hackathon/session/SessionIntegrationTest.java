@@ -1,0 +1,118 @@
+package com.zhihu.hackathon.session;
+
+import com.zhihu.hackathon.auth.SessionAuthentication;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.*;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockHttpSession;
+import org.springframework.test.web.servlet.MockMvc;
+import java.nio.file.Files;
+import java.util.List;
+import java.time.Duration;
+import static com.zhihu.hackathon.session.Generation.*;
+import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.*;
+import static org.awaitility.Awaitility.await;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+@SpringBootTest(properties={"spring.config.import=", "spring.profiles.active=integration"})
+@AutoConfigureMockMvc
+class SessionIntegrationTest {
+  static final String DB=temporaryDb();
+  @DynamicPropertySource static void db(DynamicPropertyRegistry r) { r.add("spring.datasource.url",()->DB); }
+  static String temporaryDb() { try { return "jdbc:sqlite:"+Files.createTempFile("sessions-", ".db"); } catch(Exception e) { throw new IllegalStateException(e); } }
+  @Autowired MockMvc mvc;
+  @Autowired JdbcTemplate jdbc;
+  @Autowired ObjectMapper json;
+  @Autowired SessionStore store;
+  @MockitoBean SiliconFlowGenerationClient model;
+  @MockitoBean ResourceSearch search;
+  MockHttpSession session;
+  String csrf;
+  @BeforeEach void user() throws Exception {
+    jdbc.update("INSERT OR IGNORE INTO users(id,zhihu_user_id,created_at) VALUES (1,'test-one','now'),(2,'test-two','now')");
+    session=new MockHttpSession();session.setAttribute(SessionAuthentication.USER_ID,1L);
+    var me=mvc.perform(get("/api/v1/auth/me").session(session)).andExpect(status().isOk()).andReturn();
+    csrf=json.readTree(me.getResponse().getContentAsString()).path("csrfToken").asText();
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","矩阵运算","理解计算")),List.of(new Edge("a","target"))));
+    when(search.search(anyString())).thenReturn(List.of(new Resource("资料","https://www.zhihu.com/question/1",null,null,null)));
+    when(model.generateQuestions(anyList())).thenAnswer(invocation -> {
+      List<SavedNode> ns=invocation.getArgument(0);
+      return ns.stream().map(n -> new Question(n.id(),"你了解"+n.name()+"吗？","用途")).toList();
+    });
+  }
+  @Test void createsReadySessionWithSavedGraphResourcesAndQuestions() throws Exception {
+    long id=create();waitFor(id,"READY");
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isEqualTo(2);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Integer.class,id)).isEqualTo(1);
+    var snapshot=store.findOwned(1,id);
+    assertThat(snapshot.progress()).isEqualTo(new SessionStore.Progress(1,1));
+    var order=inOrder(model,search);order.verify(model).generateGraph("Transformer");order.verify(search).search("矩阵运算");order.verify(model).generateQuestions(anyList());
+  }
+  @Test void isolatesUsersAndRejectsClientUserId() throws Exception {
+    long id=create();waitFor(id,"READY");
+    var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
+    mvc.perform(get("/api/v1/learning-sessions/"+id).session(other).param("userId","1"))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    assertThat(jdbc.queryForObject("SELECT user_id FROM learning_sessions WHERE id=?",Long.class,id)).isEqualTo(1);
+  }
+  @Test void requiresLoginAndCsrf() throws Exception {
+    mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
+    mvc.perform(post("/api/v1/learning-sessions").contentType("application/json").content("{\"target\":\"X\"}"))
+        .andExpect(status().isUnauthorized());
+    mvc.perform(post("/api/v1/learning-sessions").session(session).contentType("application/json").content("{\"target\":\"X\"}"))
+        .andExpect(status().isForbidden());
+    verifyNoInteractions(model,search);
+  }
+  @Test void invalidTargetsDoNotGenerate() throws Exception {
+    mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"target\":\" \"}"))
+        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_TARGET"));
+    verifyNoInteractions(model,search);
+  }
+  @Test void searchFailureBecomesWarningAndStillReady() throws Exception {
+    when(search.search(anyString())).thenThrow(new IllegalStateException("private response"));
+    long id=create();waitFor(id,"READY");
+    assertThat(store.findOwned(1,id).warnings()).hasSize(1);
+    assertThat(store.findOwned(1,id).progress()).isEqualTo(new SessionStore.Progress(1,1));
+  }
+  @Test void invalidGraphFailsBeforeSavingAnyNodes() throws Exception {
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","A","why")),List.of()));
+    long id=create();waitFor(id,"FAILED");
+    assertThat(store.findOwned(1,id).error().code()).isEqualTo("GRAPH_GENERATION_FAILED");
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isZero();
+    verifyNoInteractions(search);
+  }
+  @Test void missingQuestionsFailWithoutPartialQuestionRows() throws Exception {
+    when(model.generateQuestions(anyList())).thenReturn(List.of());
+    long id=create();waitFor(id,"FAILED");
+    assertThat(store.findOwned(1,id).error().code()).isEqualTo("QUESTION_GENERATION_FAILED");
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Integer.class,id)).isZero();
+  }
+  @Test void noPrerequisitesSkipsSearchAndQuestionModel() throws Exception {
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of()));
+    long id=create();waitFor(id,"READY");
+    verify(model,never()).generateQuestions(anyList());verifyNoInteractions(search);
+    assertThat(store.findOwned(1,id).progress()).isEqualTo(new SessionStore.Progress(0,0));
+  }
+  @Test void recoveryOnlyFailsUnfinishedSessions() throws Exception {
+    long ready=create();waitFor(ready,"READY");
+    long unfinished=store.create(1,"Interrupted");store.recoverInterrupted();
+    assertThat(store.findOwned(1,unfinished).error().code()).isEqualTo("GENERATION_INTERRUPTED");
+    assertThat(store.findOwned(1,ready).status()).isEqualTo("READY");
+  }
+  private long create() throws Exception {
+    var result=mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"target\":\"Transformer\",\"userId\":\"2\"}"))
+        .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("GENERATING_GRAPH")).andReturn();
+    return Long.parseLong(json.readTree(result.getResponse().getContentAsString()).path("sessionId").asText());
+  }
+  private void waitFor(long id,String status) { await().atMost(Duration.ofSeconds(5)).untilAsserted(()->assertThat(store.findOwned(1,id).status()).isEqualTo(status)); }
+}
