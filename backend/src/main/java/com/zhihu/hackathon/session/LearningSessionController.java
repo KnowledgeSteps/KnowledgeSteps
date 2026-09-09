@@ -21,4 +21,9 @@ public class LearningSessionController {
   }
   @GetMapping("/{sessionId}")
   public SessionStore.Snapshot find(@PathVariable String sessionId) { return service.find(users.currentUserId(),sessionId); }
+
+  @GetMapping("/{sessionId}/questions")
+  public QuestionsResponse questions(@PathVariable String sessionId) {
+    return service.questions(users.currentUserId() , sessionId);
+  }
 }

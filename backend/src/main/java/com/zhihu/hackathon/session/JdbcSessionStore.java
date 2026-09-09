@@ -82,4 +82,55 @@ public class JdbcSessionStore implements SessionStore {
   public void recoverInterrupted() {
     jdbc.update("UPDATE learning_sessions SET status='FAILED',error_code='GENERATION_INTERRUPTED',error_message='服务已重启，请重新创建任务。',updated_at=? WHERE status IN ('GENERATING_GRAPH','SEARCHING_RESOURCES','GENERATING_QUESTIONS')",Instant.now().toString());
   }
+
+  public QuestionsResponse findQuestionsOwned(long userId, long sessionId) {
+    return tx.execute(status -> {
+      String sessionStatus = jdbc.query("""
+        SELECT status
+        FROM learning_sessions
+        WHERE id = ? AND user_id = ?
+        """,
+              rs -> rs.next() ? rs.getString("status") : null,
+              sessionId,
+              userId
+      );
+
+      if (sessionStatus == null) {
+        throw new SessionException(404, "NOT_FOUND", "任务不存在。");
+      }
+
+      if (!"READY".equals(sessionStatus) && !"COMPLETED".equals(sessionStatus)) {
+        throw new SessionException(409, "SESSION_NOT_READY", "任务尚未准备完成。");
+      }
+
+      List<QuestionsResponse.QuestionItem> questions = jdbc.query("""
+        SELECT
+          q.id AS question_id,
+          n.id AS node_id,
+          n.name AS node_name,
+          q.question_text,
+          q.hint,
+          a.answer_value
+        FROM assessment_questions q
+        JOIN knowledge_nodes n ON n.id = q.node_id
+        LEFT JOIN assessment_answers a ON a.question_id = q.id
+        WHERE n.session_id = ?
+          AND n.is_target = 0
+        ORDER BY q.sort_order ASC, q.id ASC
+        """,
+              (rs, rowNum) -> new QuestionsResponse.QuestionItem(
+                      Long.toString(rs.getLong("question_id")),
+                      Long.toString(rs.getLong("node_id")),
+                      rs.getString("node_name"),
+                      rs.getString("question_text"),
+                      rs.getString("hint"),
+                      QuestionsResponse.FIXED_OPTIONS,
+                      rs.getString("answer_value")
+              ),
+              sessionId
+      );
+
+      return new QuestionsResponse(questions);
+    });
+  }
 }

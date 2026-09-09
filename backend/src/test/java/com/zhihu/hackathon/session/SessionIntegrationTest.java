@@ -37,7 +37,8 @@ class SessionIntegrationTest {
   MockHttpSession session;
   String csrf;
   @BeforeEach void user() throws Exception {
-    jdbc.update("INSERT OR IGNORE INTO users(id,zhihu_user_id,created_at) VALUES (1,'test-one','now'),(2,'test-two','now')");
+    seedUser(1, "test-one");
+    seedUser(2, "test-two");
     session=new MockHttpSession();session.setAttribute(SessionAuthentication.USER_ID,1L);
     var me=mvc.perform(get("/api/v1/auth/me").session(session)).andExpect(status().isOk()).andReturn();
     csrf=json.readTree(me.getResponse().getContentAsString()).path("csrfToken").asText();
@@ -62,6 +63,65 @@ class SessionIntegrationTest {
     mvc.perform(get("/api/v1/learning-sessions/"+id).session(other).param("userId","1"))
         .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
     assertThat(jdbc.queryForObject("SELECT user_id FROM learning_sessions WHERE id=?",Long.class,id)).isEqualTo(1);
+  }
+  @Test void returnsQuestionsInOrderWithFixedOptionsAndSavedAnswer() throws Exception {
+    long id=create();waitFor(id,"READY");
+    long questionId=jdbc.queryForObject("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Long.class,id);
+    jdbc.update("INSERT INTO assessment_answers(question_id,answer_value,answered_at) VALUES (?, 'VERY_FAMILIAR', 'now')",questionId);
+
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.questions[0].questionId").value(Long.toString(questionId)))
+        .andExpect(jsonPath("$.questions[0].nodeName").value("矩阵运算"))
+        .andExpect(jsonPath("$.questions[0].answer").value("VERY_FAMILIAR"))
+        .andExpect(jsonPath("$.questions[0].options[0].value").value("VERY_FAMILIAR"))
+        .andExpect(jsonPath("$.questions[0].options[3].value").value("DONT_KNOW"));
+  }
+  @Test void returnsMultipleQuestionsBySortOrderAndKeepsUnansweredValueNull() throws Exception {
+    when(model.generateGraph(anyString())).thenReturn(new Graph(
+        List.of(new Node("a","线性代数","理解向量"),new Node("b","概率论","理解概率")),
+        List.of(new Edge("a","target"),new Edge("b","target"))));
+    long id=create();waitFor(id,"READY");
+    var questionIds=jdbc.query("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=? ORDER BY q.id",
+        (rs,row)->rs.getLong(1),id);
+    jdbc.update("UPDATE assessment_questions SET sort_order=1 WHERE id=?",questionIds.get(0));
+    jdbc.update("UPDATE assessment_questions SET sort_order=0 WHERE id=?",questionIds.get(1));
+
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.questions.length()").value(2))
+        .andExpect(jsonPath("$.questions[0].questionId").value(Long.toString(questionIds.get(1))))
+        .andExpect(jsonPath("$.questions[1].questionId").value(Long.toString(questionIds.get(0))))
+        .andExpect(jsonPath("$.questions[0].answer").value(org.hamcrest.Matchers.nullValue()));
+  }
+  @Test void rejectsQuestionsForAnotherUserOrSessionThatIsNotReady() throws Exception {
+    long id=create();waitFor(id,"READY");
+    var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(other))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+
+    jdbc.update("INSERT INTO learning_sessions(user_id,target_name,status,created_at,updated_at) VALUES (1,'等待中','GENERATING_GRAPH','now','now')");
+    long pending=jdbc.queryForObject("SELECT last_insert_rowid()",Long.class);
+    mvc.perform(get("/api/v1/learning-sessions/"+pending+"/questions").session(session))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SESSION_NOT_READY"));
+  }
+  @Test void allowsCompletedSessionsAndRejectsInvalidIdsOrUnauthenticatedRequests() throws Exception {
+    long id=create();waitFor(id,"READY");
+    jdbc.update("UPDATE learning_sessions SET status='COMPLETED' WHERE id=?",id);
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(session))
+        .andExpect(status().isOk());
+    mvc.perform(get("/api/v1/learning-sessions/0/questions").session(session))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    mvc.perform(get("/api/v1/learning-sessions/99999999999999999999/questions").session(session))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions"))
+        .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+  }
+  @Test void returnsAnEmptyQuestionListWhenTargetHasNoPrerequisites() throws Exception {
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of()));
+    long id=create();waitFor(id,"READY");
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(session))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.questions.length()").value(0));
   }
   @Test void requiresLoginAndCsrf() throws Exception {
     mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
@@ -113,6 +173,12 @@ class SessionIntegrationTest {
         .contentType("application/json").content("{\"target\":\"Transformer\",\"userId\":\"2\"}"))
         .andExpect(status().isAccepted()).andExpect(jsonPath("$.status").value("GENERATING_GRAPH")).andReturn();
     return Long.parseLong(json.readTree(result.getResponse().getContentAsString()).path("sessionId").asText());
+  }
+  private void seedUser(long id, String zhihuUserId) {
+    Integer count=jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE id=?",Integer.class,id);
+    if (count != null && count == 0) {
+      jdbc.update("INSERT INTO users(id,zhihu_user_id,created_at) VALUES (?,?,?)",id,zhihuUserId,"now");
+    }
   }
   private void waitFor(long id,String status) { await().atMost(Duration.ofSeconds(5)).untilAsserted(()->assertThat(store.findOwned(1,id).status()).isEqualTo(status)); }
 }
