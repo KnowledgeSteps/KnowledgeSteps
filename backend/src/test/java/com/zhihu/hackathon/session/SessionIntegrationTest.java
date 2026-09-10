@@ -180,6 +180,59 @@ class SessionIntegrationTest {
         .contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
         .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SESSION_NOT_READY"));
   }
+  @Test void completesAnsweredSessionAndReconnectsVisibleNodesAcrossMasteredNodes() throws Exception {
+    when(model.generateGraph(anyString())).thenReturn(new Graph(
+        List.of(new Node("a","基础","基础说明"),new Node("b","中间","中间说明"),new Node("c","进阶","进阶说明")),
+        List.of(new Edge("a","b"),new Edge("b","c"),new Edge("c","target"))));
+    long id=create();waitFor(id,"READY");
+    answer(id, questionId(id, "基础"), "HEARD_OF");
+    answer(id, questionId(id, "中间"), "VERY_FAMILIAR");
+    answer(id, questionId(id, "进阶"), "DONT_KNOW");
+    String path="/api/v1/learning-sessions/"+id+"/complete";
+    long basicId=nodeId(id, "基础");
+    long advancedId=nodeId(id, "进阶");
+
+    mvc.perform(post(path).session(session).header("X-CSRF-Token",csrf))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.sessionId").value(Long.toString(id)))
+        .andExpect(jsonPath("$.status").value("COMPLETED"))
+        .andExpect(jsonPath("$.missingCount").value(2))
+        .andExpect(jsonPath("$.nodes.length()").value(3))
+        .andExpect(jsonPath("$.nodes[0].name").value("基础"))
+        .andExpect(jsonPath("$.nodes[0].level").value(0))
+        .andExpect(jsonPath("$.nodes[1].name").value("进阶"))
+        .andExpect(jsonPath("$.nodes[1].level").value(1))
+        .andExpect(jsonPath("$.nodes[2].name").value("Transformer"))
+        .andExpect(jsonPath("$.edges.length()").value(2))
+        .andExpect(jsonPath("$.edges[0].from").value(Long.toString(basicId)))
+        .andExpect(jsonPath("$.edges[0].to").value(Long.toString(advancedId)));
+    String completedAt=jdbc.queryForObject("SELECT completed_at FROM learning_sessions WHERE id=?",String.class,id);
+    mvc.perform(post(path).session(session).header("X-CSRF-Token",csrf))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.missingCount").value(2));
+    assertThat(jdbc.queryForObject("SELECT completed_at FROM learning_sessions WHERE id=?",String.class,id)).isEqualTo(completedAt);
+  }
+  @Test void completesSessionsWithoutPrerequisitesAndRejectsIncompleteOrUnauthorizedRequests() throws Exception {
+    long incomplete=create();waitFor(incomplete,"READY");
+    String incompletePath="/api/v1/learning-sessions/"+incomplete+"/complete";
+    mvc.perform(post(incompletePath).session(session).header("X-CSRF-Token",csrf))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("ANSWERS_INCOMPLETE"));
+    mvc.perform(post(incompletePath).session(session))
+        .andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("CSRF_INVALID"));
+    var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
+    var otherMe=mvc.perform(get("/api/v1/auth/me").session(other)).andExpect(status().isOk()).andReturn();
+    String otherCsrf=json.readTree(otherMe.getResponse().getContentAsString()).path("csrfToken").asText();
+    mvc.perform(post(incompletePath).session(other).header("X-CSRF-Token",otherCsrf))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of()));
+    long direct=create();waitFor(direct,"READY");
+    mvc.perform(post("/api/v1/learning-sessions/"+direct+"/complete").session(session).header("X-CSRF-Token",csrf))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.missingCount").value(0))
+        .andExpect(jsonPath("$.nodes.length()").value(1))
+        .andExpect(jsonPath("$.nodes[0].name").value("Transformer"))
+        .andExpect(jsonPath("$.edges.length()").value(0));
+  }
   @Test void requiresLoginAndCsrf() throws Exception {
     mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
     mvc.perform(post("/api/v1/learning-sessions").contentType("application/json").content("{\"target\":\"X\"}"))
@@ -239,6 +292,17 @@ class SessionIntegrationTest {
   }
   private long questionId(long sessionId) {
     return jdbc.queryForObject("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Long.class,sessionId);
+  }
+  private long questionId(long sessionId, String nodeName) {
+    return jdbc.queryForObject("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=? AND n.name=?",Long.class,sessionId,nodeName);
+  }
+  private long nodeId(long sessionId, String nodeName) {
+    return jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=? AND name=?",Long.class,sessionId,nodeName);
+  }
+  private void answer(long sessionId, long questionId, String value) throws Exception {
+    mvc.perform(put("/api/v1/learning-sessions/"+sessionId+"/answers/"+questionId).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"answer\":\""+value+"\"}"))
+        .andExpect(status().isOk());
   }
   private void waitFor(long id,String status) { await().atMost(Duration.ofSeconds(5)).untilAsserted(()->assertThat(store.findOwned(1,id).status()).isEqualTo(status)); }
 }
