@@ -35,4 +35,11 @@ public class LearningSessionController {
     csrf.verify(request);
     return service.saveAnswer(user, sessionId, questionId, body == null ? null : body.answer());
   }
+
+  @PostMapping("/{sessionId}/complete")
+  public CompletionResponse complete(@PathVariable String sessionId, HttpServletRequest request) {
+    long user=users.currentUserId();
+    csrf.verify(request);
+    return service.complete(user, sessionId);
+  }
 }
