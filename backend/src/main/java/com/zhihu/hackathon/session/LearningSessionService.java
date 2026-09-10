@@ -21,6 +21,11 @@ public class LearningSessionService {
     catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务不存在。"); }
   }
 
+  public AnswerResponse saveAnswer(long userId, String sessionId, String questionId, String answer) {
+    try { return store.saveAnswerOwned(userId, parseSessionId(sessionId), parseSessionId(questionId), answer); }
+    catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务或题目不存在。"); }
+  }
+
   public record Created(String sessionId,String status) {}
   public synchronized Created create(long userId,String value) {
     String target=value==null?"":value.strip();

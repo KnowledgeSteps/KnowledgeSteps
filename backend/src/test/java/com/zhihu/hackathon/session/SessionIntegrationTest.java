@@ -123,6 +123,63 @@ class SessionIntegrationTest {
     mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(session))
         .andExpect(status().isOk()).andExpect(jsonPath("$.questions.length()").value(0));
   }
+  @Test void savesAnswersUpdatesMasteryAndDoesNotDoubleCountRepeatedSubmissions() throws Exception {
+    long id=create();waitFor(id,"READY");
+    long questionId=questionId(id);
+    String path="/api/v1/learning-sessions/"+id+"/answers/"+questionId;
+
+    mvc.perform(put(path).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.questionId").value(Long.toString(questionId)))
+        .andExpect(jsonPath("$.masteryStatus").value("MASTERED"))
+        .andExpect(jsonPath("$.answeredCount").value(1))
+        .andExpect(jsonPath("$.totalQuestions").value(1));
+    mvc.perform(put(path).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"answer\":\"HEARD_OF\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.masteryStatus").value("TO_LEARN"))
+        .andExpect(jsonPath("$.answeredCount").value(1));
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_answers WHERE question_id=?",Integer.class,questionId)).isEqualTo(1);
+    assertThat(jdbc.queryForObject("SELECT mastery_status FROM knowledge_nodes n JOIN assessment_questions q ON q.node_id=n.id WHERE q.id=?",String.class,questionId)).isEqualTo("TO_LEARN");
+  }
+  @Test void changesToCompletedSessionAnswersRestoreReadyAndClearCompletionTime() throws Exception {
+    long id=create();waitFor(id,"READY");
+    long questionId=questionId(id);
+    jdbc.update("INSERT INTO assessment_answers(question_id,answer_value,answered_at) VALUES (?, 'VERY_FAMILIAR', 'now')",questionId);
+    jdbc.update("UPDATE knowledge_nodes SET mastery_status='MASTERED' WHERE id=(SELECT node_id FROM assessment_questions WHERE id=?)",questionId);
+    jdbc.update("UPDATE learning_sessions SET status='COMPLETED',completed_at='now' WHERE id=?",id);
+    String path="/api/v1/learning-sessions/"+id+"/answers/"+questionId;
+
+    mvc.perform(put(path).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"answer\":\"DONT_KNOW\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.masteryStatus").value("TO_LEARN"));
+    assertThat(jdbc.queryForObject("SELECT status FROM learning_sessions WHERE id=?",String.class,id)).isEqualTo("READY");
+    assertThat(jdbc.queryForObject("SELECT completed_at FROM learning_sessions WHERE id=?",String.class,id)).isNull();
+  }
+  @Test void rejectsInvalidAnswersAndUnauthorizedOrUnavailableAnswerWrites() throws Exception {
+    long id=create();waitFor(id,"READY");
+    long questionId=questionId(id);
+    String path="/api/v1/learning-sessions/"+id+"/answers/"+questionId;
+    mvc.perform(put(path).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"answer\":\"UNKNOWN\"}"))
+        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_ANSWER"));
+    mvc.perform(put(path).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{}"))
+        .andExpect(status().isBadRequest()).andExpect(jsonPath("$.error.code").value("INVALID_ANSWER"));
+    mvc.perform(put(path).session(session).contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
+        .andExpect(status().isForbidden()).andExpect(jsonPath("$.error.code").value("CSRF_INVALID"));
+    var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
+    var otherMe=mvc.perform(get("/api/v1/auth/me").session(other)).andExpect(status().isOk()).andReturn();
+    String otherCsrf=json.readTree(otherMe.getResponse().getContentAsString()).path("csrfToken").asText();
+    mvc.perform(put(path).session(other).header("X-CSRF-Token",otherCsrf)
+        .contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    jdbc.update("UPDATE learning_sessions SET status='FAILED' WHERE id=?",id);
+    mvc.perform(put(path).session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SESSION_NOT_READY"));
+  }
   @Test void requiresLoginAndCsrf() throws Exception {
     mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
     mvc.perform(post("/api/v1/learning-sessions").contentType("application/json").content("{\"target\":\"X\"}"))
@@ -179,6 +236,9 @@ class SessionIntegrationTest {
     if (count != null && count == 0) {
       jdbc.update("INSERT INTO users(id,zhihu_user_id,created_at) VALUES (?,?,?)",id,zhihuUserId,"now");
     }
+  }
+  private long questionId(long sessionId) {
+    return jdbc.queryForObject("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Long.class,sessionId);
   }
   private void waitFor(long id,String status) { await().atMost(Duration.ofSeconds(5)).untilAsserted(()->assertThat(store.findOwned(1,id).status()).isEqualTo(status)); }
 }
