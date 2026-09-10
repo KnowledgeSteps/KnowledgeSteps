@@ -42,4 +42,9 @@ public class LearningSessionController {
     csrf.verify(request);
     return service.complete(user, sessionId);
   }
+
+  @GetMapping("/{sessionId}/nodes/{nodeId}/resources")
+  public ResourcesResponse resources(@PathVariable String sessionId, @PathVariable String nodeId) {
+    return service.resources(users.currentUserId(), sessionId, nodeId);
+  }
 }
