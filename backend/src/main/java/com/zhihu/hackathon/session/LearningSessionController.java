@@ -26,4 +26,13 @@ public class LearningSessionController {
   public QuestionsResponse questions(@PathVariable String sessionId) {
     return service.questions(users.currentUserId() , sessionId);
   }
+
+  public record AnswerRequest(String answer) {}
+  @PutMapping("/{sessionId}/answers/{questionId}")
+  public AnswerResponse saveAnswer(@PathVariable String sessionId, @PathVariable String questionId,
+      @RequestBody AnswerRequest body, HttpServletRequest request) {
+    long user=users.currentUserId();
+    csrf.verify(request);
+    return service.saveAnswer(user, sessionId, questionId, body == null ? null : body.answer());
+  }
 }

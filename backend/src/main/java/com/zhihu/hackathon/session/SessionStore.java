@@ -17,4 +17,5 @@ public interface SessionStore {
   void fail(long id, String code, String message);
   void recoverInterrupted();
   QuestionsResponse findQuestionsOwned(long userId , long sessionId);
+  AnswerResponse saveAnswerOwned(long userId, long sessionId, long questionId, String answer);
 }

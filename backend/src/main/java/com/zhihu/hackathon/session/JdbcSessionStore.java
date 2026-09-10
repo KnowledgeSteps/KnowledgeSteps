@@ -133,4 +133,52 @@ public class JdbcSessionStore implements SessionStore {
       return new QuestionsResponse(questions);
     });
   }
+
+  public AnswerResponse saveAnswerOwned(long userId, long sessionId, long questionId, String answer) {
+    if (answer == null || !Set.of("VERY_FAMILIAR", "BASICALLY_KNOW", "HEARD_OF", "DONT_KNOW").contains(answer)) {
+      throw new SessionException(400, "INVALID_ANSWER", "答案选项无效。");
+    }
+    return tx.execute(status -> {
+      var sessions = jdbc.query("SELECT status FROM learning_sessions WHERE id=? AND user_id=?",
+          (rs, row) -> rs.getString(1), sessionId, userId);
+      if (sessions.isEmpty()) throw new SessionException(404, "NOT_FOUND", "任务不存在。");
+      String sessionStatus = sessions.getFirst();
+      if (!"READY".equals(sessionStatus) && !"COMPLETED".equals(sessionStatus)) {
+        throw new SessionException(409, "SESSION_NOT_READY", "任务尚未准备完成。");
+      }
+      var nodes = jdbc.query("""
+          SELECT n.id, a.answer_value
+          FROM assessment_questions q
+          JOIN knowledge_nodes n ON n.id=q.node_id
+          LEFT JOIN assessment_answers a ON a.question_id=q.id
+          WHERE q.id=? AND n.session_id=? AND n.is_target=0
+          """, (rs, row) -> new Object[]{rs.getLong(1), rs.getString(2)}, questionId, sessionId);
+      if (nodes.isEmpty()) throw new SessionException(404, "NOT_FOUND", "题目不存在。");
+      long nodeId = (long) nodes.getFirst()[0];
+      String previousAnswer = (String) nodes.getFirst()[1];
+      String mastery = answer.equals("VERY_FAMILIAR") || answer.equals("BASICALLY_KNOW") ? "MASTERED" : "TO_LEARN";
+      Instant now = Instant.now();
+      if (previousAnswer == null) {
+        jdbc.update("INSERT INTO assessment_answers(question_id,answer_value,answered_at) VALUES (?,?,?)", questionId, answer, now.toString());
+      } else {
+        jdbc.update("UPDATE assessment_answers SET answer_value=?,answered_at=? WHERE question_id=?", answer, now.toString(), questionId);
+      }
+      jdbc.update("UPDATE knowledge_nodes SET mastery_status=? WHERE id=?", mastery, nodeId);
+      if ("COMPLETED".equals(sessionStatus) && !answer.equals(previousAnswer)) {
+        jdbc.update("UPDATE learning_sessions SET status='READY',completed_at=NULL,updated_at=? WHERE id=?", now.toString(), sessionId);
+      }
+      Integer answered = jdbc.queryForObject("""
+          SELECT COUNT(*) FROM assessment_answers a
+          JOIN assessment_questions q ON q.id=a.question_id
+          JOIN knowledge_nodes n ON n.id=q.node_id
+          WHERE n.session_id=? AND n.is_target=0
+          """, Integer.class, sessionId);
+      Integer total = jdbc.queryForObject("""
+          SELECT COUNT(*) FROM assessment_questions q
+          JOIN knowledge_nodes n ON n.id=q.node_id
+          WHERE n.session_id=? AND n.is_target=0
+          """, Integer.class, sessionId);
+      return new AnswerResponse(Long.toString(questionId), mastery, answered, total);
+    });
+  }
 }
