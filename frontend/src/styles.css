@@ -76,6 +76,10 @@ button:disabled {
   cursor: not-allowed;
 }
 
+button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
 a {
   color: var(--primary);
 }
@@ -158,6 +162,11 @@ header {
 .primary:hover:not(:disabled) {
   background: var(--primary-hover);
   transform: translateY(-1px);
+}
+
+.primary:active:not(:disabled),
+.outline:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .small {
@@ -417,6 +426,10 @@ em {
   transform: scale(1.05);
 }
 
+.search-submit:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
 .field-error {
   font-size: 13px;
   color: var(--red);
@@ -448,6 +461,10 @@ em {
   background: var(--primary-subtle);
   border-color: #c7d2fe;
   color: var(--primary);
+}
+
+.chip:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .hint {
@@ -1414,6 +1431,82 @@ em {
   margin: 0 auto;
 }
 
+.path-graph {
+  position: relative;
+  display: grid;
+  gap: 28px;
+}
+
+.path-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.path-edges path {
+  fill: none;
+  stroke: #a5b4fc;
+  stroke-width: 2;
+  stroke-dasharray: 4 5;
+}
+
+.path-edges marker path {
+  fill: #a5b4fc;
+  stroke: none;
+}
+
+.path-level {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 8px;
+}
+
+.path-level-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-align: center;
+}
+
+.path-dependencies {
+  display: grid;
+  gap: 10px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.path-dependencies > span {
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.path-dependencies ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.path-dependencies li {
+  color: var(--text-sub);
+}
+
+.path-dependencies li span {
+  margin: 0 5px;
+  color: var(--primary);
+}
+
 .path-row {
   display: flex;
   justify-content: center;
@@ -1489,6 +1582,15 @@ em {
   background: linear-gradient(120deg, #fff, #ecfdf5);
   border: 1px solid #a7f3d0;
   border-radius: var(--radius-card);
+}
+
+.all-clear-target {
+  width: min(100%, 320px);
+  min-width: 0;
+  max-width: none;
+  margin: 20px auto 0;
+  text-align: left;
+  cursor: pointer;
 }
 
 .all-clear h2 {
@@ -1784,6 +1886,10 @@ em {
   .path-row {
     flex-direction: column;
     align-items: center;
+  }
+
+  .path-graph {
+    gap: 22px;
   }
 
   .node-card,

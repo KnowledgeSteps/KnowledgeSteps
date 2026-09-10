@@ -171,6 +171,7 @@ export function SessionResultPage() {
     <>
       <div className="toolbar">
         <button
+          type="button"
           className="textbutton"
           onClick={() => navigate(`/sessions/${sessionId}/questions`)}
         >
@@ -203,7 +204,7 @@ function Message({
       <h1>{title}</h1>
       <p>{body}</p>
       <div className="actions">
-        <button className="primary" onClick={onPrimary}>
+        <button type="button" className="primary" onClick={onPrimary}>
           {primaryLabel}
         </button>
         {secondary}

@@ -10,6 +10,7 @@ interface StatusRailProps {
   questions: Question[]
   currentIndex: number
   onJump: (index: number) => void
+  disabled?: boolean
 }
 
 interface RailEntry {
@@ -35,6 +36,7 @@ export function StatusRail({
   questions,
   currentIndex,
   onJump,
+  disabled = false,
 }: StatusRailProps) {
   const current = questions[currentIndex]
   const mastered = entries(questions, (value) =>
@@ -68,6 +70,8 @@ export function StatusRail({
           count={mastered.length}
           items={mastered}
           onJump={onJump}
+          currentIndex={currentIndex}
+          disabledJump={disabled}
         />
         <RailGroup
           title="待补齐"
@@ -75,6 +79,8 @@ export function StatusRail({
           count={toLearn.length}
           items={toLearn}
           onJump={onJump}
+          currentIndex={currentIndex}
+          disabledJump={disabled}
         />
 
         <div className="rail-group">
@@ -86,7 +92,7 @@ export function StatusRail({
             <button
               type="button"
               className="rail-item current"
-              disabled={false}
+              disabled={disabled}
               onClick={() => onJump(currentQuestion.index)}
             >
               <span className="rail-dot" />
@@ -107,7 +113,8 @@ export function StatusRail({
             index: questions.findIndex((item) => item.questionId === q.questionId),
           }))}
           onJump={onJump}
-          disabledJump
+          currentIndex={currentIndex}
+          disabledJump={disabled}
         />
       </div>
     </aside>
@@ -120,6 +127,7 @@ interface RailGroupProps {
   count: number
   items: RailEntry[]
   onJump: (index: number) => void
+  currentIndex: number
   disabledJump?: boolean
 }
 
@@ -129,6 +137,7 @@ function RailGroup({
   count,
   items,
   onJump,
+  currentIndex,
   disabledJump,
 }: RailGroupProps) {
   return (
@@ -144,7 +153,8 @@ function RailGroup({
           <button
             type="button"
             key={item.question.questionId}
-            className={`rail-item ${tone}`}
+            className={`rail-item ${tone} ${item.index === currentIndex ? 'current' : ''}`}
+            aria-current={item.index === currentIndex ? 'step' : undefined}
             disabled={Boolean(disabledJump)}
             onClick={() => onJump(item.index)}
           >

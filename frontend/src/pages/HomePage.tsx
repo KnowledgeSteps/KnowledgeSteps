@@ -1,5 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  ArrowRightOutlined,
+  LoadingOutlined,
+  SearchOutlined,
+} from '@ant-design/icons'
 import { createSession } from '../api/sessions'
 import { ApiError } from '../api/types'
 
@@ -68,13 +73,13 @@ export function HomePage() {
             noValidate
           >
             <span className="search-icon" aria-hidden="true">
-              <svg viewBox="0 0 20 20">
-                <circle cx="9" cy="9" r="5.5" />
-                <path d="m13.5 13.5 4 4" />
-              </svg>
+              <SearchOutlined />
             </span>
             <input
+              id="learning-goal"
               aria-label="你想学习什么"
+              aria-invalid={Boolean(fieldError)}
+              aria-describedby={fieldError ? 'learning-goal-error' : undefined}
               placeholder="例如：Transformer、RAG、Spring Boot"
               maxLength={100}
               value={goal}
@@ -89,17 +94,17 @@ export function HomePage() {
               aria-label="开始寻路"
               disabled={submitting}
             >
-              {submitting ? '…' : '→'}
+              {submitting ? <LoadingOutlined spin /> : <ArrowRightOutlined />}
             </button>
           </form>
 
           {fieldError && (
-            <p className="field-error" role="alert">
+            <p className="field-error" id="learning-goal-error" role="alert">
               {fieldError}
             </p>
           )}
           {submitError && (
-            <p className="field-error" role="alert">
+            <p className="field-error" id="learning-goal-submit-error" role="alert">
               {submitError}
             </p>
           )}
@@ -113,6 +118,7 @@ export function HomePage() {
                 onClick={() => {
                   setGoal(prompt.label)
                   setFieldError(null)
+                  setSubmitError(null)
                 }}
               >
                 <span aria-hidden="true">{prompt.icon}</span>

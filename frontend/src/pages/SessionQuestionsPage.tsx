@@ -25,6 +25,7 @@ export function SessionQuestionsPage() {
 
   const [questions, setQuestions] = useState<Question[] | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [reviewing, setReviewing] = useState(false)
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null)
   const [completing, setCompleting] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
@@ -44,6 +45,7 @@ export function SessionQuestionsPage() {
         )
         setQuestions(payload.questions)
         setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0)
+        setReviewing(firstUnanswered < 0)
       })
       .catch((caught: unknown) => {
         if (!cancelled) setActionError(errorMessage(caught))
@@ -58,7 +60,9 @@ export function SessionQuestionsPage() {
     questions?.filter((q) => q.answer !== null).length ?? 0
   const totalQuestions = questions?.length ?? 0
   const allAnswered =
-    questions !== null && totalQuestions > 0 && answeredCount === totalQuestions
+    questions !== null && answeredCount === totalQuestions
+  const answerProgress =
+    totalQuestions === 0 ? 100 : (answeredCount / totalQuestions) * 100
 
   async function chooseAnswer(value: AnswerValue): Promise<void> {
     if (!currentQuestion || savingQuestionId) return
@@ -76,6 +80,7 @@ export function SessionQuestionsPage() {
         ) ?? null,
       )
       if (nextUnanswered >= 0) setCurrentIndex(nextUnanswered)
+      setReviewing(nextUnanswered < 0)
     } catch (caught) {
       setActionError(errorMessage(caught))
     } finally {
@@ -121,14 +126,14 @@ export function SessionQuestionsPage() {
     if (isGenerating(session.status)) {
       return <WaitingView session={session} />
     }
-    if (!questions || questions.length === 0) {
+    if (!questions) {
       if (!actionError) {
         return <LoadingPage label="正在准备问卷…" />
       }
       return (
         <SessionMessage
-          title="还没有可作答的题目"
-          body="生成问卷时遇到了一点问题，请返回首页重新寻路。"
+          title="问卷没有加载成功"
+          body={actionError}
           onHome={() => navigate('/')}
         />
       )
@@ -144,7 +149,7 @@ export function SessionQuestionsPage() {
             <span className="muted">每一个回答，都让路径更准确</span>
           </div>
           <div className="progress" style={{ marginTop: 18 }}>
-            <i style={{ width: `${(answeredCount / totalQuestions) * 100}%` }} />
+            <i style={{ width: `${answerProgress}%` }} />
           </div>
           <div className="mentor">
             <span className="spark">✧</span>
@@ -154,12 +159,20 @@ export function SessionQuestionsPage() {
             </div>
           </div>
 
-          {allAnswered ? (
+          {allAnswered && !reviewing ? (
             <div className="complete-panel">
-              <span className="badge">问卷已完成</span>
-              <h2>可以查看你的补齐路径了</h2>
+              <span className="badge">
+                {totalQuestions === 0 ? '无需额外确认' : '问卷已完成'}
+              </span>
+              <h2>
+                {totalQuestions === 0
+                  ? '这个目标没有需要确认的前置知识'
+                  : '可以查看你的补齐路径了'}
+              </h2>
               <p>
-                结果基于你的自评生成，不是能力测试。如果中途想改，随时可以回到任意一题。
+                {totalQuestions === 0
+                  ? '你可以直接查看目标节点。第一版不会为目标知识搜索资料。'
+                  : '结果基于你的自评生成，不是能力测试。需要调整时，可以从右侧状态列表选择已回答的题目。'}
               </p>
               {actionError && (
                 <p className="field-error" role="alert">
@@ -186,6 +199,7 @@ export function SessionQuestionsPage() {
                   onAnswer={(value) => void chooseAnswer(value)}
                   onBack={() => setCurrentIndex((i) => Math.max(0, i - 1))}
                   canBack={currentIndex > 0}
+                  reviewing={reviewing}
                 />
                 {actionError && (
                   <p className="field-error" role="alert">
@@ -200,7 +214,12 @@ export function SessionQuestionsPage() {
         <StatusRail
           questions={questions}
           currentIndex={currentIndex}
-          onJump={(index) => setCurrentIndex(index)}
+          disabled={Boolean(savingQuestionId || completing)}
+          onJump={(index) => {
+            if (savingQuestionId || completing) return
+            setCurrentIndex(index)
+            setReviewing(true)
+          }}
         />
       </div>
     )
@@ -209,7 +228,7 @@ export function SessionQuestionsPage() {
   return (
     <>
       <div className="toolbar">
-        <button className="textbutton" onClick={() => navigate('/')}>
+        <button type="button" className="textbutton" onClick={() => navigate('/')}>
           ‹ 返回首页
         </button>
         <span className="tool-title">{session?.target ?? '寻路中'}</span>
@@ -235,7 +254,7 @@ function SessionMessage({
       <h1>{title}</h1>
       <p>{body}</p>
       <div className="actions">
-        <button className="primary" onClick={onHome}>
+        <button type="button" className="primary" onClick={onHome}>
           回到首页 →
         </button>
       </div>

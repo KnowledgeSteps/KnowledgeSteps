@@ -410,4 +410,5 @@ export function mockGetNodeResources(
 
 export function mockResetAll(): void {
   sessions.clear()
+  persist()
 }

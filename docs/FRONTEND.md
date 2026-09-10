@@ -1,5 +1,7 @@
 # 知阶 KnowledgeSteps 前端技术方案
 
+> 基于当前源码的差距盘点、分阶段任务与首版验收标准见 [前端建设规划书](FRONTEND_PLAN.md)（2026-09-10）。本文的方案描述不全部代表已完成实现。
+
 > 定位：把产品 PRD（[PROJECT.md](PROJECT.md)）与接口/数据契约（[API_CONTRACT.md](API_CONTRACT.md)、[DATABASE_DESIGN.md](DATABASE_DESIGN.md)）转化为“前端可直接执行”的实现方案。
 >
 > 本文档回答五个问题：页面怎么组织、模块怎么分、技术上依赖什么、状态怎么走、接口怎么接，并列出风险与待确认项。涉及工程协作与部署的约定放在附录。

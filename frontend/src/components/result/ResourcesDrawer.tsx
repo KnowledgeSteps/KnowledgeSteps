@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import type { ReactNode } from 'react'
+import { ReloadOutlined } from '@ant-design/icons'
 import { Drawer, Spin } from 'antd'
 import type { KnowledgeNode, NodeResources } from '../../api/types'
 import { getNodeResources } from '../../api/sessions'
@@ -45,6 +47,7 @@ function NodeResourcesPanel({
   const [data, setData] = useState<NodeResources | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -61,7 +64,14 @@ function NodeResourcesPanel({
     return () => {
       cancelled = true
     }
-  }, [sessionId, node.id])
+  }, [sessionId, node.id, retryKey])
+
+  function retry(): void {
+    setData(null)
+    setError(null)
+    setLoading(true)
+    setRetryKey((key) => key + 1)
+  }
 
   return (
     <div className="drawer-body">
@@ -74,6 +84,11 @@ function NodeResourcesPanel({
         <StateBlock
           title="资料加载失败"
           body="暂时无法获取这个节点的学习资料，请稍后重新打开。"
+          action={
+            <button type="button" className="outline small" onClick={retry}>
+              <ReloadOutlined /> 再试一次
+            </button>
+          }
         />
       ) : data?.resourceStatus === 'NOT_APPLICABLE' ? (
         <div className="explain-block">
@@ -92,6 +107,11 @@ function NodeResourcesPanel({
         <StateBlock
           title="资料搜索失败"
           body="搜索服务暂时不可用，已跳过这个节点，不会影响你的路径结果。"
+          action={
+            <button type="button" className="outline small" onClick={retry}>
+              <ReloadOutlined /> 再试一次
+            </button>
+          }
         />
       ) : data ? (
         <>
@@ -113,9 +133,16 @@ function NodeResourcesPanel({
                 <a href={item.url} target="_blank" rel="noopener noreferrer">
                   去知乎检索相关讨论 ↗
                 </a>
-                <small className="resource-meta">
-                  作者与赞同数暂未提供（演示条目不展示虚构数据）
-                </small>
+                {(item.authorName || item.voteCount !== null) && (
+                  <small className="resource-meta">
+                    {item.authorName
+                      ? `作者：${item.authorName}`
+                      : '作者暂未提供'}
+                    {item.voteCount !== null
+                      ? ` · ${item.voteCount} 赞同`
+                      : ' · 赞同数暂未提供'}
+                  </small>
+                )}
               </article>
             ))}
           </div>
@@ -125,11 +152,20 @@ function NodeResourcesPanel({
   )
 }
 
-function StateBlock({ title, body }: { title: string; body: string }) {
+function StateBlock({
+  title,
+  body,
+  action,
+}: {
+  title: string
+  body: string
+  action?: ReactNode
+}) {
   return (
     <div className="explain-block">
       <h4>{title}</h4>
       <p>{body}</p>
+      {action}
     </div>
   )
 }
