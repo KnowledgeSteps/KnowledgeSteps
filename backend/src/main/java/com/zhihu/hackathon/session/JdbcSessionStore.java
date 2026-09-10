@@ -215,6 +215,39 @@ public class JdbcSessionStore implements SessionStore {
     });
   }
 
+  public ResourcesResponse findResourcesOwned(long userId, long sessionId, long nodeId) {
+    return tx.execute(status -> {
+      var sessions = jdbc.query("SELECT status FROM learning_sessions WHERE id=? AND user_id=?",
+          (rs, row) -> rs.getString(1), sessionId, userId);
+      if (sessions.isEmpty()) throw new SessionException(404, "NOT_FOUND", "任务不存在。");
+      if (!"COMPLETED".equals(sessions.getFirst())) {
+        throw new SessionException(409, "SESSION_NOT_COMPLETED", "请先完成答卷后再查看资料。");
+      }
+      var nodes = jdbc.query("""
+          SELECT name,description,is_target,mastery_status,resource_status
+          FROM knowledge_nodes WHERE id=? AND session_id=?
+          """, (rs, row) -> new ResourceNode(rs.getString(1), rs.getString(2), rs.getInt(3) == 1,
+              rs.getString(4), rs.getString(5)), nodeId, sessionId);
+      if (nodes.isEmpty()) throw new SessionException(404, "NOT_FOUND", "节点不存在。");
+      ResourceNode node = nodes.getFirst();
+      if (!node.target && !"TO_LEARN".equals(node.mastery)) {
+        throw new SessionException(404, "NOT_FOUND", "节点不存在。");
+      }
+      if (node.target) {
+        return new ResourcesResponse(Long.toString(nodeId), node.name, node.description, "NOT_APPLICABLE", List.of());
+      }
+      List<ResourcesResponse.ResourceItem> resources = jdbc.query("""
+          SELECT id,title,url,summary,author_name,vote_count
+          FROM node_resources WHERE node_id=? ORDER BY sort_order,id
+          """, (rs, row) -> {
+            Number voteCount = (Number) rs.getObject(6);
+            return new ResourcesResponse.ResourceItem(Long.toString(rs.getLong(1)), rs.getString(2),
+                rs.getString(3), rs.getString(4), rs.getString(5), voteCount == null ? null : voteCount.longValue());
+          }, nodeId);
+      return new ResourcesResponse(Long.toString(nodeId), node.name, node.description, node.resourceStatus, resources);
+    });
+  }
+
   private CompletionResponse completedResult(long sessionId, String target) {
     List<ResultNode> allNodes = jdbc.query("""
         SELECT id,name,is_target,mastery_status FROM knowledge_nodes
@@ -277,4 +310,5 @@ public class JdbcSessionStore implements SessionStore {
 
   private record ResultNode(long id, String name, boolean target, String mastery) {}
   private record StoredEdge(long from, long to) {}
+  private record ResourceNode(String name, String description, boolean target, String mastery, String resourceStatus) {}
 }

@@ -19,4 +19,5 @@ public interface SessionStore {
   QuestionsResponse findQuestionsOwned(long userId , long sessionId);
   AnswerResponse saveAnswerOwned(long userId, long sessionId, long questionId, String answer);
   CompletionResponse completeOwned(long userId, long sessionId);
+  ResourcesResponse findResourcesOwned(long userId, long sessionId, long nodeId);
 }

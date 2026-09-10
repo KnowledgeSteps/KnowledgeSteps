@@ -233,6 +233,65 @@ class SessionIntegrationTest {
         .andExpect(jsonPath("$.nodes[0].name").value("Transformer"))
         .andExpect(jsonPath("$.edges.length()").value(0));
   }
+  @Test void returnsCachedResourcesForVisibleNodesAndNotApplicableForTarget() throws Exception {
+    long id=create();waitFor(id,"READY");
+    long questionId=questionId(id);
+    answer(id, questionId, "HEARD_OF");
+    complete(id);
+    long nodeId=nodeId(id, "矩阵运算");
+    jdbc.update("UPDATE node_resources SET vote_count=42 WHERE node_id=?",nodeId);
+
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/nodes/"+nodeId+"/resources").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.nodeId").value(Long.toString(nodeId)))
+        .andExpect(jsonPath("$.nodeName").value("矩阵运算"))
+        .andExpect(jsonPath("$.reason").value("理解计算"))
+        .andExpect(jsonPath("$.resourceStatus").value("READY"))
+        .andExpect(jsonPath("$.resources.length()").value(1))
+        .andExpect(jsonPath("$.resources[0].title").value("资料"))
+        .andExpect(jsonPath("$.resources[0].url").value("https://www.zhihu.com/question/1"))
+        .andExpect(jsonPath("$.resources[0].voteCount").value(42));
+    long targetId=jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=? AND is_target=1",Long.class,id);
+    mvc.perform(get("/api/v1/learning-sessions/"+id+"/nodes/"+targetId+"/resources").session(session))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.resourceStatus").value("NOT_APPLICABLE"))
+        .andExpect(jsonPath("$.resources.length()").value(0));
+  }
+  @Test void rejectsResourcesForHiddenNodesIncompleteSessionsAndOtherUsers() throws Exception {
+    long id=create();waitFor(id,"READY");
+    long nodeId=nodeId(id, "矩阵运算");
+    String path="/api/v1/learning-sessions/"+id+"/nodes/"+nodeId+"/resources";
+    mvc.perform(get(path))
+        .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
+    mvc.perform(get(path).session(session))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SESSION_NOT_COMPLETED"));
+    answer(id, questionId(id), "VERY_FAMILIAR");
+    complete(id);
+    mvc.perform(get(path).session(session))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+    var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
+    mvc.perform(get(path).session(other))
+        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+  }
+  @Test void returnsEmptyAndFailedResourceStatusesWithoutInventingResources() throws Exception {
+    when(search.search(anyString())).thenReturn(List.of());
+    long emptySession=create();waitFor(emptySession,"READY");
+    answer(emptySession, questionId(emptySession), "HEARD_OF");
+    complete(emptySession);
+    long emptyNode=nodeId(emptySession, "矩阵运算");
+    mvc.perform(get("/api/v1/learning-sessions/"+emptySession+"/nodes/"+emptyNode+"/resources").session(session))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.resourceStatus").value("EMPTY"))
+        .andExpect(jsonPath("$.resources.length()").value(0));
+
+    when(search.search(anyString())).thenThrow(new IllegalStateException("upstream unavailable"));
+    long failedSession=create();waitFor(failedSession,"READY");
+    answer(failedSession, questionId(failedSession), "HEARD_OF");
+    complete(failedSession);
+    long failedNode=nodeId(failedSession, "矩阵运算");
+    mvc.perform(get("/api/v1/learning-sessions/"+failedSession+"/nodes/"+failedNode+"/resources").session(session))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.resourceStatus").value("FAILED"))
+        .andExpect(jsonPath("$.resources.length()").value(0));
+  }
   @Test void requiresLoginAndCsrf() throws Exception {
     mvc.perform(get("/api/v1/auth/me")).andExpect(status().isUnauthorized());
     mvc.perform(post("/api/v1/learning-sessions").contentType("application/json").content("{\"target\":\"X\"}"))
@@ -302,6 +361,10 @@ class SessionIntegrationTest {
   private void answer(long sessionId, long questionId, String value) throws Exception {
     mvc.perform(put("/api/v1/learning-sessions/"+sessionId+"/answers/"+questionId).session(session).header("X-CSRF-Token",csrf)
         .contentType("application/json").content("{\"answer\":\""+value+"\"}"))
+        .andExpect(status().isOk());
+  }
+  private void complete(long sessionId) throws Exception {
+    mvc.perform(post("/api/v1/learning-sessions/"+sessionId+"/complete").session(session).header("X-CSRF-Token",csrf))
         .andExpect(status().isOk());
   }
   private void waitFor(long id,String status) { await().atMost(Duration.ofSeconds(5)).untilAsserted(()->assertThat(store.findOwned(1,id).status()).isEqualTo(status)); }

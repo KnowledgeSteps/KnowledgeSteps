@@ -31,6 +31,11 @@ public class LearningSessionService {
     catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务不存在。"); }
   }
 
+  public ResourcesResponse resources(long userId, String sessionId, String nodeId) {
+    try { return store.findResourcesOwned(userId, parseSessionId(sessionId), parseSessionId(nodeId)); }
+    catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务或节点不存在。"); }
+  }
+
   public record Created(String sessionId,String status) {}
   public synchronized Created create(long userId,String value) {
     String target=value==null?"":value.strip();
