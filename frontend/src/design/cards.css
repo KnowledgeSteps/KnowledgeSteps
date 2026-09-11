@@ -1,0 +1,199 @@
+/* From Uiverse.io by Smit-Prajapati */ 
+.uiverse-parent {
+  width: 290px;
+  height: 300px;
+  perspective: 1000px;
+}
+
+
+.uiverse-card {
+  height: 100%;
+  border-radius: 50px;
+  background: var(--blue-light);
+  transition: all 0.5s ease-in-out;
+  transform-style: preserve-3d;
+  box-shadow: transparent 40px 50px 25px -40px, color-mix(in srgb, var(--primary) 20%, transparent) 0px 25px 25px -5px;
+}
+
+
+.uiverse-glass {
+  transform-style: preserve-3d;
+  position: absolute;
+  inset: 8px;
+  border-radius: 55px;
+  border-top-right-radius: 100%;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  /* -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px); */
+  transform: translate3d(0px, 0px, 25px);
+  border-left: 1px solid var(--bg-card);
+  border-bottom: 1px solid var(--bg-card);
+  transition: all 0.5s ease-in-out;
+}
+
+
+.uiverse-content {
+  padding: 100px 60px 0px 30px;
+  transform: translate3d(0, 0, 26px);
+}
+
+
+.uiverse-content .uiverse-title {
+  display: block;
+  color: var(--primary);
+  font-weight: 900;
+  font-size: 20px;
+}
+
+
+.uiverse-content .uiverse-text {
+  display: block;
+  color: var(--text-sub);
+  font-size: 15px;
+  margin-top: 20px;
+}
+
+
+.uiverse-logo {
+  position: absolute;
+  right: 0;
+  top: 0;
+  transform-style: preserve-3d;
+}
+
+
+.uiverse-logo .uiverse-circle {
+  display: block;
+  position: absolute;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  top: 0;
+  right: 0;
+  box-shadow: color-mix(in srgb, var(--text-sub) 20%, transparent) -10px 10px 20px 0px;
+  -webkit-backdrop-filter: blur(5px);
+  backdrop-filter: blur(5px);
+  background: color-mix(in srgb, var(--blue-medium) 20%, transparent);
+  transition: all 0.5s ease-in-out;
+}
+
+
+.uiverse-logo .circle1 {
+  width: 170px;
+  transform: translate3d(0, 0, 20px);
+  top: 8px;
+  right: 8px;
+}
+
+
+.uiverse-logo .circle2 {
+  width: 140px;
+  transform: translate3d(0, 0, 40px);
+  top: 10px;
+  right: 10px;
+  -webkit-backdrop-filter: blur(1px);
+  backdrop-filter: blur(1px);
+  transition-delay: 0.4s;
+}
+
+
+.uiverse-logo .circle3 {
+  width: 110px;
+  transform: translate3d(0, 0, 60px);
+  top: 17px;
+  right: 17px;
+  transition-delay: 0.8s;
+}
+
+
+.uiverse-logo .circle4 {
+  width: 80px;
+  transform: translate3d(0, 0, 80px);
+  top: 23px;
+  right: 23px;
+  transition-delay: 1.2s;
+}
+
+
+.uiverse-logo .circle5 {
+  width: 50px;
+  transform: translate3d(0, 0, 100px);
+  top: 30px;
+  right: 30px;
+  display: grid;
+  place-content: center;
+  transition-delay: 1.6s;
+}
+
+
+.uiverse-logo .circle5 .uiverse-svg {
+  width: 20px;
+  fill: var(--bg-card);
+}
+
+
+.uiverse-parent:hover .uiverse-card {
+  transform: rotate3d(1, 1, 0, 30deg);
+  box-shadow: color-mix(in srgb, var(--primary) 30%, transparent) 30px 50px 25px -40px, color-mix(in srgb, var(--primary) 10%, transparent) 0px 25px 30px 0px;
+}
+
+
+.uiverse-parent:hover .uiverse-card .uiverse-logo .circle2 {
+  transform: translate3d(0, 0, 60px);
+}
+
+
+.uiverse-parent:hover .uiverse-card .uiverse-logo .circle3 {
+  transform: translate3d(0, 0, 80px);
+}
+
+
+.uiverse-parent:hover .uiverse-card .uiverse-logo .circle4 {
+  transform: translate3d(0, 0, 100px);
+}
+
+
+.uiverse-parent:hover .uiverse-card .uiverse-logo .circle5 {
+  transform: translate3d(0, 0, 120px);
+}
+/* React/application integration: fluid containers for real content; original 3D geometry above is retained. */
+.uiverse-parent { width: 100%; height: auto; min-width: 0; font-family: var(--font-family); }
+.uiverse-parent > .uiverse-card { position: relative; min-height: 300px; height: 100%; border: 0; padding: 0; background: var(--blue-light); color: var(--text-main); overflow: visible; }
+.uiverse-glass, .uiverse-logo { pointer-events: none; }
+.uiverse-logo { z-index: 2; }
+.uiverse-content { position: relative; display: block; padding-bottom: 30px; z-index: 1; }
+.uiverse-content h2, .uiverse-content h3 { color: var(--primary); }
+.uiverse-logo .circle5 .anticon { color: var(--bg-card); font-size: 20px; }
+.gateway-features .uiverse-parent { text-align: left; }
+.gateway-features .uiverse-content h2 { margin: 0; font-size: 20px; }
+.gateway-features .uiverse-content p { margin-top: 20px; font-size: 15px; }
+.process-number { display: none; }
+.process-grid .uiverse-content h3 { margin: 0; }
+.process-grid .uiverse-content p { margin-top: 20px; }
+.uiverse-parent > .uiverse-card.node-card { width: 100%; height: 100%; min-height: 300px; display: block; text-align: left; }
+.uiverse-card.node-card .uiverse-content > strong, .uiverse-card.node-card .uiverse-content > small { display: block; margin-top: 12px; }
+.path-row > .uiverse-parent { width: 240px; max-width: 100%; }
+.uiverse-parent:has(> .all-clear-target) { width: 290px; max-width: 100%; margin: 24px auto; }
+.uiverse-parent > .uiverse-card.target { border: 2px solid var(--blue-medium); }
+.uiverse-parent > .uiverse-card.enter { animation: none; }
+/* Keep question input and graph edge geometry stable; rings retain the supplied depth transitions. */
+.uiverse-parent:has(> .question):hover > .uiverse-card,
+.uiverse-parent:has(> .rail-card):hover > .uiverse-card,
+.path-row > .uiverse-parent:hover > .uiverse-card { transform: none; }
+@media (max-width: 700px) {
+  .path-row > .uiverse-parent { width: min(280px, calc(100% - 48px)); }
+  .uiverse-parent > .uiverse-card.node-card { width: 100%; }
+  .question .uiverse-content, .rail-card .uiverse-content, .resource-item .uiverse-content { padding-left: 24px; padding-right: 24px; }
+}
+@media (hover: none), (prefers-reduced-motion: reduce) {
+  .uiverse-parent:hover > .uiverse-card { transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .uiverse-card, .uiverse-card * { transition: none !important; }
+  .uiverse-parent:hover .uiverse-card .circle2 { transform: translate3d(0, 0, 40px); }
+  .uiverse-parent:hover .uiverse-card .circle3 { transform: translate3d(0, 0, 60px); }
+  .uiverse-parent:hover .uiverse-card .circle4 { transform: translate3d(0, 0, 80px); }
+  .uiverse-parent:hover .uiverse-card .circle5 { transform: translate3d(0, 0, 100px); }
+}
+
+.waiting-card .engine-top { margin-bottom: 32px; }
+.uiverse-card .uiverse-content > .mentor .spark { display: none; }

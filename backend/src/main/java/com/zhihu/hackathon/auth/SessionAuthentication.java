@@ -3,7 +3,7 @@ package com.zhihu.hackathon.auth;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Component;
 
-/** 仅由后端在 OAuth 身份验证完成后调用 establish，不提供浏览器设置用户 ID 的入口。 */
+/** 仅由后端在身份验证完成后调用 establish，不提供浏览器设置用户 ID 的入口。 */
 @Component
 public class SessionAuthentication {
   public static final String USER_ID = "knowledgeSteps.userId";
@@ -22,6 +22,14 @@ public class SessionAuthentication {
     if (old != null) old.invalidate();
     request.getSession(true).setAttribute(USER_ID, verifiedUserId);
     csrf.issue(request);
+  }
+  public java.util.Map<String, String> userResponse(HttpServletRequest request, long userId) {
+    var profile = users.profile(userId);
+    String nickname = profile == null || profile.nickname() == null || profile.nickname().isBlank()
+        ? "用户" : profile.nickname();
+    String avatar = profile == null || profile.avatarUrl() == null ? "" : profile.avatarUrl();
+    return java.util.Map.of("userId", Long.toString(userId), "csrfToken", csrf.issue(request),
+        "nickname", nickname, "avatarUrl", avatar);
   }
   public void logout(HttpServletRequest request) {
     var session = request.getSession(false);

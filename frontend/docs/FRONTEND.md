@@ -231,7 +231,7 @@ react-router-dom 7.x
 ```
 
 - Ant Design 目前只承载 `ConfigProvider`、`Spin` 与 `Drawer`；页面视觉主要来自 [styles.css](../src/styles.css)，避免组件默认样式与品牌规范冲突。
-- 主题主色统一为 `#5b61f6`，由 [main.tsx](../src/main.tsx) 和 `styles.css` 的 `:root` 同时维护。
+- 主题主色为 `#2977F8`，搭配 `#629FFC`、`#AFD0FC`；Ant Design 主题与 CSS 变量统一由 [theme.ts](../src/design/theme.ts) 管理。英文数字为 Chillax，中文为思源黑体，详见 [UI_DESIGN.md](UI_DESIGN.md)。
 - 视觉 token、组件状态、响应式与文案规则以 [UI_DESIGN.md](UI_DESIGN.md) 为准。
 - `package.json` 仍有部分依赖标记为 `latest`，后续应锁定版本并保留 lockfile，保证团队构建可复现。
 
@@ -664,3 +664,9 @@ npm run build
 ## 文档同步规则
 
 本文档是 PRD 转化后的前端技术方案，也是前端团队的日常开发依据。需求、接口或架构变化时，至少更新本文件对应的章节；接口字段变化必须以 [API_CONTRACT.md](../../docs/API_CONTRACT.md) 为准，视觉与交互变化则同步 [UI_DESIGN.md](UI_DESIGN.md)，避免三份文档不一致。
+
+### 请求与任务状态约定
+
+HTTP 请求默认 15 秒超时（含响应体），支持调用方 AbortSignal；超时不自动重放写操作，应先重新读取结果。任务页按 sessionId 隔离组件状态，离开问卷后忽略未完成写请求的页面回调。资料状态 FAILED 只显示失败说明，读取接口异常时才提供读取重试。
+
+Mock 缓存按当前 userId 和随机任务 ID 使用 `zhijie-mock-session-v3:<userId>:<sessionId>`，每次访问读取最新记录，避免其他任务被整批覆盖；兼容读取有归属的 v2 缓存，不迁入缺少归属的 v1 缓存。Mock 仅用于模拟，不构成服务端安全边界。未配置 VITE_DATA_MODE 时，开发默认 mock、生产构建默认 api；可显式配置覆盖。回归验证运行 `npm run test:regressions`。

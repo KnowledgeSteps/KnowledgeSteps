@@ -1,3 +1,4 @@
+import { withRequestTimeout } from './requestTimeout'
 import { apiUrl } from './config'
 import { ApiError, type ApiErrorBody } from './types'
 
@@ -9,6 +10,13 @@ interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function retryAfterSeconds(response: Response): number | null {
+  const value = response.headers.get('Retry-After')
+  if (value === null) return null
+  const seconds = /^\d+$/.test(value) ? Number(value) : (Date.parse(value) - Date.now()) / 1000
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : null
 }
 
 function parseErrorBody(value: unknown): ApiErrorBody | null {
@@ -50,53 +58,32 @@ function buildInit(options: ApiRequestOptions = {}): RequestInit {
   return init
 }
 
-export async function apiJson<T>(
-  path: string,
-  options: ApiRequestOptions,
-  validate: ResponseValidator<T>,
-): Promise<T> {
-  let response: Response
-  try {
-    response = await fetch(apiUrl(path), buildInit(options))
-  } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', '暂时无法连接服务，请稍后重试。')
-  }
-
-  const payload = await readJson(response)
-  if (!response.ok) {
-    const body = parseErrorBody(payload)
-    throw new ApiError(
-      response.status,
-      body?.error.code ?? 'HTTP_ERROR',
-      body?.error.message ?? '请求没有成功，请稍后重试。',
-    )
-  }
-
-  try {
-    return validate(payload)
-  } catch {
-    throw new ApiError(0, 'INVALID_RESPONSE', '服务返回的数据格式不正确。')
-  }
+async function requestPayload(path: string, options: ApiRequestOptions) {
+  return withRequestTimeout(async (signal) => {
+    let response: Response
+    let payload: unknown
+    try {
+      response = await fetch(apiUrl(path), { ...buildInit(options), signal })
+      payload = response.status === 204 ? null : await readJson(response)
+    } catch (error) {
+      if (error instanceof ApiError) throw error
+      throw new ApiError(0, 'NETWORK_ERROR', '暂时无法连接服务，请稍后重试。')
+    }
+    if (!response.ok) {
+      const body = parseErrorBody(payload)
+      throw new ApiError(response.status, body?.error.code ?? 'HTTP_ERROR',
+        body?.error.message ?? '请求没有成功，请稍后重试。', retryAfterSeconds(response))
+    }
+    return payload
+  }, options.signal)
 }
 
-export async function apiVoid(
-  path: string,
-  options: ApiRequestOptions,
-): Promise<void> {
-  let response: Response
-  try {
-    response = await fetch(apiUrl(path), buildInit(options))
-  } catch {
-    throw new ApiError(0, 'NETWORK_ERROR', '暂时无法连接服务，请稍后重试。')
-  }
+export async function apiJson<T>(path: string, options: ApiRequestOptions, validate: ResponseValidator<T>): Promise<T> {
+  const payload = await requestPayload(path, options)
+  try { return validate(payload) }
+  catch { throw new ApiError(0, 'INVALID_RESPONSE', '服务返回的数据格式不正确。') }
+}
 
-  const payload = response.status === 204 ? null : await readJson(response)
-  if (!response.ok) {
-    const body = parseErrorBody(payload)
-    throw new ApiError(
-      response.status,
-      body?.error.code ?? 'HTTP_ERROR',
-      body?.error.message ?? '请求没有成功，请稍后重试。',
-    )
-  }
+export async function apiVoid(path: string, options: ApiRequestOptions): Promise<void> {
+  await requestPayload(path, options)
 }

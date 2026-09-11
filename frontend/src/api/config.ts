@@ -2,7 +2,8 @@ export type DataMode = 'mock' | 'api'
 
 function readDataMode(): DataMode {
   const mode = import.meta.env.VITE_DATA_MODE
-  if (mode === undefined || mode === '' || mode === 'mock') return 'mock'
+  if (mode === undefined || mode === '') return import.meta.env.PROD ? 'api' : 'mock'
+  if (mode === 'mock') return 'mock'
   if (mode === 'api') return 'api'
   throw new Error(`Unsupported VITE_DATA_MODE: ${mode}`)
 }

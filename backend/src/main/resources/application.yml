@@ -11,7 +11,7 @@ zhihu:
   access-secret: ${ZHIHU_ACCESS_SECRET:}
 spring:
   config:
-    import: optional:file:./secrets.properties
+    import: optional:file:./secrets.properties,optional:file:./admin-login.properties
   application:
     name: zhihu-learning-backend
   datasource:

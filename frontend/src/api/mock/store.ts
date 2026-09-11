@@ -35,6 +35,7 @@ interface StoredResources {
 
 interface InternalSession {
   id: string
+  userId: string
   target: string
   createdAt: number
   mode: 'ACTIVE' | 'COMPLETED' | 'FAILED'
@@ -47,54 +48,40 @@ interface InternalSession {
 }
 
 const sessions = new Map<string, InternalSession>()
-let sessionSequence = 100
-const STORAGE_KEY = 'zhijie-mock-sessions-v1'
+const STORAGE_KEY = 'zhijie-mock-session-v3:'
+const storageKey = (userId: string, id: string) => `${STORAGE_KEY}${encodeURIComponent(userId)}:${encodeURIComponent(id)}`
 
-function persist(): void {
+function persist(session: InternalSession): void {
   try {
-    const payload = [...sessions.values()].map((session) => ({
-      ...session,
-      resourcesByNode: Object.fromEntries(session.resourcesByNode),
+    localStorage.setItem(storageKey(session.userId, session.id), JSON.stringify({
+      ...session, resourcesByNode: Object.fromEntries(session.resourcesByNode),
     }))
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
   } catch {
-    // localStorage 不可用时静默降级，只保留当前内存会话
+    // Keep this task in memory when browser storage is unavailable.
   }
 }
 
-function restore(): void {
-  if (typeof localStorage === 'undefined') return
+function restore(userId: string, id: string): void {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
-    const payload = JSON.parse(raw) as Array<InternalSession & {
-      resourcesByNode: Record<string, StoredResources>
-    }>
-    if (!Array.isArray(payload)) return
-    for (const item of payload) {
-      const session: InternalSession = {
-        ...item,
-        resourcesByNode: new Map(Object.entries(item.resourcesByNode ?? {})),
-      }
-      sessions.set(session.id, session)
-      const numericId = Number(session.id)
-      if (Number.isFinite(numericId)) {
-        sessionSequence = Math.max(sessionSequence, numericId)
-      }
-    }
+    const raw = localStorage.getItem(storageKey(userId, id))
+    // Read owned v2 records for compatibility; never import the unowned v1 cache.
+    const item = raw ? JSON.parse(raw) : JSON.parse(localStorage.getItem(`zhijie-mock-sessions-v2:${encodeURIComponent(userId)}`) ?? '[]')
+      .find((value: InternalSession) => value.id === id && value.userId === userId)
+    if (item?.userId !== userId || item.id !== id) return
+    sessions.set(`${userId}:${id}`, { ...item, resourcesByNode: new Map(Object.entries(item.resourcesByNode ?? {})) })
   } catch {
-    // 数据损坏时忽略旧缓存，不影响新会话
+    // Storage unavailable or corrupt: retain any valid in-memory task.
   }
 }
 
-restore()
 
 function error(status: number, code: string, message: string): ApiError {
   return new ApiError(status, code, message)
 }
 
-function findSession(sessionId: string): InternalSession {
-  const session = sessions.get(sessionId)
+function findSession(userId: string, sessionId: string): InternalSession {
+  restore(userId, sessionId)
+  const session = sessions.get(`${userId}:${sessionId}`)
   if (!session) {
     throw error(404, 'NOT_FOUND', '任务不存在或不属于当前用户，请返回首页重新开始。')
   }
@@ -278,7 +265,7 @@ function buildResult(session: InternalSession): CompletionResult {
   }
 }
 
-export function mockCreateSession(rawTarget: string): {
+export function mockCreateSession(userId: string, rawTarget: string): {
   sessionId: string
   status: SessionStatus
 } {
@@ -288,13 +275,14 @@ export function mockCreateSession(rawTarget: string): {
   }
 
   const graph = buildMockGraph(target)
-  const id = String(++sessionSequence)
+  const id = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('')
   const nodes: StoredNode[] = graph.nodes.map((n) => ({
     ...n,
     mastery: 'UNKNOWN',
   }))
   const session: InternalSession = {
     id,
+    userId,
     target,
     createdAt: Date.now(),
     mode: 'ACTIVE',
@@ -309,17 +297,17 @@ export function mockCreateSession(rawTarget: string): {
   for (const node of nodes) {
     session.resourcesByNode.set(node.id, makeResources(node))
   }
-  sessions.set(id, session)
-  persist()
+  sessions.set(`${userId}:${id}`, session)
+  persist(session)
   return { sessionId: id, status: 'GENERATING_GRAPH' }
 }
 
-export function mockGetSession(sessionId: string): SessionDetail {
-  return publicDetail(findSession(sessionId))
+export function mockGetSession(userId: string, sessionId: string): SessionDetail {
+  return publicDetail(findSession(userId, sessionId))
 }
 
-export function mockGetQuestions(sessionId: string): { questions: Question[] } {
-  const session = findSession(sessionId)
+export function mockGetQuestions(userId: string, sessionId: string): { questions: Question[] } {
+  const session = findSession(userId, sessionId)
   const status = statusOf(session)
   if (status !== 'READY' && status !== 'COMPLETED') {
     throw error(409, 'SESSION_NOT_READY', '问卷还没准备好，请稍候再试。')
@@ -328,11 +316,12 @@ export function mockGetQuestions(sessionId: string): { questions: Question[] } {
 }
 
 export function mockSaveAnswer(
+  userId: string,
   sessionId: string,
   questionId: string,
   value: AnswerValue,
 ) {
-  const session = findSession(sessionId)
+  const session = findSession(userId, sessionId)
   const status = statusOf(session)
   if (status !== 'READY' && status !== 'COMPLETED') {
     throw error(409, 'SESSION_NOT_READY', '问卷还没准备好，无法保存答案。')
@@ -353,7 +342,7 @@ export function mockSaveAnswer(
     session.lastResult = null
   }
 
-  persist()
+  persist(session)
   return {
     questionId,
     masteryStatus: answerStatus(value),
@@ -362,8 +351,8 @@ export function mockSaveAnswer(
   }
 }
 
-export function mockCompleteSession(sessionId: string): CompletionResult {
-  const session = findSession(sessionId)
+export function mockCompleteSession(userId: string, sessionId: string): CompletionResult {
+  const session = findSession(userId, sessionId)
   const status = statusOf(session)
   if (status === 'COMPLETED' && session.lastResult) {
     return session.lastResult
@@ -377,15 +366,16 @@ export function mockCompleteSession(sessionId: string): CompletionResult {
   const result = buildResult(session)
   session.mode = 'COMPLETED'
   session.lastResult = result
-  persist()
+  persist(session)
   return result
 }
 
 export function mockGetNodeResources(
+  userId: string,
   sessionId: string,
   nodeId: string,
 ): NodeResources {
-  const session = findSession(sessionId)
+  const session = findSession(userId, sessionId)
   if (statusOf(session) !== 'COMPLETED' || !session.lastResult) {
     throw error(409, 'SESSION_NOT_COMPLETED', '请先完成答卷再查看资料。')
   }
@@ -406,9 +396,4 @@ export function mockGetNodeResources(
     resourceStatus: resources.status,
     resources: resources.items.map((r) => ({ ...r })),
   }
-}
-
-export function mockResetAll(): void {
-  sessions.clear()
-  persist()
 }

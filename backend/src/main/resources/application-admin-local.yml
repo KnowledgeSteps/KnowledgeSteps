@@ -1,0 +1,6 @@
+# 本地管理员登录使用真实会话；不要与 local-test 自动身份旁路同时启用。
+server:
+  address: 127.0.0.1
+auth:
+  admin:
+    enabled: true

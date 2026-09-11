@@ -1,0 +1,69 @@
+/* From Uiverse.io by Esca-Byte; upward branches, project fonts and blue palette. */
+.example-tree.tooltip-container {
+  position: relative;
+  width: 100%;
+  height: 550px;
+  margin: 16px auto;
+  font-family: var(--font-family);
+  color: var(--text-main);
+  z-index: 1;
+}
+.example-tree .branch-path-svg { position: absolute; inset: 0; width: 100%; height: 520px; overflow: visible; pointer-events: none; }
+.example-tree .branch-line {
+  fill: none;
+  stroke-width: 2px;
+  vector-effect: non-scaling-stroke;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* Reveal solid paths with a clip: normalized dashes break under nonuniform SVG scaling. */
+.example-tree .branch-reveal {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  transform: scaleY(0);
+  transition: transform .5s cubic-bezier(.4, 0, .2, 1);
+}
+.example-tree .line-left { stroke: var(--primary); }
+.example-tree .line-right { stroke: var(--blue-medium); }
+.example-tree .branch-dot { fill: var(--blue-medium); opacity: 0; transition: opacity .2s; }
+.example-tree .tooltip-content {
+  position: absolute;
+  width: 44%;
+  min-height: 54px;
+  padding: 10px 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--blue-light);
+  border-left: 2px solid var(--primary);
+  border-radius: 6px;
+  box-shadow: var(--shadow-card);
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, calc(-50% + 10px));
+  clip-path: inset(100% 0 0 0);
+  transition: opacity .3s, transform .4s cubic-bezier(.175, .885, .32, 1.275), clip-path .4s, visibility .4s;
+}
+.example-tree .tooltip-header { font-weight: 600; font-size: 13px; line-height: 1.5; }
+.example-tree .tooltip-info { color: var(--text-muted); font-size: 11px; line-height: 1.5; margin-top: 3px; }
+.example-tree .trigger-wrapper { position: absolute; top: 443px; left: 0; width: 100%; display: flex; justify-content: center; }
+.example-tree .merge-btn { height: 54px; padding: 12px 24px; border-radius: 6px; border-color: var(--blue-medium); background: var(--blue-light); color: var(--text-main); font-family: inherit; font-weight: 600; }
+.example-tree .merge-btn:hover { background: var(--bg-card); border-color: var(--primary); color: var(--primary); }
+.example-tree.is-expanded .branch-reveal { transform: scaleY(1); transition-delay: var(--delay); }
+.example-tree:not(.is-expanded) .branch-path-svg { visibility: hidden; }
+.example-tree.is-expanded .branch-dot { opacity: 1; transition-delay: calc(var(--delay) + 300ms); }
+.example-tree.is-expanded .tooltip-content { opacity: 1; visibility: visible; transform: translate(-50%, -50%); clip-path: inset(0); transition-delay: var(--delay); }
+.example-tree .example-tree-hint { position: absolute; top: 510px; width: 100%; margin: 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+@media (prefers-reduced-motion: reduce) {
+  .example-tree .branch-reveal, .example-tree .branch-dot, .example-tree .tooltip-content { transition: none; }
+}
+
+/* A gentle invitation while collapsed; no movement of the actual hit target. */
+.example-tree:not(.is-expanded) .merge-btn {
+  animation: example-trigger-breathe 2s ease-in-out infinite;
+}
+@keyframes example-trigger-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 transparent, 0 0 6px color-mix(in srgb, var(--primary) 15%, transparent); border-color: var(--blue-medium); }
+  50% { box-shadow: 0 0 0 9px color-mix(in srgb, var(--blue-light) 65%, transparent), 0 0 32px color-mix(in srgb, var(--primary) 55%, transparent); border-color: var(--primary); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .example-tree:not(.is-expanded) .merge-btn { animation: none; }
+}

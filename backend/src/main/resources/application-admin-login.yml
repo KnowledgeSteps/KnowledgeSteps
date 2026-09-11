@@ -1,0 +1,9 @@
+# 演示站点必须经 HTTPS 访问；前端 /api 与后端使用同源代理。
+server:
+  servlet:
+    session:
+      cookie:
+        secure: true
+auth:
+  admin:
+    enabled: true

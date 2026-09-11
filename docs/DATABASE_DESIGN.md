@@ -29,12 +29,14 @@ users → learning_sessions → knowledge_nodes → node_resources
 | 字段 | 类型 | 要求 | 说明 |
 | --- | --- | --- | --- |
 | id | INTEGER | 主键 | 内部用户编号 |
-| zhihu_user_id | TEXT | 必填、唯一 | 官方返回的稳定用户标识 |
+| zhihu_user_id | TEXT | 必填、唯一 | OAuth 用户的官方稳定标识，或带前缀的内部身份标识 |
 | nickname | TEXT | 可空 | 昵称，不用于权限判断 |
 | avatar_url | TEXT | 可空 | 头像地址 |
 | created_at | TEXT | 必填 | 创建时间 |
 
 不保存模型密钥或 OAuth Token 明文。第一版若只用 OAuth 识别身份，不需要长期保存用户令牌；如后续接口必须使用用户令牌，再单独设计加密存储与刷新机制。
+
+当前管理员登录复用本表，标识为 `admin:<用户名>`；本地自动测试身份使用 `local-test:<名称>`。管理员只拥有自己创建的任务，不获得跨用户访问权限；密码哈希保存在后端私密配置，不写入本表，因此不需要增加表或修改已应用的迁移。
 
 ### 2. learning_sessions：寻路会话
 

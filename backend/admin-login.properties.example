@@ -1,0 +1,4 @@
+# Run scripts/setup-admin-login.ps1 to generate local credentials and a password hash.
+# Use admin-local for local HTTP, admin-login for an HTTPS demo; never combine with local-test.
+auth.admin.username=admin
+auth.admin.password-hash=

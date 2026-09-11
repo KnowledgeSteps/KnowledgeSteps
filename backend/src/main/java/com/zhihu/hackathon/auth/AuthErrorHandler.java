@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 public class AuthErrorHandler {
   @ExceptionHandler(AuthException.class)
   ResponseEntity<?> handle(AuthException error) {
-    return ResponseEntity.status(error.status()).header("Cache-Control", "no-store")
+    var response = ResponseEntity.status(error.status()).header("Cache-Control", "no-store");
+    if (error.status() == 429) response.header("Retry-After", "60");
+    return response
         .body(Map.of("error", Map.of("code", error.code(), "message", error.getMessage())));
   }
 }
