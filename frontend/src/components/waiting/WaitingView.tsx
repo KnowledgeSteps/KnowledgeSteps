@@ -1,4 +1,5 @@
 import type { SessionDetail } from '../../api/types'
+import { isMockMode } from '../../api/config'
 
 const STEPS: Array<{
   key: SessionDetail['status']
@@ -80,7 +81,9 @@ export function WaitingView({ session }: { session: SessionDetail }) {
         )}
 
         <p className="hint" style={{ marginTop: 20 }}>
-          生成通常只需要几秒。本页面为 Mock 演示，未接入真实模型与知乎搜索。
+          {isMockMode
+            ? '生成通常只需要几秒。本页面为 Mock 演示，未接入真实模型与知乎搜索。'
+            : '生成需要一点时间。你可以稍后回到本页面查看进度。'}
         </p>
       </div>
     </section>

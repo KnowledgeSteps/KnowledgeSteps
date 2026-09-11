@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import type { AnswerValue, Question } from '../api/types'
 import { ApiError } from '../api/types'
+import { isMockMode } from '../api/config'
 import {
   completeSession,
   getQuestions,
@@ -45,7 +46,8 @@ export function SessionQuestionsPage() {
         )
         setQuestions(payload.questions)
         setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0)
-        setReviewing(firstUnanswered < 0)
+        // 全部已答时默认展示完成面板，只有侧栏跳题才进入编辑态
+        setReviewing(false)
       })
       .catch((caught: unknown) => {
         if (!cancelled) setActionError(errorMessage(caught))
@@ -80,7 +82,8 @@ export function SessionQuestionsPage() {
         ) ?? null,
       )
       if (nextUnanswered >= 0) setCurrentIndex(nextUnanswered)
-      setReviewing(nextUnanswered < 0)
+      // 答完即退出编辑态：还有未答题时进入下一题，全部答完时露出完成面板
+      setReviewing(false)
     } catch (caught) {
       setActionError(errorMessage(caught))
     } finally {
@@ -232,7 +235,7 @@ export function SessionQuestionsPage() {
           ‹ 返回首页
         </button>
         <span className="tool-title">{session?.target ?? '寻路中'}</span>
-        <span className="muted">Mock 演示</span>
+        {isMockMode && <span className="muted">Mock 演示</span>}
       </div>
       {renderBody()}
     </>

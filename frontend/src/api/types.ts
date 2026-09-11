@@ -46,12 +46,18 @@ export interface SessionError {
   message: string
 }
 
+export interface SessionWarning {
+  nodeId: string
+  code: string
+  message: string
+}
+
 export interface SessionDetail {
   sessionId: string
   target: string
   status: SessionStatus
   progress: SessionProgress
-  warnings: string[]
+  warnings: SessionWarning[]
   error: SessionError | null
 }
 
@@ -98,6 +104,15 @@ export interface NodeResources {
   reason: string
   resourceStatus: ResourceStatus
   resources: LearningResource[]
+}
+
+export interface CurrentUser {
+  userId: string
+  csrfToken: string
+}
+
+export interface ApiErrorBody {
+  error: SessionError
 }
 
 export const MASTERED_VALUES: readonly AnswerValue[] = [

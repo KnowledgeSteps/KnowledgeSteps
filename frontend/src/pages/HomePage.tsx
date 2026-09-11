@@ -6,6 +6,7 @@ import {
   SearchOutlined,
 } from '@ant-design/icons'
 import { createSession } from '../api/sessions'
+import { isMockMode } from '../api/config'
 import { ApiError } from '../api/types'
 
 const PROMPTS = [
@@ -126,9 +127,11 @@ export function HomePage() {
               </button>
             ))}
           </div>
-          <p className="hint">
-            目标用于生成寻路结果；当前为 Mock 演示，接口与数据均为本地模拟。
-          </p>
+          {isMockMode && (
+            <p className="hint">
+              目标用于生成寻路结果；当前为 Mock 演示，接口与数据均为本地模拟。
+            </p>
+          )}
         </div>
 
         <div className="showcase-wrap enter">
@@ -348,11 +351,13 @@ export function HomePage() {
         </div>
       </section>
 
-      <div className="notice">
-        <strong>Mock 演示说明：</strong>
-        当前页面不接入真实大模型、知乎 API 或登录；题库、生成过程与资料均为本地模拟，
-        仅用于验证页面结构与交互体验。
-      </div>
+      {isMockMode && (
+        <div className="notice">
+          <strong>Mock 演示说明：</strong>
+          当前页面不接入真实大模型、知乎 API 或登录；题库、生成过程与资料均为本地模拟，
+          仅用于验证页面结构与交互体验。
+        </div>
+      )}
     </>
   )
 }

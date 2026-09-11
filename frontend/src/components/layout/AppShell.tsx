@@ -1,4 +1,5 @@
 import { Outlet, useNavigate } from 'react-router-dom'
+import { isMockMode } from '../../api/config'
 
 export function AppShell() {
   const navigate = useNavigate()
@@ -40,9 +41,11 @@ export function AppShell() {
           <span>每一个知识，都有它的台阶</span>
           <i aria-hidden="true" />
         </div>
-        <p className="footer-note">
-          Mock 前端演示 · 未接入后端、知乎 API 与大模型
-        </p>
+        {isMockMode && (
+          <p className="footer-note">
+            Mock 前端演示 · 未接入后端、知乎 API 与大模型
+          </p>
+        )}
       </footer>
     </>
   )

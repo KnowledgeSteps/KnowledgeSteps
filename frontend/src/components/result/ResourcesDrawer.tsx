@@ -4,6 +4,7 @@ import { ReloadOutlined } from '@ant-design/icons'
 import { Drawer, Spin } from 'antd'
 import type { KnowledgeNode, NodeResources } from '../../api/types'
 import { getNodeResources } from '../../api/sessions'
+import { isMockMode } from '../../api/config'
 
 interface ResourcesDrawerProps {
   sessionId: string
@@ -101,7 +102,11 @@ function NodeResourcesPanel({
       ) : data?.resourceStatus === 'EMPTY' ? (
         <StateBlock
           title="暂时没有合适资料"
-          body="这个节点还没有找到匹配的知乎内容。接入真实接口后，会在这里展示检索结果。"
+          body={
+            isMockMode
+              ? '这个节点还没有找到匹配的知乎内容。接入真实接口后，会在这里展示检索结果。'
+              : '这个节点暂时没有找到匹配的知乎内容。'
+          }
         />
       ) : data?.resourceStatus === 'FAILED' ? (
         <StateBlock
@@ -117,16 +122,18 @@ function NodeResourcesPanel({
         <>
           <div className="drawer-intro">
             <p>{data.reason}</p>
-            <span className="muted">
-              以下为本地 Mock 资料；链接为知乎站内检索，不代表具体文章。
-            </span>
+            {isMockMode && (
+              <span className="muted">
+                以下为本地 Mock 资料；链接为知乎站内检索，不代表具体文章。
+              </span>
+            )}
           </div>
           <div className="resource-list">
             {data.resources.map((item, index) => (
               <article className="resource-item" key={item.id}>
                 <div className="between">
                   <span className="resource-index">资料 {index + 1}</span>
-                  <span className="badge demo">演示数据</span>
+                  {isMockMode && <span className="badge demo">演示数据</span>}
                 </div>
                 <h4>{item.title}</h4>
                 {item.summary && <p>{item.summary}</p>}

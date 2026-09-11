@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { Spin } from 'antd'
 import type { CompletionResult, KnowledgeNode } from '../api/types'
 import { ApiError } from '../api/types'
+import { isMockMode } from '../api/config'
 import { completeSession } from '../api/sessions'
 import { isGenerating, useSession } from '../hooks/useSession'
 import { WaitingView } from '../components/waiting/WaitingView'
@@ -178,7 +179,7 @@ export function SessionResultPage() {
           ‹ 修改基础判断
         </button>
         <span className="tool-title">{session?.target ?? '路径结果'}</span>
-        <span className="muted">Mock 演示</span>
+        {isMockMode && <span className="muted">Mock 演示</span>}
       </div>
       {renderBody()}
     </>
