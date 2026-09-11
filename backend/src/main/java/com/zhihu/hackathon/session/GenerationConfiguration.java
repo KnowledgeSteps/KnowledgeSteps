@@ -23,9 +23,9 @@ public class GenerationConfiguration {
     return new SiliconFlowGenerationClient(RestClient.builder().baseUrl(url).requestFactory(factory).build(),json,key,a,b);
   }
   @Bean ResourceSearch resourceSearch(ZhihuSearchClient client) {
-    return name -> {
+    return (name, count) -> {
       for(int attempt=0;;attempt++) {
-        try { return client.search(name).stream().map(r -> new Resource(r.title(),r.url(),r.summary(),r.authorName(),r.voteCount())).toList(); }
+        try { return client.search(name, count).stream().map(r -> new Resource(r.title(),r.url(),r.summary(),r.authorName(),r.voteCount())).toList(); }
         catch(ZhihuSearchClient.SearchException ex) {
           if(!ex.retryable() || attempt==1) throw ex;
           try { Thread.sleep(1000); } catch(InterruptedException interrupted) {

@@ -197,3 +197,7 @@
 
 .waiting-card .engine-top { margin-bottom: 32px; }
 .uiverse-card .uiverse-content > .mentor .spark { display: none; }
+
+/* 已掌握节点仍可聚焦并查看说明，保留完整图谱位置。 */
+.node-card.mastered-node { border-style: dashed; }
+.node-card.mastered-node .node-tag { color: var(--text-main); }

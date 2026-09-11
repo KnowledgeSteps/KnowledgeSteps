@@ -4,6 +4,8 @@ import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { CompletionResult, KnowledgeNode } from '../../api/types';
+const LEVEL_LABELS = { VERY_FAMILIAR: '非常了解 · 已掌握', BASICALLY_KNOW: '基本了解 · 建议巩固', HEARD_OF: '听说过 · 需要补充', DONT_KNOW: '不了解 · 优先学习' } as const;
+
 interface PathViewProps {
     result: CompletionResult;
     onOpenNode: (node: KnowledgeNode) => void;
@@ -101,7 +103,7 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
     }, [result.edges, result.nodes]);
     const names = new Map(result.nodes.map((node) => [node.id, node.name]));
     const visibleEdges = result.edges.filter((edge) => names.has(edge.from) && names.has(edge.to));
-    return (<section className="path" aria-label="待补齐知识路径">
+    return (<section className="path" aria-label="完整知识图谱">
       <div className="path-graph" ref={graphRef}>
         <svg className="path-edges" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true" focusable="false">
           <defs>
@@ -121,13 +123,13 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
                             nodeRefs.current.set(node.id, element);
                         else
                             nodeRefs.current.delete(node.id);
-                    }} className={`node-card uiverse-card ${node.isTarget ? "target" : ""}`} onClick={() => onOpenNode(node)}><CardDecoration icon={node.isTarget ? <AimOutlined /> : <BookOutlined />}/><span className="uiverse-content">
+                    }} className={`node-card uiverse-card ${node.isTarget ? "target" : ""} ${node.answer === "VERY_FAMILIAR" ? "mastered-node" : ""}`} onClick={() => onOpenNode(node)}><CardDecoration icon={node.isTarget ? <AimOutlined /> : <BookOutlined />}/><span className="uiverse-content">
 
                     <span className="node-tag">
-                      {node.isTarget ? '学习目标' : '待补齐'}
+                      {node.isTarget ? '学习目标' : node.answer ? LEVEL_LABELS[node.answer] : '待自评'}
                     </span>
                     <strong>{node.name}</strong>
-                    <small>点击查看学习资料</small>
+                    <small>{node.isTarget || node.resourceLimit === 0 ? '查看节点说明 · 无推荐资料' : `查看资料 · 最多 ${node.resourceLimit} 条`}</small>
                   </span></Button></div>))}
               </div>
             </div>);

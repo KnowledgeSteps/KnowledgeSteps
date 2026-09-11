@@ -73,6 +73,8 @@ export interface KnowledgeNode {
   name: string
   isTarget: boolean
   level: number
+  answer: AnswerValue | null
+  resourceLimit: number
 }
 
 export interface GraphEdge {
@@ -82,7 +84,7 @@ export interface GraphEdge {
 
 export interface CompletionResult {
   sessionId: string
-  status: 'COMPLETED'
+  status: 'COMPLETED' | 'SEARCHING_RESOURCES'
   target: string
   missingCount: number
   nodes: KnowledgeNode[]
@@ -119,10 +121,9 @@ export interface ApiErrorBody {
 
 export const MASTERED_VALUES: readonly AnswerValue[] = [
   'VERY_FAMILIAR',
-  'BASICALLY_KNOW',
 ]
 
-export const TO_LEARN_VALUES: readonly AnswerValue[] = ['HEARD_OF', 'DONT_KNOW']
+export const TO_LEARN_VALUES: readonly AnswerValue[] = ['BASICALLY_KNOW', 'HEARD_OF', 'DONT_KNOW']
 
 export class ApiError extends Error {
   code: string

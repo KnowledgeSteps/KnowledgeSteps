@@ -42,8 +42,8 @@ class SessionIntegrationTest {
     session=new MockHttpSession();session.setAttribute(SessionAuthentication.USER_ID,1L);
     var me=mvc.perform(get("/api/v1/auth/me").session(session)).andExpect(status().isOk()).andReturn();
     csrf=json.readTree(me.getResponse().getContentAsString()).path("csrfToken").asText();
-    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","矩阵运算","理解计算")),List.of(new Edge("a","target"))));
-    when(search.search(anyString())).thenReturn(List.of(new Resource("资料","https://www.zhihu.com/question/1",null,null,null)));
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","矩阵运算","理解计算")),List.of(new Edge("a","target")), "目标的具体介绍"));
+    when(search.search(anyString(),anyInt())).thenReturn(List.of(new Resource("资料","https://www.zhihu.com/question/1",null,null,null)));
     when(model.generateQuestions(anyList())).thenAnswer(invocation -> {
       List<SavedNode> ns=invocation.getArgument(0);
       return ns.stream().map(n -> new Question(n.id(),"你了解"+n.name()+"吗？","用途")).toList();
@@ -54,8 +54,9 @@ class SessionIntegrationTest {
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isEqualTo(2);
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Integer.class,id)).isEqualTo(1);
     var snapshot=store.findOwned(1,id);
-    assertThat(snapshot.progress()).isEqualTo(new SessionStore.Progress(1,1));
-    var order=inOrder(model,search);order.verify(model).generateGraph("Transformer");order.verify(search).search("矩阵运算");order.verify(model).generateQuestions(anyList());
+    assertThat(snapshot.progress()).isEqualTo(new SessionStore.Progress(0,1));
+    var order=inOrder(model);order.verify(model).generateGraph("Transformer");order.verify(model).generateQuestions(anyList());
+    verifyNoInteractions(search);
   }
   @Test void isolatesUsersAndRejectsClientUserId() throws Exception {
     long id=create();waitFor(id,"READY");
@@ -80,7 +81,7 @@ class SessionIntegrationTest {
   @Test void returnsMultipleQuestionsBySortOrderAndKeepsUnansweredValueNull() throws Exception {
     when(model.generateGraph(anyString())).thenReturn(new Graph(
         List.of(new Node("a","线性代数","理解向量"),new Node("b","概率论","理解概率")),
-        List.of(new Edge("a","target"),new Edge("b","target"))));
+        List.of(new Edge("a","target"),new Edge("b","target")), "目标的具体介绍"));
     long id=create();waitFor(id,"READY");
     var questionIds=jdbc.query("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=? ORDER BY q.id",
         (rs,row)->rs.getLong(1),id);
@@ -118,7 +119,7 @@ class SessionIntegrationTest {
         .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
   }
   @Test void returnsAnEmptyQuestionListWhenTargetHasNoPrerequisites() throws Exception {
-    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of()));
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of(), "目标的具体介绍"));
     long id=create();waitFor(id,"READY");
     mvc.perform(get("/api/v1/learning-sessions/"+id+"/questions").session(session))
         .andExpect(status().isOk()).andExpect(jsonPath("$.questions.length()").value(0));
@@ -180,32 +181,33 @@ class SessionIntegrationTest {
         .contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
         .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SESSION_NOT_READY"));
   }
-  @Test void completesAnsweredSessionAndReconnectsVisibleNodesAcrossMasteredNodes() throws Exception {
+  @Test void completesAnsweredSessionAndPreservesMasteredNodesAndOriginalEdges() throws Exception {
     when(model.generateGraph(anyString())).thenReturn(new Graph(
         List.of(new Node("a","基础","基础说明"),new Node("b","中间","中间说明"),new Node("c","进阶","进阶说明")),
-        List.of(new Edge("a","b"),new Edge("b","c"),new Edge("c","target"))));
+        List.of(new Edge("a","b"),new Edge("b","c"),new Edge("c","target")), "目标的具体介绍"));
     long id=create();waitFor(id,"READY");
     answer(id, questionId(id, "基础"), "HEARD_OF");
     answer(id, questionId(id, "中间"), "VERY_FAMILIAR");
     answer(id, questionId(id, "进阶"), "DONT_KNOW");
     String path="/api/v1/learning-sessions/"+id+"/complete";
     long basicId=nodeId(id, "基础");
-    long advancedId=nodeId(id, "进阶");
+    long middleId=nodeId(id, "中间");
+    complete(id);
 
     mvc.perform(post(path).session(session).header("X-CSRF-Token",csrf))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.sessionId").value(Long.toString(id)))
         .andExpect(jsonPath("$.status").value("COMPLETED"))
         .andExpect(jsonPath("$.missingCount").value(2))
-        .andExpect(jsonPath("$.nodes.length()").value(3))
+        .andExpect(jsonPath("$.nodes.length()").value(4))
         .andExpect(jsonPath("$.nodes[0].name").value("基础"))
         .andExpect(jsonPath("$.nodes[0].level").value(0))
-        .andExpect(jsonPath("$.nodes[1].name").value("进阶"))
+        .andExpect(jsonPath("$.nodes[1].name").value("中间"))
         .andExpect(jsonPath("$.nodes[1].level").value(1))
-        .andExpect(jsonPath("$.nodes[2].name").value("Transformer"))
-        .andExpect(jsonPath("$.edges.length()").value(2))
+        .andExpect(jsonPath("$.nodes[2].name").value("进阶"))
+        .andExpect(jsonPath("$.edges.length()").value(3))
         .andExpect(jsonPath("$.edges[0].from").value(Long.toString(basicId)))
-        .andExpect(jsonPath("$.edges[0].to").value(Long.toString(advancedId)));
+        .andExpect(jsonPath("$.edges[0].to").value(Long.toString(middleId)));
     String completedAt=jdbc.queryForObject("SELECT completed_at FROM learning_sessions WHERE id=?",String.class,id);
     mvc.perform(post(path).session(session).header("X-CSRF-Token",csrf))
         .andExpect(status().isOk()).andExpect(jsonPath("$.missingCount").value(2));
@@ -224,7 +226,7 @@ class SessionIntegrationTest {
     mvc.perform(post(incompletePath).session(other).header("X-CSRF-Token",otherCsrf))
         .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
 
-    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of()));
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of(), "目标的具体介绍"));
     long direct=create();waitFor(direct,"READY");
     mvc.perform(post("/api/v1/learning-sessions/"+direct+"/complete").session(session).header("X-CSRF-Token",csrf))
         .andExpect(status().isOk())
@@ -253,6 +255,7 @@ class SessionIntegrationTest {
         .andExpect(jsonPath("$.resources[0].voteCount").value(42));
     long targetId=jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=? AND is_target=1",Long.class,id);
     mvc.perform(get("/api/v1/learning-sessions/"+id+"/nodes/"+targetId+"/resources").session(session))
+        .andExpect(jsonPath("$.reason").value("目标的具体介绍"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.resourceStatus").value("NOT_APPLICABLE"))
         .andExpect(jsonPath("$.resources.length()").value(0));
@@ -268,13 +271,14 @@ class SessionIntegrationTest {
     answer(id, questionId(id), "VERY_FAMILIAR");
     complete(id);
     mvc.perform(get(path).session(session))
-        .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
+        .andExpect(status().isOk()).andExpect(jsonPath("$.resourceStatus").value("NOT_APPLICABLE"))
+        .andExpect(jsonPath("$.resources.length()").value(0));
     var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
     mvc.perform(get(path).session(other))
         .andExpect(status().isNotFound()).andExpect(jsonPath("$.error.code").value("NOT_FOUND"));
   }
   @Test void returnsEmptyAndFailedResourceStatusesWithoutInventingResources() throws Exception {
-    when(search.search(anyString())).thenReturn(List.of());
+    when(search.search(anyString(),anyInt())).thenReturn(List.of());
     long emptySession=create();waitFor(emptySession,"READY");
     answer(emptySession, questionId(emptySession), "HEARD_OF");
     complete(emptySession);
@@ -283,7 +287,7 @@ class SessionIntegrationTest {
         .andExpect(status().isOk()).andExpect(jsonPath("$.resourceStatus").value("EMPTY"))
         .andExpect(jsonPath("$.resources.length()").value(0));
 
-    when(search.search(anyString())).thenThrow(new IllegalStateException("upstream unavailable"));
+    when(search.search(anyString(),anyInt())).thenThrow(new IllegalStateException("upstream unavailable"));
     long failedSession=create();waitFor(failedSession,"READY");
     answer(failedSession, questionId(failedSession), "HEARD_OF");
     complete(failedSession);
@@ -307,13 +311,14 @@ class SessionIntegrationTest {
     verifyNoInteractions(model,search);
   }
   @Test void searchFailureBecomesWarningAndStillReady() throws Exception {
-    when(search.search(anyString())).thenThrow(new IllegalStateException("private response"));
+    when(search.search(anyString(),anyInt())).thenThrow(new IllegalStateException("private response"));
     long id=create();waitFor(id,"READY");
+    answer(id,questionId(id),"HEARD_OF"); complete(id);
     assertThat(store.findOwned(1,id).warnings()).hasSize(1);
     assertThat(store.findOwned(1,id).progress()).isEqualTo(new SessionStore.Progress(1,1));
   }
   @Test void invalidGraphFailsBeforeSavingAnyNodes() throws Exception {
-    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","A","why")),List.of()));
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","A","why")),List.of(), "目标的具体介绍"));
     long id=create();waitFor(id,"FAILED");
     assertThat(store.findOwned(1,id).error().code()).isEqualTo("GRAPH_GENERATION_FAILED");
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isZero();
@@ -326,7 +331,7 @@ class SessionIntegrationTest {
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Integer.class,id)).isZero();
   }
   @Test void noPrerequisitesSkipsSearchAndQuestionModel() throws Exception {
-    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of()));
+    when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(),List.of(), "目标的具体介绍"));
     long id=create();waitFor(id,"READY");
     verify(model,never()).generateQuestions(anyList());verifyNoInteractions(search);
     assertThat(store.findOwned(1,id).progress()).isEqualTo(new SessionStore.Progress(0,0));
@@ -336,6 +341,70 @@ class SessionIntegrationTest {
     long unfinished=store.create(1,"Interrupted");store.recoverInterrupted();
     assertThat(store.findOwned(1,unfinished).error().code()).isEqualTo("GENERATION_INTERRUPTED");
     assertThat(store.findOwned(1,ready).status()).isEqualTo("READY");
+  }
+  @Test void assignsFourResourceLimitsAndOnlySearchesChangedAnswers() throws Exception {
+    var definitions = List.of(new Node("a","熟练","说明"),new Node("b","基本","说明"),new Node("c","听过","说明"),new Node("d","陌生","说明"));
+    when(model.generateGraph(anyString())).thenReturn(new Graph(definitions,
+        definitions.stream().map(n -> new Edge(n.key(),"target")).toList(), "目标的具体介绍"));
+    // 故意返回超过请求数量的结果，后端也必须限制保存与展示数量。
+    when(search.search(anyString(),anyInt())).thenReturn(java.util.stream.IntStream.range(0,7)
+        .mapToObj(i -> new Resource("资料"+i,"https://www.zhihu.com/question/"+(i+1),null,null,null)).toList());
+    long id=create();waitFor(id,"READY");
+    verifyNoInteractions(search);
+    String[] answers={"VERY_FAMILIAR","BASICALLY_KNOW","HEARD_OF","DONT_KNOW"};
+    int[] counts={0,2,3,5};
+    for(int i=0;i<4;i++) answer(id,questionId(id,definitions.get(i).name()),answers[i]);
+    complete(id);
+    var result=store.completeOwned(1,id);
+    assertThat(result.nodes()).hasSize(5);
+    assertThat(result.edges()).hasSize(4);
+    assertThat(result.missingCount()).isEqualTo(3);
+    for(int i=0;i<4;i++) {
+      final int index=i;
+      var node=result.nodes().stream().filter(n -> n.name().equals(definitions.get(index).name())).findFirst().orElseThrow();
+      assertThat(node.answer()).isEqualTo(answers[i]);
+      assertThat(node.resourceLimit()).isEqualTo(counts[i]);
+      assertThat(store.findResourcesOwned(1,id,Long.parseLong(node.id())).resources()).hasSize(counts[i]);
+    }
+    verify(search,never()).search(eq("熟练"),anyInt());
+    verify(search).search("基本",2);verify(search).search("听过",3);verify(search).search("陌生",5);
+    clearInvocations(search);
+    complete(id); // 刷新、重复提交不发起新搜索。
+    answer(id,questionId(id,"基本"),"BASICALLY_KNOW");complete(id);
+    verifyNoInteractions(search);
+    answer(id,questionId(id,"基本"),"DONT_KNOW");complete(id);
+    verify(search).search("基本",5);verifyNoMoreInteractions(search);
+    answer(id,questionId(id,"基本"),"VERY_FAMILIAR");complete(id);
+    assertThat(store.findResourcesOwned(1,id,nodeId(id,"基本")).resources()).isEmpty();
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM node_resources WHERE node_id=?",Integer.class,nodeId(id,"基本"))).isZero();
+  }
+  @Test void repeatedCompletionDoesNotDispatchTwiceAndFreezesAnswersWhileSearching() throws Exception {
+    var entered=new java.util.concurrent.CountDownLatch(1);
+    var release=new java.util.concurrent.CountDownLatch(1);
+    when(search.search(anyString(),anyInt())).thenAnswer(invocation -> {
+      entered.countDown();release.await(5,java.util.concurrent.TimeUnit.SECONDS);return List.of();
+    });
+    long id=create();waitFor(id,"READY");answer(id,questionId(id),"DONT_KNOW");
+    String path="/api/v1/learning-sessions/"+id;
+    try {
+      mvc.perform(post(path+"/complete").session(session).header("X-CSRF-Token",csrf))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SEARCHING_RESOURCES"));
+      assertThat(entered.await(3,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+      mvc.perform(post(path+"/complete").session(session).header("X-CSRF-Token",csrf))
+          .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("SEARCHING_RESOURCES"));
+      mvc.perform(put(path+"/answers/"+questionId(id)).session(session).header("X-CSRF-Token",csrf)
+          .contentType("application/json").content("{\"answer\":\"VERY_FAMILIAR\"}"))
+          .andExpect(status().isConflict());
+    } finally { release.countDown(); }
+    waitFor(id,"COMPLETED");verify(search,times(1)).search("矩阵运算",5);
+  }
+  @Test void interruptedResourceSearchKeepsAnswersAndCanBeResubmitted() throws Exception {
+    long id=create();waitFor(id,"READY");answer(id,questionId(id),"HEARD_OF");
+    store.completeOwned(1,id); // 模拟已持久化状态但进程在执行前重启。
+    store.recoverInterrupted();
+    assertThat(store.findOwned(1,id).status()).isEqualTo("READY");
+    assertThat(store.findQuestionsOwned(1,id).questions().getFirst().answer()).isEqualTo("HEARD_OF");
+    complete(id);verify(search).search("矩阵运算",3);
   }
   private long create() throws Exception {
     var result=mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf)
@@ -366,6 +435,7 @@ class SessionIntegrationTest {
   private void complete(long sessionId) throws Exception {
     mvc.perform(post("/api/v1/learning-sessions/"+sessionId+"/complete").session(session).header("X-CSRF-Token",csrf))
         .andExpect(status().isOk());
+    waitFor(sessionId,"COMPLETED");
   }
   private void waitFor(long id,String status) { await().atMost(Duration.ofSeconds(5)).untilAsserted(()->assertThat(store.findOwned(1,id).status()).isEqualTo(status)); }
 }

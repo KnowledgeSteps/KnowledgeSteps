@@ -21,13 +21,25 @@ public class LearningSessionService {
     catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务不存在。"); }
   }
 
-  public AnswerResponse saveAnswer(long userId, String sessionId, String questionId, String answer) {
+  public synchronized AnswerResponse saveAnswer(long userId, String sessionId, String questionId, String answer) {
     try { return store.saveAnswerOwned(userId, parseSessionId(sessionId), parseSessionId(questionId), answer); }
     catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务或题目不存在。"); }
   }
 
-  public CompletionResponse complete(long userId, String sessionId) {
-    try { return store.completeOwned(userId, parseSessionId(sessionId)); }
+  public synchronized CompletionResponse complete(long userId, String sessionId) {
+    try {
+      long id = parseSessionId(sessionId);
+      var before = store.findOwned(userId, id);
+      if (!before.status().equals("SEARCHING_RESOURCES") && !store.pendingResources(id).isEmpty()
+          && (executor.isShutdown() || executor.getQueue().remainingCapacity() == 0))
+        throw new SessionException(429,"RATE_LIMITED","资料搜索繁忙，请稍后再次提交。");
+      var result = store.completeOwned(userId, id);
+      if (result.status().equals("SEARCHING_RESOURCES") && !before.status().equals("SEARCHING_RESOURCES")) {
+        try { executor.execute(() -> pipeline.searchAfterAssessment(id)); }
+        catch (RejectedExecutionException ex) { store.finishResources(id); }
+      }
+      return result;
+    }
     catch(NumberFormatException ex) { throw new SessionException(404,"NOT_FOUND","任务不存在。"); }
   }
 

@@ -151,6 +151,8 @@ function parseNode(value: unknown): KnowledgeNode {
     name: stringValue(record.name),
     isTarget: booleanValue(record.isTarget),
     level: numberValue(record.level),
+    answer: record.answer === null ? null : enumValue(record.answer, ANSWER_VALUES),
+    resourceLimit: numberValue(record.resourceLimit),
   }
 }
 
@@ -166,7 +168,7 @@ function parseCompletionResult(value: unknown): CompletionResult {
   const record = objectValue(value)
   return {
     sessionId: stringValue(record.sessionId),
-    status: enumValue(record.status, ['COMPLETED'] as const),
+    status: enumValue(record.status, ['COMPLETED', 'SEARCHING_RESOURCES'] as const),
     target: stringValue(record.target),
     missingCount: numberValue(record.missingCount),
     nodes: arrayValue(record.nodes, parseNode),

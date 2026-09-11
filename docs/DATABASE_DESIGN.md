@@ -4,7 +4,7 @@
 
 ## 一、数据关系
 
-一次寻路对应一个 learning_sessions。会话属于用户，节点属于会话，依赖边连接同一会话中的两个节点。每个前置节点有一题和最多三条知乎资料，每题只有一份可修改的当前答案。
+一次寻路对应一个 learning_sessions。会话属于用户，节点属于会话，依赖边连接同一会话中的两个节点。每个前置节点有一题和最多五条知乎资料，每题只有一份可修改的当前答案。
 
 ```text
 users → learning_sessions → knowledge_nodes → node_resources
@@ -12,7 +12,7 @@ users → learning_sessions → knowledge_nodes → node_resources
                          └→ knowledge_edges（前置节点 → 后续节点）
 ```
 
-第一版共七张表。不单独建立最终结果表：结果从节点掌握状态和原始依赖边推导。已掌握内容只从展示中隐藏，不物理删除。
+第一版共七张表。不单独建立最终结果表：结果从节点掌握状态和原始依赖边推导。全部节点均保留展示；非常了解的节点不搜索资料。
 
 ## 二、字段规范
 
@@ -52,7 +52,7 @@ users → learning_sessions → knowledge_nodes → node_resources
 | updated_at | TEXT | 必填 | 最新修改时间 |
 | completed_at | TEXT | 可空 | 完成时间；修改答案后清空 |
 
-状态顺序：GENERATING_GRAPH → SEARCHING_RESOURCES → GENERATING_QUESTIONS → READY → COMPLETED。生成阶段不可恢复错误进入 FAILED；已完成后修改答案回到 READY。
+状态顺序：GENERATING_GRAPH → GENERATING_QUESTIONS → READY → SEARCHING_RESOURCES → COMPLETED。生成阶段不可恢复错误进入 FAILED；已完成后修改答案回到 READY。
 
 进度数从节点 resource_status 聚合，答题数从答案表聚合，不再重复存储计数。索引 `(user_id, created_at)`。
 
@@ -128,7 +128,7 @@ users → learning_sessions → knowledge_nodes → node_resources
 | 选项 | 文案 | 节点状态 |
 | --- | --- | --- |
 | VERY_FAMILIAR | 非常了解 | MASTERED |
-| BASICALLY_KNOW | 基本了解 | MASTERED |
+| BASICALLY_KNOW | 基本了解 | TO_LEARN |
 | HEARD_OF | 听说过 | TO_LEARN |
 | DONT_KNOW | 不了解 | TO_LEARN |
 
@@ -146,3 +146,6 @@ users → learning_sessions → knowledge_nodes → node_resources
 本文件是字段和行为设计；实际可用状态以已运行的迁移、后端接口和测试结果共同确认为准。
 
 当前实现进展：创建任务、图与依赖保存、节点搜索结果、自评题保存、答案保存、完成结果推导、节点资料读取及进度查询已使用上述表；本地测试身份写入带 local-test: 前缀的用户。本轮未修改 V1/V2 或增加表。数据库连接设置 5 秒忙等待，生成链路使用短事务；启动时把生成中任务标记为失败以避免永久停留。
+
+
+本次四档资料规则、旧任务迁移和搜索恢复行为详见 [自评与资料规则](ASSESSMENT_RESOURCES.md)。

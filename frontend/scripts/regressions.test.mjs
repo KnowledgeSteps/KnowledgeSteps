@@ -100,3 +100,36 @@ test('two tabs create distinct tasks and read each other updates without replaci
   assert.equal(updated[1].answer, 'VERY_FAMILIAR')
   assert.equal(b.mockGetSession('tabs', second.sessionId).target, 'RAG')
 })
+
+
+test('mock retains all nodes and applies assessment resource counts after submission', () => {
+  const user = 'assessment-policy'
+  const { sessionId } = store.mockCreateSession(user, 'Transformer')
+  const key = `zhijie-mock-session-v3:${user}:${sessionId}`
+  const age = (field) => {
+    const record = JSON.parse(cache.get(key))
+    record[field] = Date.now() - 10_000
+    cache.set(key, JSON.stringify(record))
+  }
+  age('createdAt')
+  const questions = store.mockGetQuestions(user, sessionId).questions
+  const answers = ['VERY_FAMILIAR', 'BASICALLY_KNOW', 'HEARD_OF', 'DONT_KNOW']
+  for (const [i, q] of questions.entries()) store.mockSaveAnswer(user, sessionId, q.questionId, answers[i % 4])
+  const pending = store.mockCompleteSession(user, sessionId)
+  assert.equal(pending.status, 'SEARCHING_RESOURCES')
+  assert.equal(store.mockCompleteSession(user, sessionId).status, 'SEARCHING_RESOURCES')
+  assert.throws(() => store.mockSaveAnswer(user, sessionId, questions[0].questionId, 'DONT_KNOW'), e => e.status === 409)
+  age('resourcesStartedAt')
+  assert.equal(store.mockGetSession(user, sessionId).status, 'COMPLETED')
+  const result = store.mockCompleteSession(user, sessionId)
+  assert.equal(result.nodes.length, questions.length + 1)
+  for (const [i, q] of questions.entries()) {
+    const node = result.nodes.find(n => n.id === q.nodeId)
+    const expected = [0, 2, 3, 5][i % 4]
+    assert.equal(node.resourceLimit, expected)
+    const resources = store.mockGetNodeResources(user, sessionId, node.id)
+    assert.ok(resources.resources.length <= expected)
+    if (!expected) assert.equal(resources.resourceStatus, 'NOT_APPLICABLE')
+    if (resources.resourceStatus === 'READY') assert.equal(resources.resources.length, expected)
+  }
+})

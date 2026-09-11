@@ -22,7 +22,7 @@ function messageOf(caught: unknown): string {
 export function SessionResultPage() {
     const { sessionId = '' } = useParams();
     const navigate = useNavigate();
-    const { session, error: sessionError } = useSession(sessionId);
+    const { session, error: sessionError, reload } = useSession(sessionId);
     const [result, setResult] = useState<CompletionResult | null>(null);
     const [resultError, setResultError] = useState<string | null>(null);
     const [openNode, setOpenNode] = useState<KnowledgeNode | null>(null);
@@ -40,7 +40,8 @@ export function SessionResultPage() {
             .then((payload) => {
             if (!cancelled) {
                 setResultError(null);
-                setResult(payload);
+                if (payload.status === 'SEARCHING_RESOURCES') { reload(); }
+                else setResult(payload);
             }
         })
             .catch((caught: unknown) => {
@@ -50,7 +51,7 @@ export function SessionResultPage() {
         return () => {
             cancelled = true;
         };
-    }, [sessionId, completed]);
+    }, [sessionId, completed, reload]);
     function renderBody() {
         if (sessionError) {
             return (<Message title="无法读取这条记录" body={sessionError.message} onPrimary={() => navigate('/')} primaryLabel="回到首页"/>);
@@ -74,7 +75,7 @@ export function SessionResultPage() {
         </div>);
         }
         if (resultError) {
-            return (<Message title="结果没有加载成功" body={resultError} onPrimary={() => window.location.reload()} primaryLabel="再试一次" secondary={<Button htmlType="button" type="text" className="textbutton" onClick={() => navigate(`/sessions/${sessionId}/questions`)}>
+            return (<Message title="结果没有加载成功" body={resultError} onPrimary={() => window.location.reload()} primaryLabel="再试一次" secondary={<Button htmlType="button" type="text" className="textbutton" disabled={session?.status === 'SEARCHING_RESOURCES'} onClick={() => navigate(`/sessions/${sessionId}/questions`)}>
               回到问卷
             </Button>}/>);
         }
@@ -89,15 +90,15 @@ export function SessionResultPage() {
                 <h1>
                   学习 <em>{result.target}</em>，
                   <br />
-                  你还需要补齐 {result.missingCount} 个前置知识
+                  有 {result.missingCount} 个节点建议巩固或了解
                 </h1>
                 <p>
-                  已掌握的节点已被隐藏，只保留真正需要走的台阶。
+                  保留完整图谱，按你的熟悉程度提供不同数量的学习资料。
                 </p>
               </div>
               <div className="gap-count">
                 <strong>{result.missingCount}</strong>
-                <span>个待补齐前置</span>
+                <span>个待巩固节点</span>
               </div>
             </div>
           </div></section></div>)}
@@ -122,7 +123,7 @@ export function SessionResultPage() {
     }
     return (<>
       <div className="toolbar">
-        <Button htmlType="button" type="text" className="textbutton" onClick={() => navigate(`/sessions/${sessionId}/questions`)}>
+        <Button htmlType="button" type="text" className="textbutton" disabled={session?.status === 'SEARCHING_RESOURCES'} onClick={() => navigate(`/sessions/${sessionId}/questions`)}>
           修改基础判断
         </Button>
         <span className="tool-title">{session?.target ?? '路径结果'}</span>

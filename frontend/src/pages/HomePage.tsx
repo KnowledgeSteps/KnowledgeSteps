@@ -74,7 +74,7 @@ export function HomePage() {
 
           <div className="example-title"><ApartmentOutlined /><span>知识有来处，学习有顺序</span><Tag>示例</Tag></div>
           <ExampleTree />
-          <p>保留分叉和依赖，只隐藏你已经掌握的节点。</p>
+          <p>保留完整知识关系，按熟悉程度推荐学习资料。</p>
         </div></aside>
       </section>
       <section className="home-process" aria-labelledby="home-process-title">
@@ -82,7 +82,7 @@ export function HomePage() {
         <div className="process-grid">
           <KnowledgeCard className="ks-card-interactive" icon={<ApartmentOutlined />}><span className="process-number">01</span><h3>拆解前置知识</h3><p>从目标倒推基础，整理分叉与依赖关系。每次最多生成 20 个前置节点。</p></KnowledgeCard>
           <KnowledgeCard className="ks-card-interactive" icon={<FormOutlined />}><span className="process-number">02</span><h3>确认已有基础</h3><p>通过四档自评标记掌握程度，按真实情况选择，也可以返回修改。</p></KnowledgeCard>
-          <KnowledgeCard className="ks-card-interactive" icon={<ReadOutlined />}><span className="process-number">03</span><h3>查看补齐路径</h3><p>结果只展示待补齐节点、目标与依赖，每个前置节点最多附三条知乎资料。</p></KnowledgeCard>
+          <KnowledgeCard className="ks-card-interactive" icon={<ReadOutlined />}><span className="process-number">03</span><h3>查看补齐路径</h3><p>完整展示知识节点与依赖，按熟悉程度推荐最多五条知乎资料。</p></KnowledgeCard>
         </div>
       </section>
       {isMockMode && <Alert type="info" showIcon title="当前使用 Mock 学习数据" description="登录使用真实后端；题库、生成过程与学习资料为本地模拟，不调用模型或知乎搜索。"/>}

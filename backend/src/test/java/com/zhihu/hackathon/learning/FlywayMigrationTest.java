@@ -42,7 +42,7 @@ class FlywayMigrationTest {
         var jdbc = context.getBean(JdbcTemplate.class);
         assertThat(jdbc.queryForObject("PRAGMA foreign_keys", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class))
-            .isEqualTo(2);
+            .isEqualTo(3);
         if (start == 0) {
           jdbc.update("INSERT INTO users (zhihu_user_id, created_at) VALUES ('restart-user', '2026-09-08T00:00:00Z')");
         }
@@ -56,7 +56,7 @@ class FlywayMigrationTest {
   void migratesEmptyDatabaseAndDoesNotRepeatMigrations() throws Exception {
     String url = "jdbc:sqlite:" + directory.resolve("empty.db");
     Flyway flyway = Flyway.configure().dataSource(url, null, null).load();
-    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
     assertThat(flyway.migrate().migrationsExecuted).isZero();
     try (var connection = DriverManager.getConnection(url);
          var statement = connection.createStatement();
@@ -75,7 +75,7 @@ class FlywayMigrationTest {
     }
     Flyway flyway = Flyway.configure().dataSource(url, null, null)
         .baselineOnMigrate(true).baselineVersion("0").load();
-    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(2);
+    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(3);
     try (var connection = DriverManager.getConnection(url);
          var statement = connection.createStatement();
          var result = statement.executeQuery("SELECT user_id FROM learning_records WHERE id=1")) {
