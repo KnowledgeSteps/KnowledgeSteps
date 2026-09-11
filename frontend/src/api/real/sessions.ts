@@ -1,5 +1,6 @@
-import { ensureCurrentUser, refreshAfterCsrfFailure } from '../auth'
+import { ensureCurrentUser, invalidateCurrentUser, isCurrentAuthentication, refreshAfterCsrfFailure } from '../auth'
 import { apiJson } from '../http'
+import { ApiError } from '../types'
 import type {
   AnswerSaveResult,
   AnswerValue,
@@ -206,9 +207,17 @@ async function request<T>(
   const headers = new Headers(options.headers)
   if (csrf) headers.set('X-CSRF-Token', user.csrfToken)
   try {
-    return await apiJson(path, { ...options, headers }, validate)
+    const result = await apiJson(path, { ...options, headers }, validate)
+    if (!isCurrentAuthentication(user)) {
+      throw new ApiError(401, 'AUTH_CHANGED', '登录状态已变化，请重新操作。')
+    }
+    return result
   } catch (error) {
-    if (csrf) await refreshAfterCsrfFailure(error)
+    if (!isCurrentAuthentication(user)) {
+      throw new ApiError(401, 'AUTH_CHANGED', '登录状态已变化，请重新操作。')
+    }
+    if (error instanceof ApiError && error.status === 401) invalidateCurrentUser(user)
+    if (csrf && isCurrentAuthentication(user)) await refreshAfterCsrfFailure(error)
     throw error
   }
 }

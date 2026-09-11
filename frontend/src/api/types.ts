@@ -107,6 +107,8 @@ export interface NodeResources {
 }
 
 export interface CurrentUser {
+  nickname?: string
+  avatarUrl?: string
   userId: string
   csrfToken: string
 }
@@ -125,11 +127,13 @@ export const TO_LEARN_VALUES: readonly AnswerValue[] = ['HEARD_OF', 'DONT_KNOW']
 export class ApiError extends Error {
   code: string
   status: number
+  retryAfterSeconds: number | null
 
-  constructor(status: number, code: string, message: string) {
+  constructor(status: number, code: string, message: string, retryAfterSeconds: number | null = null) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }

@@ -1,6 +1,6 @@
 # API 约定
 
-> 创建任务、查询状态、答卷读取、答案保存、结果生成、节点资料及当前用户接口已实现；OAuth 登录仍待实现。数据库字段见 [数据库设计](DATABASE_DESIGN.md)。
+> 六个寻路接口、管理员密码登录、当前用户和退出接口已实现；知乎 OAuth 登录仍待实现。数据库字段见 [数据库设计](DATABASE_DESIGN.md)。
 
 ## 一、整体流程
 
@@ -208,9 +208,28 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
 
 ### 当前身份接入与本地调试
 
-`GET /api/v1/auth/me` 已实现，成功返回 `{"userId":"1","csrfToken":"会话绑定的随机令牌"}`，同时建立会话 Cookie；普通配置下没有登录会话返回 401。OAuth 回调尚未实现，普通配置不会自行获得登录身份。
+管理员登录已接入，前端唯一公开入口为 `/login`，左下角按钮打开账号密码弹窗。首页、答卷、结果和其他路径都受登录保护；Mock 数据模式也需要真实认证。知乎授权按钮目前仅提示申请中，不发起尚未实现的 OAuth 请求。以下两个接口都不要求已有登录身份：
 
-认证代码集中在 `com.zhihu.hackathon.auth` 模块（Java 包，尚未拆成独立 Maven 工程），不依赖学习任务模块。`CurrentUserProvider` 是业务读取身份的入口；`AuthUserStore` 隔离用户存储，`SessionAuthentication` 负责会话生命周期，`CsrfTokens` 负责写请求校验，`AuthException` 及其处理器统一返回 401/403。
+| 方法 | 路径 | 用途 |
+| --- | --- | --- |
+| GET | `/api/v1/auth/csrf` | 创建匿名会话并获取登录所需的 CSRF Token |
+| POST | `/api/v1/auth/admin/login` | 校验管理员密码并建立登录会话 |
+
+先调用 GET，成功 200 返回 `{"csrfToken":"会话绑定的随机令牌"}`。保留 Cookie，再向 POST 提交 `{"username":"admin","password":"用户输入的密码"}`，并在 `X-CSRF-Token` 请求头中携带刚取得的令牌。
+
+登录成功 200 返回 `{"userId":"内部用户ID","csrfToken":"新会话令牌"}`。旧会话失效，Cookie 和 CSRF Token 轮换；后续写请求必须使用新令牌。响应带 `Cache-Control: no-store`。前端只在表单内存中短暂处理密码，不写 URL 或浏览器持久化存储；未登录访问题单或结果页会跳到登录页，并在成功后恢复安全的站内任务地址。
+
+失败：400 `INVALID_LOGIN_REQUEST`（请求体格式错误）、401 `INVALID_CREDENTIALS`（统一提示“账号或密码不正确。”）、403 `CSRF_INVALID`、429 `LOGIN_RATE_LIMITED`（Retry-After: 60）、503 `ADMIN_LOGIN_DISABLED`。单实例全局每个 60 秒窗口最多受理 10 次凭证校验，修改用户名或 Cookie 不重置计数。登录失败不创建用户，也不自动重放登录请求。
+
+管理员登录默认关闭。`admin-local` 配置启用登录且仅监听 127.0.0.1，适合本地 HTTP；`admin-login` 配置启用登录并强制 Secure Cookie，适合 HTTPS 演示站点。任何管理员模式都不能与 local-test 身份旁路同时开启，否则启动失败。启用时必须配置合法用户名和密码哈希；缺少哈希会拒绝启动，没有公共默认密码。
+
+`AuthUserStore.adminUser` 使用 `admin:<username>` 作为内部身份标识写入 users，重复登录复用同一用户。该标识不是知乎用户 ID，也不代表 OAuth 已接入；没有新增表或修改迁移。业务始终按当前 user_id 隔离，管理员无跨用户读取能力。多位成员共用同一管理员账号时，也会共用该账号的任务。
+
+密码格式为 `pbkdf2-sha256$600000$<16字节盐的Base64>$<32字节哈希的Base64>`，使用 PBKDF2-HMAC-SHA256。通过 `backend/scripts/setup-admin-login.ps1` 可生成随机初始密码和被 Git 忽略的本地配置；部署时由平台 Secret 注入用户名和哈希，不传到前端。
+
+`GET /api/v1/auth/me` 已实现，成功返回 `{"userId":"1","csrfToken":"会话绑定的随机令牌"}`；没有登录会话返回 401（local-test 自动测试身份除外）。管理员登录成功后可查询此接口，OAuth 回调仍未实现。
+
+认证代码集中在 `com.zhihu.hackathon.auth` 模块（Java 包，尚未拆成独立 Maven 工程），不依赖学习任务模块。`CurrentUserProvider` 是业务读取身份的入口；`AuthUserStore` 隔离用户存储，`SessionAuthentication` 负责会话生命周期，`CsrfTokens` 负责写请求校验，`AuthException` 及其处理器统一返回认证错误。
 
 普通配置从服务器会话的 `knowledgeSteps.userId` 读取内部用户 ID，并确认该用户仍存在且不是 local-test: 测试身份。OAuth 后续完成授权验证、令牌交换、用户信息查询和用户落库后，再调用 `SessionAuthentication.establish`：旧会话失效，新会话与 CSRF 令牌重新生成，避免沿用登录前会话。该方法不对浏览器提供设置用户 ID 的接口。
 
@@ -245,7 +264,7 @@ GraphGenerator、QuestionGenerator、ResourceSearch 为上游端口，SessionSto
 
 OAuth 尚待实现的接口为 `GET /api/v1/auth/zhihu/login`（跳转授权）和 `GET /api/v1/auth/zhihu/callback`（校验授权响应、换取身份、建立会话）。除 app_id/app_key 外，还需确认用户信息接口、稳定 ID 字段、state 回传及回调白名单；接入时应实现授权事务有效期、一次性消费与拒绝重复回调、上游超时和错误脱敏。PKCE 是否可用需官方确认，不能假定支持。返回站内页面应使用固定或白名单地址，不接受任意跳转 URL。
 
-认证模块回归：Java 21 verify 共 55 项测试通过，新增覆盖会话与 CSRF 轮换、跨会话 CSRF 拒绝、无效用户、测试用户单次初始化、退出与禁止缓存。此结果不表示 OAuth 授权码交换已经完成。
+2026-09-11 管理员登录回归：Java 21 完整 verify 共 81 项测试全部通过，覆盖密码验证、尝试限流、会话与 CSRF 轮换、任务归属、退出失效，以及管理员与 local-test 配置冲突（包括关闭登录开关的覆盖场景）。前端 lint、typecheck、build 通过；隔离数据库中真实 HTTP 验证登录与退出，浏览器验证错误提示、登录后返回原任务、完成任务和退出。`admin-login` 实际响应已确认包含 Secure、HttpOnly、SameSite=Lax Cookie。验收未调用模型或知乎，不表示 OAuth 授权码交换或实际 HTTPS 部署已经完成。
 
 模型 A 输入目标，输出稳定临时节点标识、名称、描述、依赖边；由后端分配数据库 ID。模型 B 输入已校验节点及数据库 ID，为每个前置节点输出一道题目和提示。后端校验题目覆盖完整且不重复。
 
@@ -291,3 +310,5 @@ AI 使用 model.base-url、model.api-key 和 model.graph-model；当前 A、B �
 - 知乎 OAuth Token、Access Secret 和模型密钥只在后端环境变量中使用，不能返回给浏览器。
 - 查询学习记录必须同时使用当前用户标识和记录 ID；不能只按记录 ID 查询。
 - 未完成 OAuth 接入前，不得用开发者账户的数据冒充登录用户的数据。
+
+登录用户资料：`GET /api/v1/auth/me` 与管理员登录成功响应在 `userId`、`csrfToken` 外增加 `nickname`、`avatarUrl`。资料读取自当前登录用户的 users 记录；无头像返回空字符串，前端使用默认头像，昵称缺失显示“用户”。

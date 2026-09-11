@@ -19,7 +19,12 @@ public class AuthController {
   public ResponseEntity<?> me(HttpServletRequest request) {
     long userId = users.currentUserId();
     return ResponseEntity.ok().header("Cache-Control", "no-store")
-        .body(Map.of("userId", Long.toString(userId), "csrfToken", csrf.issue(request)));
+        .body(sessions.userResponse(request, userId));
+  }
+  @GetMapping("/api/v1/auth/csrf")
+  public ResponseEntity<?> csrf(HttpServletRequest request) {
+    return ResponseEntity.ok().header("Cache-Control", "no-store")
+        .body(Map.of("csrfToken", csrf.issue(request)));
   }
   @PostMapping("/api/v1/auth/logout")
   public ResponseEntity<Void> logout(HttpServletRequest request) {

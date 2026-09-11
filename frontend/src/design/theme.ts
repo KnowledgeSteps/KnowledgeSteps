@@ -1,0 +1,68 @@
+import type { ThemeConfig } from 'antd'
+
+/** The single source of truth for all current and future KnowledgeSteps pages. */
+export const visualTokens = {
+  'blue-light': '#AFD0FC',
+  'blue-medium': '#629FFC',
+  primary: '#2977F8',
+  'login-title-gradient': 'linear-gradient(90deg, var(--blue-light) 0%, var(--blue-medium) 50%, var(--primary) 100%)',
+  'text-main': '#182C49',
+  'text-sub': '#53657D',
+  'text-muted': '#667891',
+  'bg-page': '#FFFFFF',
+  'pattern-background': '#F8FAFC',
+  'pattern-line': 'rgb(41 119 248 / 4%)',
+  'bg-card': '#FFFFFF',
+  'example-glass': 'rgb(245 248 254 / 78%)',
+  'example-shadow': '12px 17px 51px rgb(24 44 73 / 12%)',
+  'bg-subtle': '#F5F8FE',
+  border: '#DCE6F4',
+  error: '#B42318',
+  warning: '#AD6800',
+  'font-family': '"Chillax", "Source Han Sans SC", sans-serif',
+  'radius-card': '16px',
+  'radius-item': '8px',
+  'shadow-card': '0 4px 20px rgb(24 44 73 / 4%)',
+} as const
+
+export function installVisualTokens() {
+  for (const [name, value] of Object.entries(visualTokens)) {
+    document.documentElement.style.setProperty(`--${name}`, value)
+  }
+}
+
+export const appTheme: ThemeConfig = {
+  token: {
+    colorPrimary: visualTokens.primary,
+    colorInfo: visualTokens.primary,
+    colorSuccess: visualTokens.primary,
+    colorWarning: visualTokens.warning,
+    colorError: visualTokens.error,
+    colorText: visualTokens['text-main'],
+    colorTextSecondary: visualTokens['text-sub'],
+    colorTextPlaceholder: visualTokens['text-muted'],
+    colorBgContainer: visualTokens['bg-card'],
+    colorBgLayout: visualTokens['bg-page'],
+    colorBorder: visualTokens.border,
+    colorPrimaryHover: visualTokens['blue-medium'],
+    colorPrimaryActive: visualTokens.primary,
+    colorPrimaryBg: visualTokens['bg-subtle'],
+    colorPrimaryBgHover: visualTokens['blue-light'],
+    colorPrimaryBorder: visualTokens['blue-light'],
+    colorPrimaryBorderHover: visualTokens['blue-medium'],
+    fontFamily: visualTokens['font-family'],
+    fontSize: 14,
+    fontWeightStrong: 600,
+    controlHeight: 44,
+    borderRadius: 8,
+    borderRadiusLG: 16,
+    wireframe: false,
+  },
+  components: {
+    Button: { primaryShadow: 'none', defaultShadow: 'none', fontWeight: 600, controlHeightLG: 50 },
+    Card: { bodyPadding: 24, headerFontSize: 18 },
+    Input: { activeShadow: '0 0 0 3px rgb(175 208 252 / 45%)' },
+    Progress: { defaultColor: visualTokens.primary, remainingColor: visualTokens['bg-subtle'] },
+    Modal: { titleFontSize: 22 },
+  },
+}

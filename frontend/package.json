@@ -6,9 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-visuals.mjs",
     "typecheck": "tsc -b --pretty false",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "fonts:prepare": "node scripts/prepare-fonts.mjs",
+    "predev": "npm run fonts:prepare",
+    "prebuild": "npm run fonts:prepare",
+    "test:regressions": "node --test scripts/regressions.test.mjs",
+    "test:loading": "node --test scripts/loading-controller.test.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",

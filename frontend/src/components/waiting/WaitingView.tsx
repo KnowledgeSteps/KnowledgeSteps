@@ -1,3 +1,6 @@
+import { KnowledgeCard } from '../ui/KnowledgeCard'
+import { Progress, Steps } from 'antd'
+import { CompassOutlined } from '@ant-design/icons'
 import type { SessionDetail } from '../../api/types'
 import { isMockMode } from '../../api/config'
 
@@ -25,67 +28,18 @@ const STEPS: Array<{
 
 export function WaitingView({ session }: { session: SessionDetail }) {
   const activeIndex = STEPS.findIndex((step) => step.key === session.status)
-  const progress = session.progress
-  const searching = session.status === 'SEARCHING_RESOURCES'
-  const ratio =
-    progress.totalNodes > 0
-      ? Math.min(1, progress.processedNodes / progress.totalNodes)
-      : 0
-
+  const { processedNodes, totalNodes } = session.progress
   return (
     <section className="waiting enter">
-      <div className="waiting-card">
-        <div className="engine-top">
-          <span className="spark">✧</span>
-          <div>
-            <h3 style={{ margin: 0 }}>知阶正在为你寻路</h3>
-            <small>目标：{session.target}</small>
-          </div>
-        </div>
-
-        <ol className="phase-list">
-          {STEPS.map((step, index) => {
-            const state =
-              index < activeIndex
-                ? 'done'
-                : index === activeIndex
-                  ? 'active'
-                  : 'todo'
-            return (
-              <li key={step.key} className={`phase ${state}`}>
-                <span className="phase-mark">
-                  {state === 'done' ? '✓' : index + 1}
-                </span>
-                <div>
-                  <strong>{step.title}</strong>
-                  <small>{step.desc}</small>
-                </div>
-                {state === 'active' && <em className="phase-live">进行中</em>}
-              </li>
-            )
-          })}
-        </ol>
-
-        {searching && progress.totalNodes > 0 && (
-          <div className="search-progress">
-            <div className="between">
-              <span className="muted">已检索前置资料</span>
-              <strong>
-                {progress.processedNodes} / {progress.totalNodes}
-              </strong>
-            </div>
-            <div className="progress" style={{ marginTop: 10 }}>
-              <i style={{ width: `${ratio * 100}%` }} />
-            </div>
-          </div>
-        )}
-
-        <p className="hint" style={{ marginTop: 20 }}>
-          {isMockMode
-            ? '生成通常只需要几秒。本页面为 Mock 演示，未接入真实模型与知乎搜索。'
-            : '生成需要一点时间。你可以稍后回到本页面查看进度。'}
-        </p>
-      </div>
+      <KnowledgeCard className="waiting-card" icon={<CompassOutlined />}>
+        <div className="engine-top"><div><h2>知阶正在为你寻路</h2><p>目标：{session.target}</p></div></div>
+        <Steps orientation="vertical" current={Math.max(0, activeIndex)} items={STEPS.map((step) => ({ title: step.title, content: step.desc }))} />
+        {session.status === 'SEARCHING_RESOURCES' && totalNodes > 0 && <div className="search-progress">
+          <div className="between"><span>已检索前置资料</span><strong>{processedNodes} / {totalNodes}</strong></div>
+          <Progress percent={Math.min(100, processedNodes / totalNodes * 100)} showInfo={false} />
+        </div>}
+        <p className="hint">{isMockMode ? '当前为 Mock 学习数据，生成过程不调用真实模型或知乎搜索。' : '生成需要一点时间，你可以稍后回到本页面查看进度。'}</p>
+      </KnowledgeCard>
     </section>
   )
 }

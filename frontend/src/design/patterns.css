@@ -1,0 +1,38 @@
+/* From Uiverse.io by romeo_3200 */
+.pattern-waves {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  background: var(--pattern-background, Canvas);
+}
+
+.pattern-waves::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-radial-gradient(
+    circle at 0% 50%,
+    var(--pattern-line, transparent) 0px,
+    var(--pattern-line, transparent) 2px,
+    transparent 2px,
+    transparent 30px
+  );
+}
+
+/* One decorative viewport layer shared by all routes; never intercept input. */
+body { isolation: isolate; }
+body > .pattern-waves {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.ks-loading-screen { isolation: isolate; }
+.ks-loading-screen > .pattern-waves {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+.login-gateway { background: transparent; }

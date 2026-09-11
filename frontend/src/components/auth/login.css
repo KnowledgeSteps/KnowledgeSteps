@@ -1,0 +1,206 @@
+/* Login gateway. Component rules are scoped to avoid changing the learning pages. */
+.login-gateway {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 26px clamp(20px, 4vw, 64px) 24px;
+  background: transparent;
+  color: var(--text-main);
+  font-family: var(--font-family);
+}
+.gateway-brand img { display: block; width: 124px; height: 48px; object-fit: contain; }
+.gateway-main { width: min(100%, 1020px); margin: 0 auto auto; padding: 12px 0 32px; text-align: center; }
+.gateway-eyebrow { margin: 0 0 20px; font-size: 15px; color: var(--text-sub); letter-spacing: .08em; }
+.gateway-main h1 { margin: 0; font-size: clamp(34px, 4.4vw, 64px); line-height: 1.28; font-weight: 700; letter-spacing: -.035em; text-wrap: balance; }
+.gateway-main h1 span { color: var(--primary); }
+/* User-requested brand gradient is limited to the second line of the login title. */
+@supports (background-clip: text) {
+  .gateway-main h1 span {
+    display: inline-block;
+    background-image: var(--login-title-gradient);
+    background-clip: text;
+    color: transparent;
+  }
+}
+@media (forced-colors: active) {
+  .gateway-main h1 span { background-image: none; color: CanvasText; }
+}
+.gateway-description { margin: 24px auto 0; color: var(--text-sub); font-size: clamp(15px, 1.5vw, 18px); line-height: 1.9; text-wrap: balance; }
+.gateway-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-top: 44px; text-align: left; }
+.gateway-features article { padding: 26px 26px 24px; border: 1px solid var(--border); background: var(--bg-card); border-radius: 16px; }
+.gateway-features article > .anticon { display: inline-flex; padding: 11px; background: var(--bg-subtle); color: var(--primary); border-radius: 10px; font-size: 22px; }
+.gateway-features h2 { margin: 18px 0 10px; font-size: 18px; line-height: 1.4; }
+.gateway-features p { margin: 0; color: var(--text-muted); font-size: 14px; line-height: 1.9; }
+.gateway-status { margin: 20px auto 0; min-height: 44px; max-width: 640px; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
+.gateway-status p { margin: 4px 0; }
+.gateway-status button { color: var(--primary); border: none; background: transparent; cursor: pointer; text-decoration: underline; }
+.gateway-bottom { display: flex; flex-direction: column; align-items: flex-start; gap: 18px; padding-top: 24px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 13px; }
+.gateway-footer-name { display: flex; align-items: center; gap: 10px; color: var(--text-main); font-size: 18px; font-weight: 500; }
+.gateway-footer-name img { width: 32px; height: 32px; object-fit: contain; }
+.gateway-footer-brand p { margin: 10px 0 0; }
+.gateway-admin.ant-btn { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card); color: var(--text-sub); cursor: pointer; font-size: 13px; }
+.gateway-admin:hover { border-color: var(--blue-medium); color: var(--primary); }
+.gateway-admin:focus-visible, .gateway-status button:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.gateway-admin:disabled { opacity: .5; cursor: wait; }
+
+/* From Uiverse.io by pharmacist-sabot: funny-gecko-48 (MIT; see /uiverse.LICENSE).
+   Original glitch form and INITIATE_CONNECTION button, scoped for React/Modal. */
+.glitch-form-wrapper {
+  --bg-color: var(--bg-card);
+  --primary-color: var(--primary);
+  --secondary-color: var(--blue-medium);
+  --text-color: var(--text-main);
+  --glitch-anim-duration: .5s;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: var(--font-family);
+  background-color: var(--bg-card);
+}
+.glitch-form-wrapper .glitch-card {
+  border-radius: var(--radius-card);
+  background-color: var(--bg-color);
+  width: 100%;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  margin: 0;
+  color: var(--text-color);
+}
+.glitch-form-wrapper .card-header { display: flex; justify-content: space-between; align-items: center; background-color: var(--bg-subtle); padding: 1em 3.5em 1em 1.5em; border-bottom: 1px solid var(--border); }
+.glitch-form-wrapper .card-title { color: var(--primary-color); font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; display: flex; align-items: center; gap: .5em; }
+.glitch-form-wrapper .card-title svg { width: 1.2em; height: 1.2em; }
+.glitch-form-wrapper .card-body { padding: 1.75rem; }
+.glitch-form-wrapper .card-body h2 { color: var(--text-color); font-size: 24px; margin: 0 0 8px; }
+.glitch-form-wrapper .terminal-description { color: var(--text-sub); margin: 0 0 38px; font-size: 13px; line-height: 1.7; }
+.glitch-form-wrapper .form-group { position: relative; margin-bottom: 2rem; }
+.glitch-form-wrapper .form-label { position: absolute; top: .75em; left: 0; font-size: 1rem; color: var(--primary-color); opacity: .7; text-transform: uppercase; letter-spacing: .1em; pointer-events: none; transition: top .3s ease, font-size .3s ease, opacity .3s ease; }
+.glitch-form-wrapper .form-group input { width: 100%; background: transparent; border: none; border-radius: 0; border-bottom: 2px solid var(--blue-light); padding: .75em 0; font-size: 1rem; color: var(--text-color); font-family: inherit; outline: none; box-shadow: none; transition: border-color .3s ease; }
+.glitch-form-wrapper .form-group input:focus { border-color: var(--primary-color); }
+.glitch-form-wrapper .form-group input:focus + .form-label,
+.glitch-form-wrapper .form-group input:not(:placeholder-shown) + .form-label { top: -1.2em; font-size: .8rem; opacity: 1; }
+.glitch-form-wrapper .form-group input:focus + .form-label::before,
+.glitch-form-wrapper .form-group input:focus + .form-label::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-color); }
+.glitch-form-wrapper .form-group input:focus + .form-label::before { color: var(--secondary-color); animation: ks-glitch var(--glitch-anim-duration) cubic-bezier(.25,.46,.45,.94) both; }
+.glitch-form-wrapper .form-group input:focus + .form-label::after { color: var(--primary-color); animation: ks-glitch var(--glitch-anim-duration) cubic-bezier(.25,.46,.45,.94) reverse both; }
+@keyframes ks-glitch {
+  0% { transform: translate(0); clip-path: inset(0 0 0 0); }
+  20% { transform: translate(-5px, 3px); clip-path: inset(50% 0 20% 0); }
+  40% { transform: translate(3px, -2px); clip-path: inset(20% 0 60% 0); }
+  60% { transform: translate(-4px, 2px); clip-path: inset(80% 0 5% 0); }
+  80% { transform: translate(4px, -3px); clip-path: inset(30% 0 45% 0); }
+  100% { transform: translate(0); clip-path: inset(0 0 0 0); }
+}
+.glitch-form-wrapper .submit-btn { height: auto; min-height: 50px; width: 100%; padding: .8em; margin-top: 1rem; background-color: transparent; border: 2px solid var(--primary-color); border-radius: 0; color: var(--primary-color); font-family: inherit; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: .2em; cursor: pointer; position: relative; transition: background-color .3s, color .3s, box-shadow .3s, transform .3s; overflow: hidden; }
+.glitch-form-wrapper .submit-btn:not(:disabled):hover,
+.glitch-form-wrapper .submit-btn:not(:disabled):focus-visible { background-color: var(--primary-color); color: var(--bg-color); box-shadow: 0 0 0 3px var(--blue-light); outline: none; }
+.glitch-form-wrapper .submit-btn:not(:disabled):active { transform: scale(.97); }
+.glitch-form-wrapper .submit-btn .btn-text { position: relative; z-index: 1; transition: opacity .2s ease; }
+.glitch-form-wrapper .submit-btn:not(:disabled):hover .btn-text { opacity: 0; }
+.glitch-form-wrapper .submit-btn::before,
+.glitch-form-wrapper .submit-btn::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; opacity: 0; background-color: var(--primary-color); transition: opacity .2s ease; }
+.glitch-form-wrapper .submit-btn:not(:disabled):hover::before,
+.glitch-form-wrapper .submit-btn:not(:disabled):focus-visible::before { opacity: 1; color: var(--secondary-color); animation: ks-glitch var(--glitch-anim-duration) cubic-bezier(.25,.46,.45,.94) both; }
+.glitch-form-wrapper .submit-btn:not(:disabled):hover::after,
+.glitch-form-wrapper .submit-btn:not(:disabled):focus-visible::after { opacity: 1; color: var(--bg-color); animation: ks-glitch var(--glitch-anim-duration) cubic-bezier(.25,.46,.45,.94) reverse both; }
+.glitch-form-wrapper .submit-btn:disabled { opacity: .45; cursor: wait; }
+.glitch-form-wrapper .terminal-error { color: var(--error); font-size: 13px; line-height: 1.7; margin: 0 0 10px; }
+.glitch-form-wrapper .form-group input:autofill { -webkit-text-fill-color: var(--text-color); box-shadow: 0 0 0 1000px var(--bg-color) inset; }
+.gateway-connection.glitch-form-wrapper { --primary-color: var(--primary); --secondary-color: var(--blue-medium); --bg-color: var(--bg-card); background: transparent; width: min(100%, 320px); margin: 40px auto 0; }
+.gateway-connection .submit-btn { min-height: 58px; margin: 0; letter-spacing: .1em; }
+@media (min-width: 681px) and (max-height: 850px) {
+  .gateway-main { padding: 8px 0 24px; }
+  .gateway-eyebrow { margin-bottom: 12px; }
+  .gateway-main h1 { font-size: clamp(32px, 3.8vw, 48px); line-height: 1.2; }
+  .gateway-description { margin-top: 16px; font-size: 16px; line-height: 1.7; }
+  .gateway-features { margin-top: 28px; }
+  .gateway-features article { padding: 20px; }
+  .gateway-features article > .anticon { font-size: 18px; padding: 9px; }
+  .gateway-features h2 { font-size: 16px; margin-top: 14px; }
+  .gateway-connection.glitch-form-wrapper { margin-top: 24px; }
+  .gateway-status { margin-top: 14px; }
+}
+@media (max-width: 680px) {
+  .login-gateway { padding: 18px 20px 76px; }
+  .gateway-brand img { width: 108px; height: 40px; }
+  .gateway-main { padding: 24px 0; }
+  .gateway-main h1 { font-size: clamp(27px, 7vw, 42px); }
+  .gateway-description br { display: none; }
+  .gateway-features { grid-template-columns: 1fr; gap: 12px; margin-top: 30px; }
+  .gateway-features article { padding: 20px; }
+  .gateway-features h2 { margin-top: 12px; }
+  .gateway-connection.glitch-form-wrapper { margin-top: 28px; }
+  .glitch-form-wrapper .card-body { padding: 1.5rem; }
+  .glitch-form-wrapper .submit-btn { letter-spacing: .1em; font-size: .9rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .glitch-form-wrapper .form-group input:focus + .form-label::before,
+  .glitch-form-wrapper .form-group input:focus + .form-label::after,
+  .glitch-form-wrapper .submit-btn::before,
+  .glitch-form-wrapper .submit-btn::after { animation: none !important; opacity: 0 !important; }
+  .glitch-form-wrapper .submit-btn:hover .btn-text { opacity: 1; }
+  .glitch-form-wrapper * { transition: none !important; }
+}
+
+.admin-terminal-modal .glitch-form-wrapper { border-radius: var(--radius-card); overflow: hidden; }
+
+.login-gateway[hidden] { display: none; }
+
+/* From Uiverse.io by elijahgummer: sweeping highlight and hover ring. */
+.gateway-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.gateway-github.ant-btn {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 8px 16px;
+  border-radius: 6px;
+  border-color: var(--text-main);
+  background: var(--text-main);
+  color: var(--bg-card);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background .3s ease-out, box-shadow .3s ease-out;
+}
+.gateway-github.ant-btn:hover, .gateway-github.ant-btn:focus-visible {
+  background: var(--text-main);
+  border-color: var(--text-main);
+  color: var(--bg-card);
+  box-shadow: 0 0 0 2px var(--bg-card), 0 0 0 4px var(--blue-medium);
+}
+.gateway-github .github-shine {
+  position: absolute;
+  pointer-events: none;
+  right: 0;
+  top: -48px;
+  height: 128px;
+  width: 32px;
+  transform: translateX(48px) rotate(12deg);
+  background: var(--bg-card);
+  opacity: .1;
+  transition: transform 1s ease-out;
+}
+.gateway-github:hover .github-shine, .gateway-github:focus-visible .github-shine { transform: translateX(-208px) rotate(12deg); }
+.gateway-github .github-star { color: var(--blue-light); transition: color .3s; }
+.gateway-github:hover .github-star, .gateway-github:focus-visible .github-star { color: var(--blue-medium); }
+@media (max-width: 420px) {
+  .gateway-header { gap: 8px; }
+  .gateway-github.ant-btn { padding: 8px 10px; gap: 6px; font-size: 12px; }
+  .gateway-header .gateway-brand img { width: 104px; height: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gateway-github.ant-btn, .gateway-github .github-star { transition: none; }
+  .gateway-github .github-shine { display: none; }
+}
+
+.gateway-admin-row { display: flex; justify-content: flex-start; padding-bottom: 20px; }
+
+/* Hide the login page scrollbar without preventing scrolling. */
+html:has(.login-gateway), body:has(.login-gateway) { scrollbar-width: none; }
+html:has(.login-gateway)::-webkit-scrollbar,
+body:has(.login-gateway)::-webkit-scrollbar { display: none; }

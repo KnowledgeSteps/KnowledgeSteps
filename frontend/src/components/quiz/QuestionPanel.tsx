@@ -1,5 +1,6 @@
+import { Button } from 'antd'
 import type { AnswerValue, Question } from '../../api/types'
-import { OPTION_GLYPH } from '../../constants/answerOptions'
+import { OPTION_ICON } from '../../constants/answerOptions'
 
 interface QuestionPanelProps {
   question: Question
@@ -33,31 +34,32 @@ export function QuestionPanel({
       <div className="answers" role="group" aria-label="自评选项">
         {question.options.map((option) => {
           const selected = question.answer === option.value
+          const Icon = OPTION_ICON[option.value]
           return (
-            <button
+            <Button
               key={option.value}
-              type="button"
+              htmlType="button"
               className={`answer ${selected ? 'selected' : ''}`}
               disabled={saving}
               onClick={() => onAnswer(option.value)}
               aria-pressed={selected}
             >
-              <span className="letter">{OPTION_GLYPH[option.value]}</span>
+              <span className="letter"><Icon aria-hidden="true" /></span>
               <strong>{option.label}</strong>
-            </button>
+            </Button>
           )
         })}
       </div>
 
       <div className="between navline">
-        <button
-          type="button"
-          className="textbutton"
-          disabled={!canBack}
+        <Button
+          htmlType="button"
+          type="text" className="textbutton"
+          disabled={!canBack || saving}
           onClick={onBack}
         >
-          ‹ 返回上一题
-        </button>
+          返回上一题
+        </Button>
         <span className="muted">
           {reviewing
             ? '修改后会回到复核状态，确认无误后再查看结果'

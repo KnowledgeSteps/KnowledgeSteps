@@ -1,3 +1,5 @@
+import { ensureCurrentUser, isCurrentAuthentication } from './auth'
+import { ApiError } from './types'
 import type {
   AnswerSaveResult,
   AnswerValue,
@@ -18,8 +20,11 @@ import {
 } from './mock/store'
 import * as realSessions from './real/sessions'
 
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+async function mockUser(ms: number): Promise<string> {
+  const user = await ensureCurrentUser()
+  await new Promise((resolve) => setTimeout(resolve, ms))
+  if (!isCurrentAuthentication(user)) throw new ApiError(401, 'AUTH_CHANGED', '登录状态已变化，请重新操作。')
+  return user.userId
 }
 
 export async function createSession(target: string): Promise<{
@@ -27,22 +32,22 @@ export async function createSession(target: string): Promise<{
   status: SessionStatus
 }> {
   if (!isMockMode) return realSessions.createSession(target)
-  await wait(320)
-  return mockCreateSession(target)
+  const userId = await mockUser(320)
+  return mockCreateSession(userId, target)
 }
 
 export async function getSession(sessionId: string): Promise<SessionDetail> {
   if (!isMockMode) return realSessions.getSession(sessionId)
-  await wait(160)
-  return mockGetSession(sessionId)
+  const userId = await mockUser(160)
+  return mockGetSession(userId, sessionId)
 }
 
 export async function getQuestions(
   sessionId: string,
 ): Promise<{ questions: Question[] }> {
   if (!isMockMode) return realSessions.getQuestions(sessionId)
-  await wait(220)
-  return mockGetQuestions(sessionId)
+  const userId = await mockUser(220)
+  return mockGetQuestions(userId, sessionId)
 }
 
 export async function saveAnswer(
@@ -51,16 +56,16 @@ export async function saveAnswer(
   answer: AnswerValue,
 ): Promise<AnswerSaveResult> {
   if (!isMockMode) return realSessions.saveAnswer(sessionId, questionId, answer)
-  await wait(260)
-  return mockSaveAnswer(sessionId, questionId, answer)
+  const userId = await mockUser(260)
+  return mockSaveAnswer(userId, sessionId, questionId, answer)
 }
 
 export async function completeSession(
   sessionId: string,
 ): Promise<CompletionResult> {
   if (!isMockMode) return realSessions.completeSession(sessionId)
-  await wait(420)
-  return mockCompleteSession(sessionId)
+  const userId = await mockUser(420)
+  return mockCompleteSession(userId, sessionId)
 }
 
 export async function getNodeResources(
@@ -68,6 +73,6 @@ export async function getNodeResources(
   nodeId: string,
 ): Promise<NodeResources> {
   if (!isMockMode) return realSessions.getNodeResources(sessionId, nodeId)
-  await wait(280)
-  return mockGetNodeResources(sessionId, nodeId)
+  const userId = await mockUser(280)
+  return mockGetNodeResources(userId, sessionId, nodeId)
 }

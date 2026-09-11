@@ -9,6 +9,11 @@ frontend/.env.*
 backend/secrets.properties
 backend/secrets.properties.*
 !backend/secrets.properties.example
+backend/admin-login.properties
+backend/admin-login.properties.*
+!backend/admin-login.properties.example
+backend/admin-credentials.txt
+backend/admin-credentials.txt.*
 backend/target/
 backend/**/*.db
 backend/**/*.db-*
@@ -25,3 +30,6 @@ Thumbs.db
 
 # Vercel local project metadata
 .vercel/
+
+# Fontshare license: download locally, do not redistribute font binaries in Git
+frontend/public/fonts/Chillax-*.woff2
