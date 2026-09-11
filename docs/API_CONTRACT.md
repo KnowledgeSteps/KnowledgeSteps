@@ -225,7 +225,7 @@ Apifox 调试顺序：
 1. 在 backend 目录启用 local-test 启动后端，默认端口 8080。
 2. GET `/api/v1/auth/me`，保留 Cookie，复制响应中的 csrfToken。
 3. POST `/api/v1/learning-sessions`，Headers 添加 `X-CSRF-Token`，JSON 为 `{"target":"Transformer"}`。
-4. 每两秒 GET `/api/v1/learning-sessions/{sessionId}`；到 READY 或 FAILED 停止。READY 表示节点、依赖、资料状态和完整题目已保存，答卷读取接口仍待实现。
+4. 每两秒 GET `/api/v1/learning-sessions/{sessionId}`；到 READY 或 FAILED 停止。READY 表示节点、依赖、资料状态和完整题目已保存，随后可继续调用答卷读取、答案保存、完成答卷和节点资料接口。
 
 缺少或错误 CSRF 令牌：403 `{"error":{"code":"CSRF_INVALID","message":"请刷新页面获取有效令牌。"}}`。跨用户访问或非法任务编号：404 `{"error":{"code":"NOT_FOUND","message":"任务不存在。"}}`。额外 userId 字段不参与身份判断。
 
@@ -241,7 +241,7 @@ GraphGenerator、QuestionGenerator、ResourceSearch 为上游端口，SessionSto
 
 模型使用 JSON Object 模式，不保证上游严格遵循 JSON Schema；本地拒绝未知字段、重复 JSON 属性、尾随数据、截断和非法结构，语义质量仍需人工验收。模型不自动重试，失败码为 GRAPH_GENERATION_FAILED 或 QUESTION_GENERATION_FAILED。重启时将未完成任务标记为 FAILED / GENERATION_INTERRUPTED，保留已存数据。
 
-2026-09-09 验证：Java 21 完整 verify 的 49 项测试全部通过；独立测试库中真实 Transformer 任务到达 READY，保存 10 个前置节点、1 个目标、10 条依赖、30 条知乎资料及10道自评题，warnings 为空，外键检查无错误。该结果验证生成链路，不表示 OAuth 或剩余四个业务接口已完成。
+2026-09-09 验证：Java 21 完整 verify 的 49 项测试全部通过；独立测试库中真实 Transformer 任务到达 READY，保存 10 个前置节点、1 个目标、10 条依赖、30 条知乎资料及10道自评题，warnings 为空，外键检查无错误。该结果验证生成链路，不表示 OAuth 已完成，也不替代前端真实接口联调。
 
 OAuth 尚待实现的接口为 `GET /api/v1/auth/zhihu/login`（跳转授权）和 `GET /api/v1/auth/zhihu/callback`（校验授权响应、换取身份、建立会话）。除 app_id/app_key 外，还需确认用户信息接口、稳定 ID 字段、state 回传及回调白名单；接入时应实现授权事务有效期、一次性消费与拒绝重复回调、上游超时和错误脱敏。PKCE 是否可用需官方确认，不能假定支持。返回站内页面应使用固定或白名单地址，不接受任意跳转 URL。
 

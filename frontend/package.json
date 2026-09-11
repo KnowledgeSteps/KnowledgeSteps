@@ -11,10 +11,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.3.4",
     "@vitejs/plugin-react": "latest",
-    "vite": "latest",
+    "antd": "^6.6.3",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "react-router-dom": "^7.18.3",
+    "vite": "latest"
   },
   "devDependencies": {
     "@eslint/js": "latest",
