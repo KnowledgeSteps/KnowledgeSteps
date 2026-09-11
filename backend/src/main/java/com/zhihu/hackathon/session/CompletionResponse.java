@@ -10,6 +10,6 @@ public record CompletionResponse(
     List<Node> nodes,
     List<Edge> edges
 ) {
-  public record Node(String id, String name, boolean isTarget, int level) {}
+  public record Node(String id, String name, boolean isTarget, int level, String answer, int resourceLimit) {}
   public record Edge(String from, String to) {}
 }

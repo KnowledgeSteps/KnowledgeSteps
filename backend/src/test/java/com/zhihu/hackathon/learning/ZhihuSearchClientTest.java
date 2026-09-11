@@ -19,6 +19,18 @@ class ZhihuSearchClientTest {
   private final ZhihuSearchClient client = new ZhihuSearchClient(builder.build(), "test-secret",
       Clock.fixed(Instant.ofEpochSecond(1710000000), ZoneOffset.UTC));
 
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(ints={2,3,5})
+  void sendsAssessmentCountAndCapsUpstreamResults(int count) {
+    var items = java.util.stream.IntStream.range(0,7)
+        .mapToObj(i -> "{\"Title\":\"item\",\"Url\":\"https://www.zhihu.com/question/"+i+"\"}")
+        .collect(java.util.stream.Collectors.joining(","));
+    server.expect(requestTo("https://developer.zhihu.com/api/v1/content/zhihu_search?Query=Transformer&Count="+count))
+        .andRespond(withSuccess("{\"Code\":0,\"Data\":{\"Items\":["+items+"]}}",MediaType.APPLICATION_JSON));
+    assertThat(client.search("Transformer",count)).hasSize(count);
+    server.verify();
+  }
+
   @Test
   void sendsProtocolHeadersAndPreservesAttributionAndUnknownVotes() {
     server.expect(requestTo("https://developer.zhihu.com/api/v1/content/zhihu_search?Query=A%26B&Count=3"))

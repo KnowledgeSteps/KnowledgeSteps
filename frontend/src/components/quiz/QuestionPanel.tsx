@@ -26,7 +26,7 @@ export function QuestionPanel({
   return (
     <div className="question-panel">
     <span className="badge">
-        {reviewing ? '复核中' : '正在确认'} · 第 {index + 1} / {total} 题
+        {reviewing ? '复核中 · ' : ''}第 {index + 1} / {total} 题
       </span>
       <h2>{question.questionText}</h2>
       {question.hint && <p className="sub">{question.hint}</p>}
@@ -60,11 +60,7 @@ export function QuestionPanel({
         >
           返回上一题
         </Button>
-        <span className="muted">
-          {reviewing
-            ? '修改后会回到复核状态，确认无误后再查看结果'
-            : '选择后会自动进入下一题，可以随时返回修改'}
-        </span>
+        {reviewing && <span className="muted">修改后会回到复核状态，确认无误后再查看结果</span>}
       </div>
     </div>
   )

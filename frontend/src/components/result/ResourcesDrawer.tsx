@@ -59,10 +59,10 @@ function NodeResourcesPanel({ sessionId, node, }: {
               <ReloadOutlined /> 再试一次
             </Button>}/>) : data?.resourceStatus === 'NOT_APPLICABLE' ? (<div className="uiverse-parent"><div className="explain-block uiverse-card"><CardDecoration icon={<InfoCircleOutlined />}/><div className="uiverse-content">
 
-          <span className="badge">学习目标</span>
+          <span className="badge">{node.isTarget ? '学习目标' : '非常了解 · 已掌握'}</span>
           <p>{data.reason}</p>
           <p className="muted">
-            第一版不会为目标节点搜索资料。先补齐前面的台阶，再来学它。
+            {node.isTarget ? '目标节点保留说明，不推荐资料。' : '你已选择非常了解，节点仍保留在图谱中，不再推荐资料。'}
           </p>
         </div></div></div>) : data?.resourceStatus === 'EMPTY' ? (<StateBlock title="暂时没有合适资料" body={isMockMode
                 ? '这个节点还没有找到匹配的知乎内容。接入真实接口后，会在这里展示检索结果。'
@@ -83,7 +83,7 @@ function NodeResourcesPanel({ sessionId, node, }: {
                 <h4>{item.title}</h4>
                 {item.summary && <p>{item.summary}</p>}
                 <a href={item.url} target="_blank" rel="noopener noreferrer">
-                  去知乎检索相关讨论
+                  {isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}
                 </a>
                 {(item.authorName || item.voteCount !== null) && (<small className="resource-meta">
                     {item.authorName

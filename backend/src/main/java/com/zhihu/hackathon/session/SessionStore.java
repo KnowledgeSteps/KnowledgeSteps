@@ -11,6 +11,9 @@ public interface SessionStore {
   long create(long userId, String target);
   Snapshot findOwned(long userId, long id);
   List<SavedNode> saveGraph(long id, String target, ValidGraph graph);
+  record ResourceRequest(long id, String name, int count) {}
+  List<ResourceRequest> pendingResources(long sessionId);
+  void finishResources(long sessionId);
   void saveResources(long nodeId, List<Resource> resources, boolean failed);
   void generatingQuestions(long id);
   void ready(long id, List<Question> questions);

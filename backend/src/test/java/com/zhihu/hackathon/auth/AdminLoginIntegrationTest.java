@@ -64,7 +64,7 @@ class AdminLoginIntegrationTest {
     mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token", oldToken)
         .contentType("application/json").content("{\"target\":\"Transformer\"}"))
         .andExpect(status().isForbidden());
-    when(model.generateGraph(anyString())).thenReturn(new Generation.Graph(List.of(), List.of()));
+    when(model.generateGraph(anyString())).thenReturn(new Generation.Graph(List.of(), List.of(), "目标的具体介绍"));
     var created = mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token", token)
         .contentType("application/json").content("{\"target\":\"Transformer\"}"))
         .andExpect(status().isAccepted()).andReturn();

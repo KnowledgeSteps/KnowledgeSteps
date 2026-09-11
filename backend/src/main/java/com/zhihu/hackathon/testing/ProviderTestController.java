@@ -62,7 +62,7 @@ public class ProviderTestController {
           .header("Authorization", "Bearer " + apiKey)
           .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
           .body(Map.of("model", model, "messages", List.of(Map.of("role", "user", "content", request.prompt().strip())),
-              "stream", false, "max_tokens", 1024))
+              "stream", false, "max_tokens", 1024, "enable_thinking", false))
           .retrieve().onStatus(HttpStatusCode::isError, (req, res) -> {
             throw new ProviderFailure("AI_UPSTREAM_HTTP_" + res.getStatusCode().value(), 502);
           }).body(JsonNode.class);

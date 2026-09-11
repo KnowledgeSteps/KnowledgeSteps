@@ -100,3 +100,117 @@ test('two tabs create distinct tasks and read each other updates without replaci
   assert.equal(updated[1].answer, 'VERY_FAMILIAR')
   assert.equal(b.mockGetSession('tabs', second.sessionId).target, 'RAG')
 })
+
+
+test('mock retains all nodes and applies assessment resource counts after submission', () => {
+  const user = 'assessment-policy'
+  const { sessionId } = store.mockCreateSession(user, 'Transformer')
+  const key = `zhijie-mock-session-v3:${user}:${sessionId}`
+  const age = (field) => {
+    const record = JSON.parse(cache.get(key))
+    record[field] = Date.now() - 10_000
+    cache.set(key, JSON.stringify(record))
+  }
+  age('createdAt')
+  const questions = store.mockGetQuestions(user, sessionId).questions
+  const answers = ['VERY_FAMILIAR', 'BASICALLY_KNOW', 'HEARD_OF', 'DONT_KNOW']
+  for (const [i, q] of questions.entries()) store.mockSaveAnswer(user, sessionId, q.questionId, answers[i % 4])
+  const pending = store.mockCompleteSession(user, sessionId)
+  assert.equal(pending.status, 'SEARCHING_RESOURCES')
+  assert.equal(store.mockCompleteSession(user, sessionId).status, 'SEARCHING_RESOURCES')
+  assert.throws(() => store.mockSaveAnswer(user, sessionId, questions[0].questionId, 'DONT_KNOW'), e => e.status === 409)
+  age('resourcesStartedAt')
+  assert.equal(store.mockGetSession(user, sessionId).status, 'COMPLETED')
+  const result = store.mockCompleteSession(user, sessionId)
+  assert.equal(result.nodes.length, questions.length + 1)
+  for (const [i, q] of questions.entries()) {
+    const node = result.nodes.find(n => n.id === q.nodeId)
+    const expected = [0, 2, 3, 5][i % 4]
+    assert.equal(node.resourceLimit, expected)
+    const resources = store.mockGetNodeResources(user, sessionId, node.id)
+    assert.ok(resources.resources.length <= expected)
+    if (!expected) assert.equal(resources.resourceStatus, 'NOT_APPLICABLE')
+    if (resources.resourceStatus === 'READY') assert.equal(resources.resources.length, expected)
+  }
+})
+
+
+test('graph progress is monotonic, capped while waiting, and settles after its completion animation', async () => {
+  const { GraphProgressTimeline } = await server.ssrLoadModule('/src/components/waiting/graphProgress.ts')
+  const timeline = new GraphProgressTimeline(0, true)
+  assert.equal(timeline.sample(0, false).percent, 0)
+  const halfway = timeline.sample(30000, false).percent
+  assert.ok(halfway > 0 && halfway < 95)
+  assert.equal(timeline.sample(30000, true).percent, halfway)
+  const finishing = timeline.sample(30450, true)
+  assert.ok(finishing.percent > halfway && finishing.percent < 100)
+  assert.equal(finishing.settled, false)
+  assert.deepEqual(timeline.sample(30900, true), { percent: 100, settled: false })
+  assert.deepEqual(timeline.sample(31150, true), { percent: 100, settled: true })
+  const longWait = new GraphProgressTimeline(0, true)
+  assert.equal(longWait.sample(900000, false).percent, 95)
+  assert.equal(longWait.sample(900000, false).settled, false)
+  assert.deepEqual(new GraphProgressTimeline(0, false).sample(0, true), { percent: 100, settled: true })
+})
+
+
+test('graph routes avoid cards across skipped levels, uneven heights and wrapped rows', async () => {
+  const { routeEdge } = await server.ssrLoadModule('/src/components/result/routeEdges.ts')
+  const fixtures = [
+    [{id:'a',left:100,right:300,top:0,bottom:200},{id:'b',left:80,right:320,top:260,bottom:560},{id:'c',left:100,right:300,top:650,bottom:850}],
+    [{id:'a',left:0,right:200,top:0,bottom:300},{id:'b',left:230,right:430,top:0,bottom:420},{id:'c',left:230,right:430,top:500,bottom:700}],
+    [{id:'a',left:20,right:220,top:0,bottom:200},{id:'b',left:20,right:220,top:230,bottom:450},{id:'c',left:20,right:220,top:540,bottom:800}]
+  ]
+  for (const cards of fixtures) {
+    const path = routeEdge(cards[0], cards[2], cards)
+    assert.ok(path.length >= 2)
+    for (let i=1;i<path.length;i++) {
+      const a=path[i-1],b=path[i]
+      assert.ok(a.x===b.x || a.y===b.y)
+      for (const r of cards) {
+        const crosses = a.x===b.x
+          ? a.x>r.left && a.x<r.right && Math.max(a.y,b.y)>r.top && Math.min(a.y,b.y)<r.bottom
+          : a.y>r.top && a.y<r.bottom && Math.max(a.x,b.x)>r.left && Math.min(a.x,b.x)<r.right
+        assert.equal(crosses,false,`crossed ${r.id}`)
+      }
+    }
+  }
+})
+
+
+test('assessment stops writes and completion when navigation cancels its owner', async () => {
+  const { submitAssessment } = await server.ssrLoadModule('/src/components/quiz/submitAssessment.ts')
+  const questions = [{questionId:'1',answer:'DONT_KNOW'}, {questionId:'2',answer:'HEARD_OF'}]
+  let active = true
+  let release
+  const calls = []
+  const pending = submitAssessment(questions, async id => {
+    calls.push(id)
+    await new Promise(resolve => { release = resolve })
+  }, async () => { calls.push('complete'); return 'done' }, () => active)
+  active = false
+  release()
+  assert.equal(await pending, null)
+  assert.deepEqual(calls, ['1'])
+})
+
+test('assessment validates all answers before writing and does not complete on save failure', async () => {
+  const { submitAssessment } = await server.ssrLoadModule('/src/components/quiz/submitAssessment.ts')
+  const calls = []
+  const save = async id => { calls.push(id); throw new Error('offline') }
+  const complete = async () => { calls.push('complete') }
+  await assert.rejects(submitAssessment([{questionId:'1',answer:null}], save, complete, () => true))
+  assert.deepEqual(calls, [])
+  await assert.rejects(submitAssessment([{questionId:'1',answer:'DONT_KNOW'}], save, complete, () => true), /offline/)
+  assert.deepEqual(calls, ['1'])
+})
+
+test('assessment completes after all saves and ignores completion after leaving', async () => {
+  const { submitAssessment } = await server.ssrLoadModule('/src/components/quiz/submitAssessment.ts')
+  const calls = []
+  let active = true
+  const result = await submitAssessment([{questionId:'1',answer:'HEARD_OF'}, {questionId:'2',answer:'DONT_KNOW'}],
+    async id => { calls.push(id) }, async () => { calls.push('complete'); active = false; return 'old result' }, () => active)
+  assert.equal(result, null)
+  assert.deepEqual(calls, ['1', '2', 'complete'])
+})

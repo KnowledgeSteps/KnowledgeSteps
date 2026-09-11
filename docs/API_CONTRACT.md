@@ -4,7 +4,7 @@
 
 ## 一、整体流程
 
-输入目标 → 模型 A 生成节点和依赖 → 后端检查、分层 → 全部前置节点搜索知乎资料 → 模型 B 生成题目 → 用户作答 → 隐藏已掌握节点 → 展示未知节点及知乎资料。
+输入目标 → 模型 A 生成节点和依赖 → 后端检查、分层 → 模型 B 生成题目 → 用户作答 → 按答案搜索资料 → 展示全部节点及相应资料。
 
 创建任务后立即返回，后端异步处理。网络和模型调用不能占用一个长数据库事务；每个阶段用短事务保存结果。第一版可用进程内任务执行器，服务重启时将未完成的生成任务标记为失败，提示用户重新创建。
 
@@ -120,9 +120,9 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
 { "questionId": "301", "masteryStatus": "MASTERED", "answeredCount": 1, "totalQuestions": 7 }
 ```
 
-前两项映射 MASTERED，后两项映射 TO_LEARN。答案按 question_id 更新或新增，重复提交不重复计数。答案与节点状态在同一事务更新。
+只有 VERY_FAMILIAR 映射 MASTERED，其余三项映射 TO_LEARN。答案按 question_id 更新或新增，重复提交不重复计数。答案与节点状态在同一事务更新。
 
-允许在 READY、COMPLETED 修改；已完成后修改答案会把会话恢复为 READY，清除完成时间，前端重新调用 complete。页面注明“基于你的自评生成”，不是客观能力考试。
+SEARCHING_RESOURCES 期间禁止修改答案，返回 409。允许在 READY、COMPLETED 修改；已完成后修改答案会把会话恢复为 READY，清除完成时间，前端重新调用 complete。页面注明“基于你的自评生成”，不是客观能力考试。
 
 失败：400 `INVALID_ANSWER`，401、404、409 `SESSION_NOT_READY`。
 
@@ -137,9 +137,9 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
   "target": "Transformer",
   "missingCount": 2,
   "nodes": [
-    { "id": "204", "name": "Attention", "isTarget": false, "level": 0 },
-    { "id": "205", "name": "Self-Attention", "isTarget": false, "level": 1 },
-    { "id": "208", "name": "Transformer", "isTarget": true, "level": 2 }
+    { "id": "204", "name": "Attention", "isTarget": false, "level": 0, "answer": "BASICALLY_KNOW", "resourceLimit": 2 },
+    { "id": "205", "name": "Self-Attention", "isTarget": false, "level": 1, "answer": "DONT_KNOW", "resourceLimit": 5 },
+    { "id": "208", "name": "Transformer", "isTarget": true, "level": 2, "answer": null, "resourceLimit": 0 }
   ],
   "edges": [
     { "from": "204", "to": "205" },
@@ -148,13 +148,13 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
 }
 ```
 
-后端在事务内确认全部题目已回答并标记完成。保留 TO_LEARN 节点和目标，缺口数量不含目标。原始节点和资料不删除。
+后端在事务内确认全部题目已回答。有待搜索节点时返回 200、status=SEARCHING_RESOURCES，异步整理后变为 COMPLETED；前端继续轮询会话。无待搜索节点则直接 COMPLETED。missingCount 包含基本了解、听说过和不了解，不包含目标及非常了解。
 
-隐藏中间节点时连接最近的可见后继，保持原有可达关系并去除重复边；结果重新分层，保留并行分叉，不强行线性排序。全部前置已掌握时 missingCount 为 0，仅返回目标节点；没有前置节点时也允许直接完成。
+保留原始全部节点、边及层级，不隐藏或跨接已掌握节点。节点新增 answer（目标为 null）与 resourceLimit（0/2/3/5）字段。全部非常了解时 missingCount=0，仍返回完整图；没有前置节点可直接完成。
 
 该接口可重复调用以恢复结果，无答案变化时返回相同内容，不重新调用模型或搜索。
 
-失败：401、404、409 `SESSION_NOT_READY` 或 `ANSWERS_INCOMPLETE`。
+失败：401、404、409 `SESSION_NOT_READY` 或 `ANSWERS_INCOMPLETE`；搜索队列满时返回 429 `RATE_LIMITED`。
 
 ### 6. 节点资料
 
@@ -170,9 +170,9 @@ answer 有值时为选项枚举字符串。按 sort_order 排序，目标节点�
 }
 ```
 
-每条 resources 包含 id、title、url、summary、authorName、voteCount。实际值来自知乎 API，不捏造示例文章。可缺失字段为 null，不使用 0 冒充未知点赞数。按 sort_order 排序，最多 3 条。资源状态区分 READY、EMPTY、FAILED；搜索失败时仍返回 200 和空数组，前端显示失败提示。
+每条 resources 包含 id、title、url、summary、authorName、voteCount。实际值来自知乎 API，不捏造示例文章。可缺失字段为 null，不使用 0 冒充未知点赞数。按 sort_order 排序，非常了解 0 条、基本了解最多 2 条、听说过最多 3 条、不了解最多 5 条；不足时返回实际数量，不补造资料。资源状态区分 READY、EMPTY、FAILED；搜索失败时仍返回 200 和空数组，前端显示失败提示。
 
-第一版仅搜索前置节点，目标节点返回 resourceStatus 为 NOT_APPLICABLE、resources 为空。
+目标节点与非常了解的节点返回 resourceStatus 为 NOT_APPLICABLE、resources 为空，仍可查看 reason。
 
 失败：401、404、409 `SESSION_NOT_COMPLETED`。
 
@@ -254,7 +254,7 @@ Apifox 调试顺序：
 
 GraphGenerator、QuestionGenerator、ResourceSearch 为上游端口，SessionStore 为存储端口；GenerationPipeline 负责步骤编排，GraphValidator 只做纯数据校验。默认使用硅基流动实现两个模型端口，读取 model.graph-model 和 model.question-model；网络请求与数据库短事务分离。更换供应商不需要修改 Controller 或 JDBC 存储。
 
-模型 A 输出 `{"nodes":[{"key":"n1","name":"矩阵运算","description":"用途"}],"edges":[{"from":"n1","to":"target"}]}`；nodes 仅含前置节点，目标由后端加入。拒绝超量、规范化重名、未知引用、重复边、自环、循环、目标出边和无法到达目标的节点，按最长依赖路径分层。
+模型 A 输出 `{"targetDescription":"目标的具体介绍与核心特点","nodes":[{"key":"n1","name":"矩阵运算","description":"用途"}],"edges":[{"from":"n1","to":"target"}]}`；nodes 仅含前置节点，目标由后端加入。拒绝超量、规范化重名、未知引用、重复边、自环、循环、目标出边和无法到达目标的节点，按最长依赖路径分层。
 
 模型 B 输出 `{"questions":[{"nodeId":"数据库节点ID","questionText":"自评问题","hint":"用途"}]}`，必须恰好覆盖全部前置节点。空前置图跳过搜索与模型 B，保存目标后进入 READY。搜索失败的 warnings 元素为 `{"nodeId":"节点ID","code":"RESOURCE_SEARCH_FAILED","message":"该节点资料搜索失败。"}`。
 
@@ -295,7 +295,7 @@ IDEA 也可仅为本地测试把有效配置文件设为 `local-test`（不是�
 | GET | `/api/test/zhihu/search?query=Transformer` | query 去空白后 1～100 字符 | `{"resources":[...]}`，最多 3 条真实资料，字段为 title、url、summary、authorName、voteCount |
 | POST | `/api/test/ai` | `{"prompt":"用一句话解释 Transformer"}`，prompt 去空白后 1～2000 字符 | `{"model":"deepseek-ai/DeepSeek-V4-Flash","content":"模型实际生成的文本"}` |
 
-AI 使用 model.base-url、model.api-key 和 model.graph-model；当前 A、B 配置相同。非流式调用 `/chat/completions`，最大输出 1024 Token，读取超时 60 秒。此接口只测试文本生成，不承诺业务 JSON 结构。返回达到长度上限时报告 AI_OUTPUT_TRUNCATED。
+AI 使用 model.base-url、model.api-key 和 model.graph-model；图谱默认使用 DeepSeek V4 Flash（enable_thinking=false），问卷默认使用 Qwen/Qwen3-30B-A3B-Instruct-2507。测试接口跟随图谱模型并关闭思考。非流式调用 `/chat/completions`，最大输出 1024 Token，读取超时 60 秒。此接口只测试文本生成，不承诺业务 JSON 结构。返回达到长度上限时报告 AI_OUTPUT_TRUNCATED。
 
 失败响应示例：400 `{"error":{"code":"INVALID_INPUT"}}`；缺失密钥返回 503；上游失败返回 502 和脱敏代码（例如 AI_UPSTREAM_HTTP_401、AI_REQUEST_FAILED、ZHIHU_AUTH_FAILED），不返回上游错误正文。
 
@@ -312,3 +312,32 @@ AI 使用 model.base-url、model.api-key 和 model.graph-model；当前 A、B �
 - 未完成 OAuth 接入前，不得用开发者账户的数据冒充登录用户的数据。
 
 登录用户资料：`GET /api/v1/auth/me` 与管理员登录成功响应在 `userId`、`csrfToken` 外增加 `nickname`、`avatarUrl`。资料读取自当前登录用户的 users 记录；无头像返回空字符串，前端使用默认头像，昵称缺失显示“用户”。
+
+目标描述由模型 A 的必填字段 `targetDescription` 提供（去除首尾空白后 1～1000 字符），保存至目标节点的 description，通过节点资料接口的 reason 展示。目标仍不参与答题或搜索。新规则仅适用于新生成任务；历史任务的固定描述不会自动重新生成。
+
+
+### AI 生成失败分类
+
+会话状态仍为 `FAILED`，通过 `error.code` 区分原因，前端失败弹窗直接展示对应 `error.message`：
+
+| 错误码 | 含义 |
+| --- | --- |
+| MODEL_REQUEST_TIMEOUT | 请求连接或读取超时，或上游返回 HTTP 408/504 |
+| MODEL_JSON_PARSE_ERROR | 上游响应 JSON 或模型输出 JSON 解析、类型映射失败 |
+| MODEL_INVALID_RESPONSE | 内容被截断、缺失或响应格式异常 |
+| GRAPH_VALIDATION_FAILED | JSON 能读取，但图谱缺少描述、存在重复节点、环等结构问题 |
+| QUESTION_VALIDATION_FAILED | 问卷数量、节点覆盖或字段内容不符合约束 |
+| MODEL_GENERATION_FAILED | 其他模型调用失败，如非超时的 HTTP 错误或连接异常 |
+
+两次模型调用均保留超时和 JSON 错误分类。返回信息不包含供应商响应正文、密钥或提示词。历史失败任务保留原错误码，重启后端后新建任务使用新分类。
+
+
+模型速度配置：业务图谱请求显式传入 `enable_thinking: false`（[硅基流动说明](https://www.siliconflow.com/blog/deepseek-v4-now-on-siliconflow-million-token-context-intelligence)）；问卷使用非思考 Instruct 模型，不额外传入思考开关。两次调用均保留 JSON 输出、8192 token 上限及现有 60 秒读取超时。配置在 backend/secrets.properties，示例配置同步更新；重启后端生效。具体延迟与账户模型可用性仍需真实接口验证。
+
+
+AI 响应入库前经过两阶段校验修复，详见 [AI JSON 校验与修复](AI_JSON_VALIDATION.md)。提示词仍要求完整字段；兼容修复层允许缺失的节点描述和目标描述补为空字符串，关键名称、关系及题干仍须通过业务校验。
+
+
+### 提交前清空选择
+
+答题时的选择暂存于当前页面，点击“清空所有选择”将本轮全部选项恢复为未选择，并重置进度和侧栏。清空不调用后端接口，不删除已提交数据。点击“查看结果”时，前端通过现有 PUT 答案接口保存本轮全部答案，全部成功后再调用 complete；保存失败保留页面选择供重试。未提交选择不会在刷新后保留。

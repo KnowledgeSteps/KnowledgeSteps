@@ -1,0 +1,7 @@
+/* Uniform pale-blue, straight graph connections. */
+.path-edges .graph-branch-line {
+  stroke: var(--blue-light);
+  stroke-linecap: round;
+  stroke-linejoin: miter;
+  stroke-width: 3;
+}

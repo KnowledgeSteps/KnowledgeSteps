@@ -21,7 +21,10 @@ public final class ZhihuSearchClient {
     this.clock = clock;
   }
 
-  public List<Resource> search(String query) {
+  public List<Resource> search(String query) { return search(query, 3); }
+
+  public List<Resource> search(String query, int count) {
+    if (count < 1 || count > 5) throw new IllegalArgumentException("Invalid resource count");
     if (query == null || query.isBlank()) {
       throw new IllegalArgumentException("搜索词不能为空");
     }
@@ -32,7 +35,7 @@ public final class ZhihuSearchClient {
     try {
       response = client.get()
           .uri(builder -> builder.path("/api/v1/content/zhihu_search")
-              .queryParam("Query", "{query}").queryParam("Count", 3).build(query.strip()))
+              .queryParam("Query", "{query}").queryParam("Count", count).build(query.strip()))
           .header("Authorization", "Bearer " + secret)
           .header("X-Request-Timestamp", Long.toString(clock.instant().getEpochSecond()))
           .header("Content-Type", "application/json")
@@ -76,7 +79,7 @@ public final class ZhihuSearchClient {
       if (resources.stream().noneMatch(resource -> resource.url().equals(url))) {
         resources.add(new Resource(title, url, text(item, "ContentText"), text(item, "AuthorName"), voteCount));
       }
-      if (resources.size() == 3) break;
+      if (resources.size() == count) break;
     }
     return List.copyOf(resources);
   }
