@@ -1,12 +1,12 @@
 # 知阶 Knowledge Steps UI 设计风格规范
 
-> 本文档是前端页面的视觉与交互基线。所有新增页面、组件和样式都应先对照本文件，再检查 [frontend/src/styles.css](../frontend/src/styles.css) 中的设计变量与组件类名，避免后续页面逐渐漂移。
+> 本文档是前端页面的视觉与交互基线。所有新增页面、组件和样式都应先对照本文件，再检查 [frontend/src/styles.css](../src/styles.css) 中的设计变量与组件类名，避免后续页面逐渐漂移。
 >
 > 配套文件：
 >
-> - 设计上下文与原则：[.impeccable.md](../.impeccable.md)
+> - 设计上下文与原则：[.impeccable.md](../../.impeccable.md)
 > - 前端技术方案：[FRONTEND.md](FRONTEND.md)
-> - 产品范围：[PROJECT.md](PROJECT.md)
+> - 产品范围：[PROJECT.md](../../docs/PROJECT.md)
 
 ## 一、视觉定位
 
@@ -143,7 +143,7 @@
 
 ### 5.1 全局壳层
 
-全局结构由 [AppShell.tsx](../frontend/src/components/layout/AppShell.tsx) 负责：
+全局结构由 [AppShell.tsx](../src/components/layout/AppShell.tsx) 负责：
 
 - 顶部：左侧阶梯几何 Logo + “知阶 Knowledge Steps”，右侧 slogan + “开始寻路”胶囊按钮。
 - 主内容：`.page` 承载各路由页面。
@@ -203,9 +203,9 @@
 
 ### 9.1 单一事实来源
 
-- 设计变量统一写在 [styles.css](../frontend/src/styles.css) 的 `:root`。
-- Ant Design 的主题 token 在 [main.tsx](../frontend/src/main.tsx) 同步主色 `#5b61f6`。
-- 品牌文案与原则记录在 [.impeccable.md](../.impeccable.md)。
+- 设计变量统一写在 [styles.css](../src/styles.css) 的 `:root`。
+- Ant Design 的主题 token 在 [main.tsx](../src/main.tsx) 同步主色 `#5b61f6`。
+- 品牌文案与原则记录在 [.impeccable.md](../../.impeccable.md)。
 - 页面结构以 [FRONTEND.md](FRONTEND.md) 为技术依据。
 
 ### 9.2 新增页面前的自检清单

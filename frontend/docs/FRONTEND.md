@@ -2,7 +2,7 @@
 
 > 基于当前源码的差距盘点、分阶段任务与首版验收标准见 [前端建设规划书](FRONTEND_PLAN.md)（2026-09-10）。本文的方案描述不全部代表已完成实现。
 
-> 定位：把产品 PRD（[PROJECT.md](PROJECT.md)）与接口/数据契约（[API_CONTRACT.md](API_CONTRACT.md)、[DATABASE_DESIGN.md](DATABASE_DESIGN.md)）转化为“前端可直接执行”的实现方案。
+> 定位：把产品 PRD（[PROJECT.md](../../docs/PROJECT.md)）与接口/数据契约（[API_CONTRACT.md](../../docs/API_CONTRACT.md)、[DATABASE_DESIGN.md](../../docs/DATABASE_DESIGN.md)）转化为“前端可直接执行”的实现方案。
 >
 > 本文档回答五个问题：页面怎么组织、模块怎么分、技术上依赖什么、状态怎么走、接口怎么接，并列出风险与待确认项。涉及工程协作与部署的约定放在附录。
 >
@@ -191,7 +191,7 @@ frontend/src
 | 决策点 | 建议 | 为什么这么做 |
 | --- | --- | --- |
 | 语言与框架 | React + TypeScript + Vite（沿用现状） | 已搭好且类型检查利于契约驱动开发 |
-| UI 组件库 | Ant Design v5 + @ant-design/icons | 表单、反馈、抽屉、加载态现成，符合中后台工具定位 |
+| UI 组件库 | Ant Design v6 + @ant-design/icons | 表单、反馈、抽屉、加载态现成，符合中后台工具定位 |
 | 中文本地化 | ConfigProvider 配 zhCN | 题目、按钮、日期/文案保持一致，避免组件自带英文残留 |
 | 路由 | react-router-dom，BrowserRouter + 懒加载 | 页面少但需要 URL 承载 sessionId，支持刷新恢复 |
 | 状态管理 | 不引入全局 Store；服务端状态用 hooks，页面瞬时态用本地 state | 服务端是权威，避免“本地副本与服务端不一致”的双写问题 |
@@ -230,8 +230,8 @@ antd 6.6.x
 react-router-dom 7.x
 ```
 
-- Ant Design 目前只承载 `ConfigProvider`、`Spin` 与 `Drawer`；页面视觉主要来自 [styles.css](../frontend/src/styles.css)，避免组件默认样式与品牌规范冲突。
-- 主题主色统一为 `#5b61f6`，由 [main.tsx](../frontend/src/main.tsx) 和 `styles.css` 的 `:root` 同时维护。
+- Ant Design 目前只承载 `ConfigProvider`、`Spin` 与 `Drawer`；页面视觉主要来自 [styles.css](../src/styles.css)，避免组件默认样式与品牌规范冲突。
+- 主题主色统一为 `#5b61f6`，由 [main.tsx](../src/main.tsx) 和 `styles.css` 的 `:root` 同时维护。
 - 视觉 token、组件状态、响应式与文案规则以 [UI_DESIGN.md](UI_DESIGN.md) 为准。
 - `package.json` 仍有部分依赖标记为 `latest`，后续应锁定版本并保留 lockfile，保证团队构建可复现。
 
@@ -244,14 +244,22 @@ react-router-dom 7.x
 - 本地 Mock 状态机：生成三阶段、答案保存/修改、`complete` 幂等恢复、资料四种状态。
 - Mock 会话的 `localStorage` 持久化，刷新后按会话 ID 恢复。
 - `Vite /api` 代理与本地开发、构建、类型检查、lint 命令。
+- 真实 HTTP 请求层：`api/config.ts` 解析 `VITE_DATA_MODE`，`api/http.ts` 统一 fetch、Cookie、错误映射，`api/validators.ts` 做响应运行时校验，`api/real/sessions.ts` 实现六个业务接口，`api/sessions.ts` 按模式转发。
+- 认证与 CSRF：`api/auth.ts` 通过 `auth/me` 建立会话并缓存 token，写请求带 `X-CSRF-Token`，`CSRF_INVALID` 刷新 token 但不自动重放。
+- 全部答完后的复核修改、零题目完成、按 `edges` 绘制的 SVG 依赖连线与文字依赖列表、资料侧栏四种业务状态与可空字段。
+- 2000ms 轮询、请求不重叠、终态停止、401/403/404 停止重试。
 
 尚未落地：
 
-- 真实 HTTP 请求层（`sessions.ts` 目前直接调用 Mock store，未切换 fetch 后端）。
-- 登录 / OAuth / 401 与 CSRF 的真实联调。
+- 登录 / OAuth：后端 `auth/zhihu/login` 与回调未实现，前端没有登录入口，真实身份仍依赖后端 `local-test`。
+- 请求超时与 AbortController；当前只用 `cancelled` 标志忽略响应，不中断请求。
+- 网络错误与 5xx 的有限退避（约定 2/4/8 秒），以及 429 `Retry-After` 读取。
+- 服务端 `answeredCount` / `totalQuestions` 校准答题进度；当前用本地数组自行计数。
+- `warnings` 的页面展示入口；字段已解析但未渲染。
+- `resourceStatus` 为 `PENDING` 时的独立文案；当前会落入 READY 分支。
 - 单元测试与端到端测试。
 - Vercel 的 SPA fallback 配置与生产环境变量。
-- 结果图跨层连线的真实 SVG 布局（当前以 level 分行和箭头示意）。
+- 依赖版本锁定；`package.json` 多项仍为 `latest`。
 
 ## 四、状态流转说明
 
@@ -434,7 +442,7 @@ ResourcesSidebar: closed | loading | ready | empty | failed | notApplicable
 
 ### 5.4 TypeScript 契约建议
 
-与 [API_CONTRACT.md](API_CONTRACT.md) 对应的集中类型（`src/api/types.ts`）：
+与 [API_CONTRACT.md](../../docs/API_CONTRACT.md) 对应的集中类型（`src/api/types.ts`）：
 
 ```ts
 export type SessionStatus =
@@ -484,7 +492,7 @@ export interface SessionDetail {
   target: string
   status: SessionStatus
   progress: { processedNodes: number; totalNodes: number }
-  warnings: string[]
+  warnings: Array<{ nodeId: string; code: string; message: string }>
   error: { code: string; message: string } | null
 }
 
@@ -536,10 +544,10 @@ export interface NodeResources {
 
 ### 5.5 Mock 与联调策略
 
-六个核心业务接口当前尚未实现，前端使用本地 Mock 先跑通闭环。现状与后续约定：
+六个核心业务接口后端已实现，前端当前仍使用本地 Mock 跑通闭环。现状与后续约定：
 
 - `api/sessions.ts` 定义了页面统一的接口签名，当前实现直接调用 `api/mock/store.ts`。
-- 接入真实后端时，应保留同一套签名，在 `sessions.ts` 内部改为 fetch 请求，页面与组件无需改动。
+- 接入真实后端时，应保留同一套签名，在 `sessions.ts` 内部按 `VITE_DATA_MODE=mock|api` 转发到 Mock 或真实 fetch 实现，页面与组件无需改动。
 - Mock 已覆盖：创建 202、`GENERATING_*` 三阶段推进、`READY`、答题与修改答案、`complete` 后回退 `READY`、资料 `EMPTY` / `FAILED` / `NOT_APPLICABLE`。
 - Mock 会话使用 `localStorage` 持久化，刷新可恢复；真实后端应改为按会话 ID 请求服务端，而不是依赖浏览器本地存储。
 - 后端 `local-test` profile 的两个上游测试接口仍可用于单独验证模型与知乎展示，但不能替代 `/api/v1` 业务联调。
@@ -566,37 +574,44 @@ export interface NodeResources {
 ### 6.2 待确认项
 
 - 首版是否要求用户先登录：API 全量带 401，但登录页/OAuth 流程是否在本期实现需要产品与后端确认。
-- CSRF Token 的获取与失效机制：契约只写了错误码 403，未定义令牌下发接口或响应头。
+- CSRF Token 的获取与失效机制：后端已通过 `GET /api/v1/auth/me` 返回 `csrfToken`，前端仍需实现内存缓存、写请求携带和 403 后刷新令牌的处理。
 - 生产环境前端访问后端的地址与环境变量名（建议 `VITE_API_BASE_URL`），以及 Vercel 与后端的 CORS/Cookie 策略。
 - 热门知识快捷入口的清单是前端写死还是由后端/配置下发。
 - 问卷“全部答完”后是自动提交 complete，还是用户点击“查看结果”后再提交（建议后者，避免误触）。
 - 移动端适配边界：最小支持宽度、是否做 Drawer 全屏化。
 - 结果页路径图的可视化上限：20 节点时是否可接受简单连线，是否需要横屏/缩放。
 - 目标输入模糊的判定标准（后端 400 与产品提示的边界）。
-- 结果页跨层边的真实布局方案：当前用 level 分行 + 箭头示意，后续是否改为 SVG 路径或保留现状。
+- 结果页跨层边布局已改为按节点实测位置绘制 SVG 贝塞尔连线，此项已确定，不再作为待决问题。
 - 测试范围：是否引入 Vitest / React Testing Library，以及 E2E 由谁维护。
 
 ## 七、当前遗漏与后续优化
 
 从“能演示”到“能上线”之间，还缺以下工作，建议按优先级推进：
 
+`api/sessions.ts` 双模式入口、CSRF 接入、复核修改、零题目、真实 edges 连线与资料四态已完成，不再列入下方清单。详细阶段状态见 [前端接口对接 TODO](FRONTEND_API_TODO.md)。
+
 ### P0 联调前必须补齐
 
-- 将 `api/sessions.ts` 从 Mock store 切换到真实 HTTP 客户端，保持页面层签名不变。
-- 确认并实现 401 重登、403 CSRF 刷新、404 越权访问的统一处理；当前只在 Mock 里模拟了错误语义。
+- 补齐 `backend/secrets.properties` 的模型与检索凭证；缺失时任务稳定失败为 `GRAPH_GENERATION_FAILED`，真实链路无法走到结果页。
+- 请求层补超时与 AbortController；当前只用 `cancelled` 标志忽略响应，实际请求不中断，切换 sessionId 时旧请求仍在飞。
+- 网络错误与可重试 5xx 改为 2/4/8 秒有限退避加手动重试出口；当前是固定 2000ms 无上限重试。
+- 401 补明确引导（未登录或 `local-test` 未启用），当前只展示后端原始 message。
 - 配置生产后端地址环境变量与 Vercel SPA fallback，否则刷新子路由会 404。
 
 ### P1 影响质量与回归
 
-- 为 Mock store 的生成状态机、答案幂等更新、`complete` 回退 `READY`、剪枝算法补单元测试。
-- 增加一条完整 E2E：首页输入 → 等待生成 → 逐题自评 → 查看结果 → 打开资料侧栏 → 返回改答案。
-- 把轮询间隔、阶段时长等常量从组件或 Mock 中抽离为配置，便于测试和真实后端联调。
+- 答题进度改用 `saveAnswer` 返回的 `answeredCount` / `totalQuestions` 校准，替换当前的本地数组计数。
+- 补 `warnings` 展示入口，在等待页或结果页给一处“部分资料暂不可用”的非阻断提示。
+- 处理 `resourceStatus: PENDING`；当前会落入 READY 分支，渲染成“有 reason、零资料”的正常态。
+- 读取 429 的 `Retry-After` 响应头，而不是只展示错误文案。
+- `ResourcesDrawer` 把 409 `SESSION_NOT_COMPLETED` 与 404 从通用“资料加载失败”中分流。
+- 为轮询 Hook、答题状态恢复、`complete` 回退 `READY` 与响应校验器补单元测试；再补一条完整 E2E：首页输入 → 等待生成 → 逐题自评 → 查看结果 → 打开资料侧栏 → 返回改答案。
+- 把轮询间隔、退避阶梯等常量抽离为配置，便于测试和联调。
 
 ### P2 体验与工程化优化
 
-- 结果图从“level 分行 + 箭头”升级为更准确的跨层连线布局，避免并行分支被误解成单链。
-- 为长时间生成、上游限流、网络中断补充可恢复提示和重试策略。
-- 统一抽取错误码映射、时间/空值格式化到 `utils`，避免在页面里重复判断。
+- 资料侧栏增加按 `sessionId + nodeId` 的缓存层，并在改答案、退出登录、切换用户时失效；当前靠 `key={node.id}` 每次重新请求。
+- 统一抽取错误码映射、空值格式化到 `utils`，避免在页面里重复判断。
 - 锁定依赖版本，清理 `package.json` 中的 `latest`。
 - 评估是否需要为资料侧栏、当前题号增加可测试的轻量 context，而不是过早引入全局 Store。
 
@@ -618,13 +633,13 @@ npm run typecheck
 npm run build
 ```
 
-后端健康检查：`GET http://localhost:8080/actuator/health`。本地开发建议在 [vite.config.ts](../frontend/vite.config.ts) 配置 `/api` 代理到 `http://localhost:8080`，保持同源 Cookie。
+后端健康检查：`GET http://localhost:8080/actuator/health`。本地开发建议在 [vite.config.ts](../vite.config.ts) 配置 `/api` 代理到 `http://localhost:8080`，保持同源 Cookie。
 
 ### 协作流程摘要
 
 - 在自己 Fork 的 `main` 开发，PR 合入团队主仓库 `main`；提交信息格式 `类型: English description/中文说明`。
-- PR 正文按 [CONTRIBUTING.md](../CONTRIBUTING.md) 模板填写八个章节，使用简体中文与真实换行。
-- 接口字段变化同步更新 [API_CONTRACT.md](API_CONTRACT.md) 与本文件“TypeScript 契约”部分；页面与交互变化同步更新本文件。
+- PR 正文按 [CONTRIBUTING.md](../../CONTRIBUTING.md) 模板填写八个章节，使用简体中文与真实换行。
+- 接口字段变化同步更新 [API_CONTRACT.md](../../docs/API_CONTRACT.md) 与本文件“TypeScript 契约”部分；页面与交互变化同步更新本文件。
 - 页面改动附截图或演示。
 
 ### 部署
@@ -642,10 +657,10 @@ npm run build
 5. 前端自行推导掌握状态，而不是以服务端返回为准。
 6. 把结果图当单链渲染，忽略并行分支与跨层边。
 7. 把 voteCount 为 null 显示成 0，或给失败节点伪造资料。
-8. 直连后端不带 Cookie 凭证，或忽略 CSRF Token。
+8. 直连后端不带 Cookie 凭证，或忽略 `auth/me` 下发的 CSRF Token。
 9. 结果只存内存，刷新后无法恢复。
 10. 每个页面复制类型与错误处理，而不是集中在 api/types 与请求层。
 
 ## 文档同步规则
 
-本文档是 PRD 转化后的前端技术方案，也是前端团队的日常开发依据。需求、接口或架构变化时，至少更新本文件对应的章节；接口字段变化必须以 [API_CONTRACT.md](API_CONTRACT.md) 为准，视觉与交互变化则同步 [UI_DESIGN.md](UI_DESIGN.md)，避免三份文档不一致。
+本文档是 PRD 转化后的前端技术方案，也是前端团队的日常开发依据。需求、接口或架构变化时，至少更新本文件对应的章节；接口字段变化必须以 [API_CONTRACT.md](../../docs/API_CONTRACT.md) 为准，视觉与交互变化则同步 [UI_DESIGN.md](UI_DESIGN.md)，避免三份文档不一致。

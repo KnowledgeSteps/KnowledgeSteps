@@ -10,12 +10,12 @@
 
 | 文档 | 职责 |
 | --- | --- |
-| [PROJECT.md](PROJECT.md) | 产品定位、用户和首版范围 |
-| [API_CONTRACT.md](API_CONTRACT.md) | 接口字段、权限及业务状态的约定 |
+| [PROJECT.md](../../docs/PROJECT.md) | 产品定位、用户和首版范围 |
+| [API_CONTRACT.md](../../docs/API_CONTRACT.md) | 接口字段、权限及业务状态的约定 |
 | [FRONTEND.md](FRONTEND.md) | 前端技术方案与模块说明 |
 | [UI_DESIGN.md](UI_DESIGN.md) | 已有视觉、组件和交互规范 |
 | 本文 | 当前差距、实施决策、工作拆分、依赖和验收标准 |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | 部署平台、环境配置与发布流程 |
+| [DEPLOYMENT.md](../../docs/DEPLOYMENT.md) | 部署平台、环境配置与发布流程 |
 
 发生冲突时，产品范围以 PROJECT 为准，接口语义以 API_CONTRACT 为准；实现现状以源码为准。实施时同步更新对应文档，不能把本文中的建议当作已经存在的接口或功能。
 
@@ -25,36 +25,44 @@
 
 | 范围 | 当前实现及依据 | 规划处理 |
 | --- | --- | --- |
-| 工程 | [package.json](../frontend/package.json)：React、TypeScript、Vite、Ant Design `^6.6.3`、React Router `^7.18.3` | 沿用框架，按现有锁文件核定依赖版本 |
-| 页面与路由 | [App.tsx](../frontend/src/App.tsx)：首页、问答页、结果页及 404，业务页面懒加载 | 保持三个业务页面，生成等待作为问答页内视图 |
-| 首页 | [HomePage.tsx](../frontend/src/pages/HomePage.tsx)：目标校验、热门主题回填、创建反馈 | 完善重复提交防护、失败恢复和真实模式文案 |
-| 问答 | [SessionQuestionsPage.tsx](../frontend/src/pages/SessionQuestionsPage.tsx)：读取题目、保存后前进、状态侧栏、完成入口 | 补齐全答完后的修改和零题目流程 |
-| 结果 | [SessionResultPage.tsx](../frontend/src/pages/SessionResultPage.tsx)：状态门禁、重复调用 complete 恢复结果 | 保留恢复方式，补充数据失效与错误恢复 |
-| Mock | [store.ts](../frontend/src/api/mock/store.ts)：阶段模拟、答案更新、隐藏节点、localStorage 保存 | 保留为开发演示与测试工具，生产数据不依赖此存储 |
-| 视觉 | [styles.css](../frontend/src/styles.css)、[main.tsx](../frontend/src/main.tsx)：品牌变量、中文组件主题、980/700px 断点、焦点与减弱动效 | 优先保证一致性、阅读和操作反馈 |
-| 开发与 CI | [vite.config.ts](../frontend/vite.config.ts) 已有 `/api` 代理；[ci.yml](../.github/workflows/ci.yml) 已有 lint、类型检查和构建 | 扩展业务测试与发布后的页面检查 |
+| 工程 | [package.json](../package.json)：React、TypeScript、Vite、Ant Design `^6.6.3`、React Router `^7.18.3` | 沿用框架，按现有锁文件核定依赖版本 |
+| 页面与路由 | [App.tsx](../src/App.tsx)：首页、问答页、结果页及 404，业务页面懒加载 | 保持三个业务页面，生成等待作为问答页内视图 |
+| 首页 | [HomePage.tsx](../src/pages/HomePage.tsx)：目标校验、热门主题回填、创建反馈 | 完善重复提交防护、失败恢复和真实模式文案 |
+| 问答 | [SessionQuestionsPage.tsx](../src/pages/SessionQuestionsPage.tsx)：读取题目、保存后前进、状态侧栏、完成入口 | 补齐全答完后的修改和零题目流程 |
+| 结果 | [SessionResultPage.tsx](../src/pages/SessionResultPage.tsx)：状态门禁、重复调用 complete 恢复结果 | 保留恢复方式，补充数据失效与错误恢复 |
+| Mock | [store.ts](../src/api/mock/store.ts)：阶段模拟、答案更新、隐藏节点、localStorage 保存 | 保留为开发演示与测试工具，生产数据不依赖此存储 |
+| 视觉 | [styles.css](../src/styles.css)、[main.tsx](../src/main.tsx)：品牌变量、中文组件主题、980/700px 断点、焦点与减弱动效 | 优先保证一致性、阅读和操作反馈 |
+| 开发与 CI | [vite.config.ts](../vite.config.ts) 已有 `/api` 代理；[ci.yml](../../.github/workflows/ci.yml) 已有 lint、类型检查和构建 | 扩展业务测试与发布后的页面检查 |
 
 ### 2.2 优先差距
 
 P0 表示首版交付必须解决；P1 表示核心流程稳定后的体验与维护优化；P2 表示首版之外的评估项。
 
-| 编号 | 优先级 | 已核实的现状 | 影响与实施方向 |
-| --- | --- | --- | --- |
-| G01 | P0 | [sessions.ts](../frontend/src/api/sessions.ts) 的六个函数全部直接调用 Mock store | 页面不能访问真实任务；增加统一 HTTP 层和显式数据模式 |
-| G02 | P0 | 问答页只要 `allAnswered` 为真就渲染完成面板；侧栏跳题仅改变 `currentIndex` | 全答完及结果页返回后无法打开选项修改；增加独立的复核/编辑视图状态 |
-| G03 | P0 | 问答页将空数组与尚未加载一起处理，`allAnswered` 要求题数大于零 | 后端合法返回零道题时持续加载；空数组显示“无需自评”，允许调用 complete |
-| G04 | P0 | [PathView.tsx](../frontend/src/components/result/PathView.tsx) 仅按 level 分组并在层间画统一箭头，未消费 `result.edges` | 多分支和跨层依赖表达不准确；按真实边绘制连线，提供依赖文字列表 |
-| G05 | P0 | PathView 在零缺口时只返回说明区，没有可操作的目标节点 | 与产品“只展示目标”要求有差距；保留目标入口并展示不搜索目标资料的说明 |
-| G06 | P0 | [useSession.ts](../frontend/src/hooks/useSession.ts) 正常轮询间隔为 1100ms，错误重试为 1800ms，只有 404 会停止错误重试 | 不符合两秒轮询约定；补终态、401/403、限流、网络恢复和取消策略 |
-| G07 | P0 | [ResourcesDrawer.tsx](../frontend/src/components/result/ResourcesDrawer.tsx) 固定展示 Mock 文案，未展示返回的作者与赞同数 | 切换真实接口后仍会误导；按模式与真实可空字段渲染，补请求重试入口 |
-| G08 | P0 | API 文档标明六个业务接口待实现；后端现有控制器提供的是 `/api/test` 本地上游测试 | 上游可连通不等于业务可联调；真实交付依赖会话、问卷、结果、权限接口完成 |
-| G09 | P0 | 登录与 CSRF 只有设计约定；仓库没有 Vercel SPA fallback 配置文件 | 真实写请求和子路由刷新无法据此保证；与后端落实认证、令牌下发及部署路由 |
-| G10 | P0 | package scripts 与 CI 没有前端行为测试 | 构建通过不能覆盖改答案、空问卷、边连接等问题；为关键路径建立自动化验证 |
-| G11 | P1 | Mock 的结果分层取自原始图，未基于精简后的图重新计算 | 与 complete 的重新分层约定有偏差；修正演示模型并用契约样例验证 |
+状态列以 2026-09-11 的源码核对结果为准：已完成表示代码中可验证，部分完成表示主体已实现但仍有明确缺口。
+
+| 编号 | 优先级 | 状态 | 已核实的现状 | 影响与实施方向 |
+| --- | --- | --- | --- | --- |
+| G01 | P0 | 已完成 | [sessions.ts](../src/api/sessions.ts) 按 `isMockMode` 转发到 Mock store 或 [real/sessions.ts](../src/api/real/sessions.ts)，页面签名未变 | 与 G08 合并，均由统一 HTTP 层和显式数据模式解决 |
+| G02 | P0 | 已完成 | 问答页用独立 `reviewing` 状态与 `allAnswered` 解耦，侧栏跳题会置 `reviewing` 并打开 QuestionPanel | 全答完及结果页返回后可修改答案 |
+| G03 | P0 | 已完成 | `allAnswered` 改为 `questions !== null && answeredCount === totalQuestions`，`[]` 与 `null` 分开 | 零题目显示“无需额外确认”并可直接 complete |
+| G04 | P0 | 已完成 | [PathView.tsx](../src/components/result/PathView.tsx) 消费 `result.edges`，按节点实测位置画 SVG 贝塞尔连线，并渲染 `path-dependencies` 文字列表；`visibleEdges` 过滤悬空边 | 并行与跨层依赖表达准确 |
+| G05 | P0 | 已完成 | 零缺口走 `all-clear` 分支，保留可点击的目标节点按钮和不搜索目标资料的说明 | 与产品“只展示目标”一致 |
+| G06 | P0 | 部分完成 | [useSession.ts](../src/hooks/useSession.ts) 已固定 2000ms、上一请求完成后再排下一次、终态停止、401/403/404 停止重试；仍缺有限退避、AbortController 与 429 `Retry-After` | 网络错误与 5xx 目前是无上限固定重试；补退避、取消与限流策略 |
+| G07 | P0 | 已完成 | [ResourcesDrawer.tsx](../src/components/result/ResourcesDrawer.tsx) 按 `resourceStatus` 分支渲染四态，作者与赞同数按 null 区分“暂未提供”，Mock 文案受 `isMockMode` 控制，失败态有重试入口 | 剩余问题是 `PENDING` 落入 READY 分支，见 G12 |
+| G08 | P0 | 已完成 | 同 G01 | — |
+| G09 | P0 | 部分完成 | [auth.ts](../src/api/auth.ts) 已接入 `auth/me`、内存缓存 CSRF token、写请求带 `X-CSRF-Token`；仓库仍没有 Vercel SPA fallback 配置文件，也没有 `.env.example` | 真实写请求已可用；补部署路由与环境变量示例 |
+| G10 | P0 | 未开始 | package scripts 与 CI 仍没有前端行为测试 | 构建通过不能覆盖改答案、空问卷、边连接等问题；为关键路径建立自动化验证 |
+| G11 | P1 | 待复核 | Mock 的结果分层取自原始图，未基于精简后的图重新计算 | 与 complete 的重新分层约定有偏差；修正演示模型并用契约样例验证 |
+| G12 | P0 | 未开始 | `ResourceStatus` 有 5 个取值，`PENDING` 在资料侧栏落入 READY 分支，渲染成“有 reason、零资料”的正常态 | 补 PENDING 独立文案，或由后端保证可见节点不返回 PENDING |
+| G13 | P1 | 未开始 | `saveAnswer` 返回的 `masteryStatus`、`answeredCount`、`totalQuestions` 被丢弃，问答页用本地数组自行计数 | 改为以服务端返回校准，避免与后端口径漂移 |
+| G14 | P1 | 未开始 | `SessionDetail.warnings` 已解析但全站没有渲染入口 | 等待页或结果页补一处“部分资料暂不可用”的非阻断提示 |
+| G15 | P0 | 未开始 | 仓库只有 `backend/secrets.properties.example`，缺少真实模型与检索凭证 | 任务稳定失败为 `GRAPH_GENERATION_FAILED`，真实链路无法走到结果页 |
 
 ### 2.3 文档需要校准的地方
 
-FRONTEND 的选型表写 Ant Design v5，依赖章节与 package.json 已是 v6；轮询、完成后的改答案、真实依赖连线等描述也不能全部视作已实现。实施第一阶段需标明“已实现 / 待实现”，避免以文档描述替代验收。
+2026-09-11 已按源码重新核对 FRONTEND、FRONTEND_API_TODO 与 FRONTEND_API_ALIGNMENT：轮询间隔、完成后改答案、真实依赖连线、资料四态、双模式 API 层均已落地，相关"尚未落地"旧描述已修正。校准时发现的偏差记为 G12～G15。
+
+保留原则：文档描述不能替代验收。凡标"已完成"的条目均以源码可验证为准；真实链路的端到端结果仍待 G15 凭证补齐后重跑。
 
 UI_DESIGN 引用的根目录 `.impeccable.md` 当前不存在；设计背景可先引用 PROJECT 与 UI_DESIGN，不应继续依赖失效链接。其“大面积不使用纯白”与 `--bg-card: #ffffff` 的表述需要统一；本期先沿用现有 token，不以此触发整站视觉重做。
 
@@ -219,7 +227,7 @@ flowchart TD
 
 ### 6.2 接口映射与联调顺序
 
-六个接口目前均为契约设计，真实实现仍依赖后端。
+六个业务接口后端已实现；当前阶段的主要工作是前端从 Mock 切换到真实 HTTP，并完成本地 `local-test` 联调。
 
 | 顺序 | 方法与路径 | 前端交付重点 |
 | --- | --- | --- |
@@ -234,13 +242,21 @@ flowchart TD
 
 ### 6.3 Mock 与真实模式
 
-建议新增 `VITE_DATA_MODE=mock|api` 与 `VITE_API_BASE_URL`，这些变量目前尚未落地。开发示例配置明确模式；正式构建必须显式使用 api，演示构建显式使用 mock 并全程展示“演示数据”。配置非法或真实接口失败时不静默回退 Mock。
+`VITE_DATA_MODE=mock|api` 与 `VITE_API_BASE_URL` 已在 [config.ts](../src/api/config.ts) 落地，类型声明见 [vite-env.d.ts](../src/vite-env.d.ts)。实际行为：
+
+- 未设置或设为 `mock` 时走 Mock；设为 `api` 走真实接口；其他值在模块加载期直接抛错，不静默降级。
+- `VITE_API_BASE_URL` 为空时走相对路径，配合 Vite `/api` 代理保持同源 Cookie。
+- 真实接口失败不回退 Mock；`isMockMode` 同时控制页面上所有“演示数据”标识。
+
+仍待补齐：仓库只有本地 `.env.local`，没有提交 `.env.example`，新同学不知道该配哪些变量。正式构建必须显式使用 `api`，演示构建显式使用 `mock`。
 
 开发继续利用已有 Vite `/api` 代理。Mock 与真实实现遵守相同出入参和错误语义；固定样例应涵盖零题目、全掌握、并行分支、跨层边和不同资料状态。Mock 实现保持可替换，页面不依赖其图推导算法。
 
 ### 6.4 认证与部署依赖
 
-前后端在真实联调前确定登录入口、当前用户查询、退出接口、回调返回路径、CSRF 令牌获取方式与头名。API_CONTRACT 中的 auth 路径只是预留建议，不据此宣称已经可用。真实请求按确认方案携带 Cookie，401 后提供可返回原任务的登录体验。
+当前用户查询、退出接口与 CSRF 令牌获取方式已确定并接入：`GET /api/v1/auth/me` 下发 `csrfToken`，写请求带 `X-CSRF-Token`，`POST /api/v1/auth/logout` 已实现但前端还没有入口。请求统一 `credentials: 'include'`。
+
+仍未确定的是登录入口与回调返回路径：知乎 OAuth 的 `auth/zhihu/login` 与回调后端尚未实现，本地身份依赖 `local-test` 固定测试用户。401 目前只展示后端原始 message，还没有可返回原任务的登录体验。
 
 生产优先评估同源 `/api` 反向代理，以减少跨站 Cookie 限制；平台需验证 Cookie 转发与 OAuth 回调行为。若采用跨源地址，必须实测 HTTPS、凭证 CORS、SameSite、CSRF 及目标浏览器的 Cookie 策略，不能仅靠前端 `credentials` 保证成功。
 
@@ -266,31 +282,36 @@ Vercel Root Directory 继续设为 `frontend`。补齐 SPA fallback，先匹配 
 
 ## 八、实施阶段与任务拆分
 
-按一名前端开发、后端可配合联调估算约 12～17 人日，不含后端实现、OAuth 申请及外部平台等待。阶段内包含对应测试与返修；若后端未就绪，先完成演示闭环和接口适配，真实联调另行排期。
+原估算为一名前端开发约 12～17 人日。截至 2026-09-11，M0～M3 的主体工作已完成，剩余约 4～6 人日集中在异常路径与交付工程化。
 
-| 阶段 | 预计投入 | 工作包 | 完成标志 |
+| 阶段 | 状态 | 工作包 | 完成标志 |
 | --- | --- | --- | --- |
-| M0：统一基线 | 1 人日 | 校准技术文档，确认数据模式、认证、字段、首批主题及验收用例 | 前后端接口差异和待办明确，未决项有负责人 |
-| M1：修复闭环 | 2～3 人日 | G02/G03/G05，复核编辑、零题目、目标节点、保存期间导航与数据重置 | Mock 下完成、返回修改、刷新及零题目均可走通 |
-| M2：准确展示路径 | 2～3 人日 | G04、真实边连线、文字依赖、21 节点、小屏及图异常兜底 | 并行、跨层、隐藏中间节点后的关系与返回数据一致 |
-| M3：真实服务接入 | 4～6 人日 | HTTP 层、模式隔离、六接口、认证/CSRF、轮询恢复、真实资料 | 预览环境跑通真实链路；权限与网络错误有明确出口 |
-| M4：交付验证 | 3～4 人日 | 自动化回归、可访问性、性能基线、SPA 部署、环境与文档检查 | P0 用例全通过，形成可复现的验收记录 |
+| M0：统一基线 | 已完成 | 校准技术文档，确认数据模式、认证、字段、首批主题及验收用例 | 接口差异与待办已明确，本轮又按源码复核一次 |
+| M1：修复闭环 | 已完成 | G02/G03/G05，复核编辑、零题目、目标节点 | Mock 下完成、返回修改、刷新及零题目均可走通 |
+| M2：准确展示路径 | 已完成 | G04、真实边连线、文字依赖、悬空边过滤 | 并行、跨层关系与返回数据一致；21 节点与小屏仍待实测 |
+| M3：真实服务接入 | 主体完成 | HTTP 层、模式隔离、六接口、认证/CSRF | 接口全部接通；异常路径未闭合，见 M3b |
+| M3b：异常路径闭合 | 待开始 | 超时与取消、有限退避、429 `Retry-After`、401 引导、409/404 分流、G12～G14 | 断网、限流、越权、慢响应都有明确且有限的出口 |
+| M4：交付验证 | 待开始 | 真实链路验收、自动化回归、可访问性、性能基线、SPA 部署、依赖锁定 | P0 用例全通过，形成可复现的验收记录 |
 
-关键依赖：M0 的认证与契约确认 → 后端业务接口就绪 → M3 真实联调 → M4 发布验收。M1、M2 和测试样例可以在后端开发期间推进。联调尚未开始时，M4 中的自动化准备可提前开展。
+关键依赖已变化：接口联调不再是瓶颈，当前唯一的外部阻塞是 G15 的本地模型与检索凭证。M3b 不依赖凭证，可立即开始；M4 的真实链路验收必须等 G15。自动化测试准备可与 M3b 并行。
 
-建议按交付物拆成可独立审查的任务：
+按交付物拆成可独立审查的任务：
 
-| 任务 | 主要文件或范围 | 责任角色 | 依赖 |
-| --- | --- | --- | --- |
-| FE-01 修复答题和复核 | QuestionsPage、QuestionPanel、StatusRail | 前端 | 既有接口契约 |
-| FE-02 正确渲染路径 | PathView、graphLayout、结果样例 | 前端 | nodes/edges 样例 |
-| FE-03 HTTP 与模式隔离 | api、useSession、环境配置 | 前端 | 认证与错误约定 |
-| FE-04 会话接口联调 | 首页、问答、结果状态和恢复 | 前端 + 后端 | 六接口及测试账号 |
-| FE-05 资料与模式文案 | ResourcesDrawer、AppShell、等待页 | 前端 + 后端 | 资料状态样例 |
-| FE-06 测试与可访问性 | 行为测试、E2E、小屏与键盘操作 | 前端 + 验收人员 | M1 起持续开展 |
-| FE-07 发布与文档 | Vercel 路由、CI、部署说明、前端技术方案 | 前端 + 仓库维护者 | 预览环境可用 |
+| 任务 | 状态 | 主要文件或范围 | 责任角色 | 依赖 |
+| --- | --- | --- | --- | --- |
+| FE-01 修复答题和复核 | 已完成 | QuestionsPage、QuestionPanel、StatusRail | 前端 | — |
+| FE-02 正确渲染路径 | 已完成 | PathView、结果样例 | 前端 | — |
+| FE-03 HTTP 与模式隔离 | 已完成 | api/config、api/http、api/validators、api/real | 前端 | — |
+| FE-04 会话接口联调 | 部分完成 | 首页、问答、结果状态和恢复 | 前端 + 后端 | G15 凭证 |
+| FE-05 资料与模式文案 | 部分完成 | ResourcesDrawer、AppShell、等待页 | 前端 + 后端 | G12 PENDING 口径确认 |
+| FE-08 请求层健壮性 | 待开始 | api/http、useSession、错误码映射 | 前端 | 无外部依赖，可立即开始 |
+| FE-09 服务端状态校准 | 待开始 | QuestionsPage 答题计数、warnings 展示入口 | 前端 | G13、G14 |
+| FE-06 测试与可访问性 | 待开始 | 行为测试、E2E、小屏与键盘操作 | 前端 + 验收人员 | 可与 FE-08 并行 |
+| FE-07 发布与文档 | 待开始 | Vercel SPA fallback、依赖锁定、CI、部署说明 | 前端 + 仓库维护者 | 预览环境可用 |
 
-P1 后续优化包括资料缓存命中体验、样式按模块整理、Mock 精简后重新分层、依赖版本范围收敛。P2 再评估缩放图、结果导出和更多主题；引入前必须验证用户价值与接口支持，不占用首版关键路径。
+推荐顺序：FE-08 与 FE-09 先做，因为它们不依赖任何外部条件，且直接决定真实模式下的可用性；FE-07 的 SPA fallback 与依赖锁定是发布硬门槛，宜尽早合入；FE-04 的完整链路验收等 G15。
+
+P1 后续优化包括资料缓存命中体验、样式按模块整理、Mock 精简后重新分层。P2 再评估缩放图、结果导出和更多主题；引入前必须验证用户价值与接口支持，不占用首版关键路径。
 
 ## 九、验证方案与交付门槛
 
