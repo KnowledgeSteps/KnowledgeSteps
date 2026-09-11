@@ -37,3 +37,9 @@
 主页右侧 Transformer 示例卡片为用户指定的例外：使用 SteveBloX 玻璃卡片样式（17px 圆角、6px 背景模糊、阴影），不使用三色圆点或五层圆环；尺寸自适应，蓝白配色由 theme.ts 管理。内部节点树参考 Esca-Byte 的 SVG 曲线与延迟显示效果，从 Transformer 向上逐个展开六个前置节点；鼠标移入、键盘聚焦或触屏点击可展开，Escape 可收起。示例卡片保留 SteveBloX 悬停放大及按下缩小倾斜效果；减少动态效果时关闭变形并立即显示节点。
 
 用户指定的渐变特例：登录页主标题第二行“帮你找到还缺的基础。”使用浅蓝 → 中蓝 → 深蓝文字渐变，由 theme.ts 的 login-title-gradient 管理，仅用于这行文字。
+
+用户指定的等待页例外：WaitingView 使用 dylanharriscameron 的 card > bg + blob 动画容器，光斑改浅蓝并适配容器尺寸；不套用五层圆环。图谱等待使用 24 段方块进度条，下方数字标注预估，未完成最高 95%。步骤连接线与方块使用同一数值，不循环；后端完成后用 0.9 秒加速至 100%，停留 0.25 秒再结束等待展示，不延迟实际请求。样式集中 design/waiting.css，支持窄屏与减少动态效果。
+
+用户指定的失败提示例外：SessionNotice 使用简约 Ant Design Modal，只保留标题、原因和操作按钮，不使用 KnowledgeCard、CardDecoration 或 uiverse 卡片装饰。
+
+用户指定的答题页例外：SessionQuestionsPage 与 StatusRail 使用简约白底双栏页面，不使用 KnowledgeCard、CardDecoration 或 uiverse 装饰。桌面右侧高度由左侧内容决定，右侧列表内滚动、标题固定；窄屏上下排列并限制列表高度。样式集中 design/quiz.css。

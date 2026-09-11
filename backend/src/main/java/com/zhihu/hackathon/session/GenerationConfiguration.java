@@ -17,7 +17,7 @@ public class GenerationConfiguration {
       @Value("${model.base-url:https://api.siliconflow.cn/v1}") String url,
       @Value("${model.api-key:}") String key,
       @Value("${model.graph-model:deepseek-ai/DeepSeek-V4-Flash}") String a,
-      @Value("${model.question-model:deepseek-ai/DeepSeek-V4-Flash}") String b) {
+      @Value("${model.question-model:Qwen/Qwen3-30B-A3B-Instruct-2507}") String b) {
     var http=java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     var factory=new JdkClientHttpRequestFactory(http);factory.setReadTimeout(Duration.ofSeconds(60));
     return new SiliconFlowGenerationClient(RestClient.builder().baseUrl(url).requestFactory(factory).build(),json,key,a,b);

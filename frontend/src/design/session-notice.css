@@ -1,0 +1,7 @@
+.session-notice-title { display: flex; align-items: center; gap: 10px; color: var(--text-main); font-weight: 600; }
+.session-notice-title .anticon { color: var(--error); font-size: 20px; }
+.session-notice-reason { color: var(--text-sub); font-size: 14px; line-height: 1.8; margin: 18px 0 24px; overflow-wrap: anywhere; }
+.session-notice-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.session-notice-actions .ant-btn { height: auto; min-height: 36px; white-space: normal; }
+.session-notice-reopen { text-align: center; margin: 40px auto; }
+@media (max-width: 480px) { .session-notice-actions .ant-btn { flex: 1; } }

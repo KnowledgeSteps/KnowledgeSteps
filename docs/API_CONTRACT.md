@@ -295,7 +295,7 @@ IDEA 也可仅为本地测试把有效配置文件设为 `local-test`（不是�
 | GET | `/api/test/zhihu/search?query=Transformer` | query 去空白后 1～100 字符 | `{"resources":[...]}`，最多 3 条真实资料，字段为 title、url、summary、authorName、voteCount |
 | POST | `/api/test/ai` | `{"prompt":"用一句话解释 Transformer"}`，prompt 去空白后 1～2000 字符 | `{"model":"deepseek-ai/DeepSeek-V4-Flash","content":"模型实际生成的文本"}` |
 
-AI 使用 model.base-url、model.api-key 和 model.graph-model；当前 A、B 配置相同。非流式调用 `/chat/completions`，最大输出 1024 Token，读取超时 60 秒。此接口只测试文本生成，不承诺业务 JSON 结构。返回达到长度上限时报告 AI_OUTPUT_TRUNCATED。
+AI 使用 model.base-url、model.api-key 和 model.graph-model；图谱默认使用 DeepSeek V4 Flash（enable_thinking=false），问卷默认使用 Qwen/Qwen3-30B-A3B-Instruct-2507。测试接口跟随图谱模型并关闭思考。非流式调用 `/chat/completions`，最大输出 1024 Token，读取超时 60 秒。此接口只测试文本生成，不承诺业务 JSON 结构。返回达到长度上限时报告 AI_OUTPUT_TRUNCATED。
 
 失败响应示例：400 `{"error":{"code":"INVALID_INPUT"}}`；缺失密钥返回 503；上游失败返回 502 和脱敏代码（例如 AI_UPSTREAM_HTTP_401、AI_REQUEST_FAILED、ZHIHU_AUTH_FAILED），不返回上游错误正文。
 
@@ -314,3 +314,30 @@ AI 使用 model.base-url、model.api-key 和 model.graph-model；当前 A、B �
 登录用户资料：`GET /api/v1/auth/me` 与管理员登录成功响应在 `userId`、`csrfToken` 外增加 `nickname`、`avatarUrl`。资料读取自当前登录用户的 users 记录；无头像返回空字符串，前端使用默认头像，昵称缺失显示“用户”。
 
 目标描述由模型 A 的必填字段 `targetDescription` 提供（去除首尾空白后 1～1000 字符），保存至目标节点的 description，通过节点资料接口的 reason 展示。目标仍不参与答题或搜索。新规则仅适用于新生成任务；历史任务的固定描述不会自动重新生成。
+
+
+### AI 生成失败分类
+
+会话状态仍为 `FAILED`，通过 `error.code` 区分原因，前端失败弹窗直接展示对应 `error.message`：
+
+| 错误码 | 含义 |
+| --- | --- |
+| MODEL_REQUEST_TIMEOUT | 请求连接或读取超时，或上游返回 HTTP 408/504 |
+| MODEL_JSON_PARSE_ERROR | 上游响应 JSON 或模型输出 JSON 解析、类型映射失败 |
+| MODEL_INVALID_RESPONSE | 内容被截断、缺失或响应格式异常 |
+| GRAPH_VALIDATION_FAILED | JSON 能读取，但图谱缺少描述、存在重复节点、环等结构问题 |
+| QUESTION_VALIDATION_FAILED | 问卷数量、节点覆盖或字段内容不符合约束 |
+| MODEL_GENERATION_FAILED | 其他模型调用失败，如非超时的 HTTP 错误或连接异常 |
+
+两次模型调用均保留超时和 JSON 错误分类。返回信息不包含供应商响应正文、密钥或提示词。历史失败任务保留原错误码，重启后端后新建任务使用新分类。
+
+
+模型速度配置：业务图谱请求显式传入 `enable_thinking: false`（[硅基流动说明](https://www.siliconflow.com/blog/deepseek-v4-now-on-siliconflow-million-token-context-intelligence)）；问卷使用非思考 Instruct 模型，不额外传入思考开关。两次调用均保留 JSON 输出、8192 token 上限及现有 60 秒读取超时。配置在 backend/secrets.properties，示例配置同步更新；重启后端生效。具体延迟与账户模型可用性仍需真实接口验证。
+
+
+AI 响应入库前经过两阶段校验修复，详见 [AI JSON 校验与修复](AI_JSON_VALIDATION.md)。提示词仍要求完整字段；兼容修复层允许缺失的节点描述和目标描述补为空字符串，关键名称、关系及题干仍须通过业务校验。
+
+
+### 提交前清空选择
+
+答题时的选择暂存于当前页面，点击“清空所有选择”将本轮全部选项恢复为未选择，并重置进度和侧栏。清空不调用后端接口，不删除已提交数据。点击“查看结果”时，前端通过现有 PUT 答案接口保存本轮全部答案，全部成功后再调用 complete；保存失败保留页面选择供重试。未提交选择不会在刷新后保留。

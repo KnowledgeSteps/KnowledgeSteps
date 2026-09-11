@@ -1,0 +1,59 @@
+/* From Uiverse.io by Smit-Prajapati; original patterned 3D card, brand palette. */
+.ant-btn.graph-node-parent {
+  width: 300px; max-width: 100%; height: auto; padding: 20px;
+  display: block; perspective: 1000px; background: transparent;
+  border: 0; box-shadow: none; white-space: normal; text-align: left;
+  font-family: var(--font-family); color: var(--text-main);
+}
+.ant-btn.graph-node-parent:not(:disabled):hover,
+.ant-btn.graph-node-parent:not(:disabled):active {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--text-main);
+}
+.ant-btn.graph-node-parent:not(:focus-visible) { outline: none; }
+.graph-node-card {
+  display: block; position: relative; width: 100%; padding-top: 50px;
+  border: 3px solid var(--bg-card); transform-style: preserve-3d;
+  background: var(--graph-node-pattern); background-size: 60px 60px;
+  background-position: 0 0, 0 0; background-color: var(--bg-subtle);
+  box-shadow: var(--graph-node-shadow);
+  transition: background-position .5s ease-in-out;
+}
+.graph-node-content-box {
+  display: flex; flex-direction: column; align-items: flex-start;
+  background: var(--blue-light); padding: 60px 25px 25px;
+  transform-style: preserve-3d; min-height: 290px;
+}
+.graph-node-title { font-size: 25px; font-weight: 900; line-height: 1.4; overflow-wrap: anywhere; transform: translateZ(50px); }
+.graph-node-description { margin-top: 10px; font-size: 14px; font-weight: 500; line-height: 1.8; overflow-wrap: anywhere; transform: translateZ(30px); }
+.graph-node-more { margin-top: 16px; display: inline-block; font-weight: 700; font-size: 13px; color: var(--primary); background: var(--bg-card); padding: 8px 11px; transform: translateZ(20px); }
+.graph-node-icon-box { position: absolute; top: 30px; right: 30px; height: 60px; width: 60px; display: flex; align-items: center; justify-content: center; background: var(--bg-card); border: 1px solid var(--primary); padding: 10px; transform: translateZ(80px); box-shadow: var(--shadow-card); font-size: 28px; color: var(--primary); }
+/* Keep the measured card and graph connectors stable; animate the texture and inner depth. */
+.graph-node-title, .graph-node-description, .graph-node-more { transition: transform .5s ease-in-out; }
+@media (hover: hover) and (pointer: fine) {
+  .graph-node-parent:hover .graph-node-card { background-position: -100px 100px, -100px 100px; }
+  .graph-node-parent:hover .graph-node-title { transform: translateZ(60px); }
+  .graph-node-parent:hover .graph-node-more { transform: translateZ(40px); }
+}
+.graph-node-parent:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+@media (max-width: 600px) { .ant-btn.graph-node-parent { width: 280px; padding: 12px; } .graph-node-content-box { padding: 54px 20px 22px; } }
+@media (prefers-reduced-motion: reduce) { .graph-node-card, .graph-node-title, .graph-node-description, .graph-node-more { transition: none; } .graph-node-parent:hover .graph-node-card { background-position: 0 0, 0 0; } .graph-node-parent:hover .graph-node-title { transform: translateZ(50px); } .graph-node-parent:hover .graph-node-more { transform: translateZ(20px); } }
+
+.path-scroll { overflow-x: auto; padding: 12px 0 32px; scrollbar-width: thin; scrollbar-color: var(--blue-medium) var(--bg-subtle); }
+.path-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.path-scroll .path-graph { padding-inline: 16px; }
+/* Five 300px cards plus four 24px gaps; overflow stays within the same logical level. */
+.path-scroll .path-row { flex-wrap: wrap; gap: 24px; max-width: 1596px; margin-inline: auto; }
+.path-scroll .graph-node-parent { flex: 0 0 300px; width: 300px; }
+
+/* Let the graph use the viewport instead of the narrow reading column. */
+.path-scroll {
+  width: calc(100vw - 64px);
+  margin-inline-start: calc(50% - 50vw + 32px);
+  max-width: none;
+}
+@media (max-width: 600px) {
+  .path-scroll { width: calc(100vw - 32px); margin-inline-start: calc(50% - 50vw + 16px); }
+}

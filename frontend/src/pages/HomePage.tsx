@@ -1,7 +1,7 @@
 import { ExampleTree } from '../components/ui/ExampleTree';
 import { KnowledgeCard } from '../components/ui/KnowledgeCard';
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowRightOutlined, SearchOutlined, ApartmentOutlined, FormOutlined, ReadOutlined } from '@ant-design/icons';
 import { Alert, Button, Input, Tag } from 'antd';
 import { createSession } from '../api/sessions';
@@ -11,9 +11,10 @@ import { loginUrl } from '../api/loginNavigation';
 const PROMPTS = ['Transformer', 'RAG', 'Spring Boot', '线性代数'];
 export function HomePage() {
     const navigate = useNavigate();
+    const location = useLocation();
     const active = useRef(false);
     useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-    const [goal, setGoal] = useState('');
+    const [goal, setGoal] = useState(() => typeof location.state?.draftTarget === 'string' ? location.state.draftTarget.slice(0, 100) : '');
     const [fieldError, setFieldError] = useState<string | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);

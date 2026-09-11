@@ -183,12 +183,12 @@ public class JdbcSessionStore implements SessionStore {
         jdbc.update("UPDATE assessment_answers SET answer_value=?,answered_at=? WHERE question_id=?", answer, now.toString(), questionId);
       }
       jdbc.update("UPDATE knowledge_nodes SET mastery_status=? WHERE id=?", mastery, nodeId);
-      if (!answer.equals(previousAnswer)) {
+      if (!Objects.equals(answer,previousAnswer)) {
         jdbc.update("DELETE FROM node_resources WHERE node_id=?", nodeId);
         jdbc.update("UPDATE knowledge_nodes SET resource_status=? WHERE id=?",
             ResourcePolicy.limit(answer) == 0 ? "NOT_APPLICABLE" : "PENDING", nodeId);
       }
-      if ("COMPLETED".equals(sessionStatus) && !answer.equals(previousAnswer)) {
+      if ("COMPLETED".equals(sessionStatus) && !Objects.equals(answer,previousAnswer)) {
         jdbc.update("UPDATE learning_sessions SET status='READY',completed_at=NULL,updated_at=? WHERE id=?", now.toString(), sessionId);
       }
       Integer answered = jdbc.queryForObject("""

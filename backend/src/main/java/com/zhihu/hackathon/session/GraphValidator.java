@@ -10,7 +10,7 @@ public class GraphValidator {
     if (input == null || input.nodes() == null || input.edges() == null
         || input.nodes().size() > 20 || input.edges().size() > 210) invalid();
     String targetDescription = normalize(input.targetDescription());
-    if (targetDescription.isEmpty() || targetDescription.length() > 1000) invalid();
+    if (targetDescription.length() > 1000) invalid();
     Map<String, Node> nodes = new LinkedHashMap<>();
     Set<String> names = new HashSet<>();
     names.add(normalize(target).toLowerCase(Locale.ROOT));
@@ -18,7 +18,7 @@ public class GraphValidator {
       if (n == null || n.key() == null || !n.key().matches("[a-zA-Z0-9_-]{1,40}") || n.key().equals("target")) invalid();
       String name = normalize(n.name());
       String description = normalize(n.description());
-      if (name.isEmpty() || name.length() > 100 || description.isEmpty() || description.length() > 1000
+      if (name.isEmpty() || name.length() > 100 || description.length() > 1000
           || !names.add(name.toLowerCase(Locale.ROOT)) || nodes.containsKey(n.key())) invalid();
       nodes.put(n.key(), new Node(n.key(), name, description));
     }

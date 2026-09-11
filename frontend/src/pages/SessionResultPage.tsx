@@ -1,6 +1,7 @@
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { CardDecoration } from '../components/ui/CardDecoration';
-import { BranchesOutlined } from '@ant-design/icons';
+import { EmptyGraphNotice } from '../components/ui/EmptyGraphNotice';
+import { useGraphProgress } from '../hooks/useGraphProgress';
+import { SessionNotice } from '../components/ui/SessionNotice';
+import '../design/waiting.css';
 import { CompassOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
@@ -21,17 +22,21 @@ function messageOf(caught: unknown): string {
 }
 export function SessionResultPage() {
     const { sessionId = '' } = useParams();
+    return <SessionResultContent key={sessionId} sessionId={sessionId} />;
+}
+function SessionResultContent({ sessionId }: { sessionId: string }) {
     const navigate = useNavigate();
     const { session, error: sessionError, reload } = useSession(sessionId);
+    const graphProgress = useGraphProgress(session);
     const [result, setResult] = useState<CompletionResult | null>(null);
     const [resultError, setResultError] = useState<string | null>(null);
     const [openNode, setOpenNode] = useState<KnowledgeNode | null>(null);
     const completed = session?.status === 'COMPLETED';
     useEffect(() => {
-        if (session?.status === 'READY') {
+        if (session?.status === 'READY' && !graphProgress.finishing) {
             navigate(`/sessions/${sessionId}/questions`, { replace: true });
         }
-    }, [navigate, session?.status, sessionId]);
+    }, [navigate, session?.status, sessionId, graphProgress.finishing]);
     useEffect(() => {
         if (!sessionId || !completed)
             return;
@@ -63,10 +68,10 @@ export function SessionResultPage() {
         </div>);
         }
         if (session.status === 'FAILED') {
-            return (<Message title="这次寻路没有成功" body={session.error?.message ?? '生成失败，请重新创建任务。'} onPrimary={() => navigate('/')} primaryLabel="重新寻路"/>);
+            return (<SessionNotice title="这次还没找到完整的知识路径" body={session.error?.message ?? '暂时无法完成生成，请稍后再试。'} target={session.target} onPrimary={() => navigate('/')} primaryLabel="回首页重新寻路"/>);
         }
-        if (isGenerating(session.status)) {
-            return <WaitingView session={session}/>;
+        if (isGenerating(session.status) || graphProgress.finishing) {
+            return <WaitingView session={session} graphPercent={graphProgress.percent}/>;
         }
         if (!result && !resultError) {
             return (<div className="loading-page enter">
@@ -81,8 +86,12 @@ export function SessionResultPage() {
         }
         if (!result)
             return null;
+        if (!result.nodes.some(node => !node.isTarget)) return <EmptyGraphNotice target={result.target}/>;
         return (<>
-        {result.missingCount > 0 && (<div className="uiverse-parent"><section className="resultHero enter uiverse-card"><CardDecoration icon={<BranchesOutlined />}/><div className="uiverse-content">
+        {result.missingCount > 0 && (<section className="waiting-blob-card result-overview enter" aria-label="学习结果概览">
+          <div className="waiting-blob-bg" aria-hidden="true" />
+          <div className="waiting-blob" aria-hidden="true" />
+          <div className="waiting-content">
 
             <span className="badge">基于你的自评生成的结果</span>
             <div className="between result-head">
@@ -92,16 +101,13 @@ export function SessionResultPage() {
                   <br />
                   有 {result.missingCount} 个节点建议巩固或了解
                 </h1>
-                <p>
-                  保留完整图谱，按你的熟悉程度提供不同数量的学习资料。
-                </p>
               </div>
               <div className="gap-count">
                 <strong>{result.missingCount}</strong>
                 <span>个待巩固节点</span>
               </div>
             </div>
-          </div></section></div>)}
+          </div></section>)}
 
         <PathView result={result} onOpenNode={setOpenNode}/>
 
@@ -139,16 +145,5 @@ function Message({ title, body, onPrimary, primaryLabel, secondary, }: {
     primaryLabel: string;
     secondary?: ReactNode;
 }) {
-    return (<div className="uiverse-parent"><section className="fail-panel enter uiverse-card"><CardDecoration icon={<InfoCircleOutlined />}/><div className="uiverse-content">
-
-      <span className="badge">提示</span>
-      <h1>{title}</h1>
-      <p>{body}</p>
-      <div className="actions">
-        <Button htmlType="button" type="primary" className="primary" onClick={onPrimary}>
-          {primaryLabel}
-        </Button>
-        {secondary}
-      </div>
-    </div></section></div>);
+    return <SessionNotice title={title} body={body} onPrimary={onPrimary} primaryLabel={primaryLabel} secondary={secondary}/>;
 }

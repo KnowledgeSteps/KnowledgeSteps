@@ -1,10 +1,13 @@
+import '../../design/graph-reveal.css';
+import { routeEdge, type NodeRect } from './routeEdges';
+import { GraphNodeCard } from './GraphNodeCard';
 import { CardDecoration } from '../ui/CardDecoration';
-import { AimOutlined, BookOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { AimOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import { useLayoutEffect, useRef, useState } from 'react';
 import type { CompletionResult, KnowledgeNode } from '../../api/types';
-const LEVEL_LABELS = { VERY_FAMILIAR: '非常了解 · 已掌握', BASICALLY_KNOW: '基本了解 · 建议巩固', HEARD_OF: '听说过 · 需要补充', DONT_KNOW: '不了解 · 优先学习' } as const;
+
 
 interface PathViewProps {
     result: CompletionResult;
@@ -55,34 +58,23 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
                 if (!graph)
                     return;
                 const graphRect = graph.getBoundingClientRect();
+                const cards: NodeRect[] = [...nodeRefs.current.entries()].map(([id, button]) => {
+                    const rect = (button.querySelector('.graph-node-card') ?? button).getBoundingClientRect();
+                    return { id, left: rect.left - graphRect.left, right: rect.right - graphRect.left,
+                        top: rect.top - graphRect.top, bottom: rect.bottom - graphRect.top };
+                });
                 const nextLines = result.edges.flatMap((edge, index) => {
-                    const from = nodeRefs.current.get(edge.from);
-                    const to = nodeRefs.current.get(edge.to);
-                    if (!from || !to)
-                        return [];
-                    const fromRect = from.getBoundingClientRect();
-                    const toRect = to.getBoundingClientRect();
-                    const sourceNode = result.nodes.find(node => node.id === edge.from);
-                    const wrappedLevel = result.nodes.some(node => {
-                        if (node.level !== sourceNode?.level)
-                            return false;
-                        const rect = nodeRefs.current.get(node.id)?.getBoundingClientRect();
-                        return rect && Math.abs(rect.top - fromRect.top) > 1;
-                    });
-                    // Wrapped siblings remain parallel: route beside cards, not through them.
-                    const sidePath = wrappedLevel
-                        ? `M ${fromRect.right - graphRect.left} ${fromRect.top + fromRect.height / 2 - graphRect.top} H ${graphRect.width - 6 - index % 3 * 5} V ${toRect.top + toRect.height / 2 - graphRect.top} H ${toRect.right - graphRect.left}`
-                        : undefined;
-                    return [
-                        {
-                            sidePath,
-                            key: `${edge.from}-${edge.to}-${index}`,
-                            x1: fromRect.left + fromRect.width / 2 - graphRect.left,
-                            y1: fromRect.bottom - graphRect.top,
-                            x2: toRect.left + toRect.width / 2 - graphRect.left,
-                            y2: toRect.top - graphRect.top,
-                        },
-                    ];
+                    const from = cards.find(card => card.id === edge.from);
+                    const to = cards.find(card => card.id === edge.to);
+                    if (!from || !to) return [];
+                    const points = routeEdge(from, to, cards);
+                    if (!points.length) return [];
+                    const start = { x: (from.left + from.right) / 2, y: from.bottom };
+                    const end = { x: (to.left + to.right) / 2, y: to.top };
+                    points.unshift(start);
+                    points.push(end);
+                    return [{ start, end, key: `${edge.from}-${edge.to}-${index}`,
+                        d: points.map((point, i) => `${i ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ') }];
                 });
                 setLines(nextLines);
                 setSize({ width: graphRect.width, height: graphRect.height });
@@ -104,36 +96,26 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
     const names = new Map(result.nodes.map((node) => [node.id, node.name]));
     const visibleEdges = result.edges.filter((edge) => names.has(edge.from) && names.has(edge.to));
     return (<section className="path" aria-label="完整知识图谱">
-      <div className="path-graph" ref={graphRef}>
+      <div className="path-scroll" tabIndex={0} role="region" aria-label="知识图谱，可横向滚动">
+      <div className="path-graph" ref={graphRef} style={{ minWidth: `${Math.min(5, Math.max(...[...rows.values()].map(nodes => nodes.length))) * 324 + 8}px` }}>
         <svg className="path-edges" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true" focusable="false">
-          <defs>
-            <marker id="path-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
-              <path d="M0,0 L8,4 L0,8 z"/>
-            </marker>
-          </defs>
-          {lines.map((line) => (<path key={line.key} d={line.sidePath ?? `M ${line.x1} ${line.y1} C ${line.x1} ${(line.y1 + line.y2) / 2}, ${line.x2} ${(line.y1 + line.y2) / 2}, ${line.x2} ${line.y2}`} markerEnd="url(#path-arrow)"/>))}
+          {lines.map((line) => (<g key={line.key}>
+            <path className="graph-branch-line" pathLength={1} d={line.d}/>
+          </g>))}
         </svg>
         {levels.map((level) => {
             const nodes = rows.get(level) ?? [];
             return (<div className="path-level" key={level}>
               <span className="path-level-label">第 {level + 1} 级</span>
               <div className={`path-row ${nodes.length === 1 ? 'single' : ''}`}>
-                {nodes.map((node) => (<div className="uiverse-parent" key={node.id}><Button htmlType="button" ref={(element) => {
-                        if (element instanceof HTMLButtonElement)
-                            nodeRefs.current.set(node.id, element);
-                        else
-                            nodeRefs.current.delete(node.id);
-                    }} className={`node-card uiverse-card ${node.isTarget ? "target" : ""} ${node.answer === "VERY_FAMILIAR" ? "mastered-node" : ""}`} onClick={() => onOpenNode(node)}><CardDecoration icon={node.isTarget ? <AimOutlined /> : <BookOutlined />}/><span className="uiverse-content">
-
-                    <span className="node-tag">
-                      {node.isTarget ? '学习目标' : node.answer ? LEVEL_LABELS[node.answer] : '待自评'}
-                    </span>
-                    <strong>{node.name}</strong>
-                    <small>{node.isTarget || node.resourceLimit === 0 ? '查看节点说明 · 无推荐资料' : `查看资料 · 最多 ${node.resourceLimit} 条`}</small>
-                  </span></Button></div>))}
+                {nodes.map((node) => (<GraphNodeCard key={`${result.sessionId}:${node.id}`} sessionId={result.sessionId} node={node} onOpen={() => onOpenNode(node)} buttonRef={(element) => {
+                    if (element) nodeRefs.current.set(node.id, element);
+                    else nodeRefs.current.delete(node.id);
+                }} />))}
               </div>
             </div>);
         })}
+      </div>
       </div>
       {visibleEdges.length > 0 && (<div className="path-dependencies" aria-label="实际依赖关系">
           <span>依赖关系</span>
@@ -147,11 +129,4 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
         </div>)}
     </section>);
 }
-interface PathLine {
-    sidePath?: string;
-    key: string;
-    x1: number;
-    y1: number;
-    x2: number;
-    y2: number;
-}
+interface PathLine { key: string; d: string; start: { x: number; y: number }; end: { x: number; y: number } }

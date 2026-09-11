@@ -15,7 +15,7 @@ class GraphValidatorTest {
   }
   @Test void validatesAndPreservesTargetDescription() {
     assertThat(validator.validate("X",new Graph(List.of(),List.of(),"  目标介绍  ")).graph().targetDescription()).isEqualTo("目标介绍");
-    for (String description : new String[]{null,"", "   ", "a".repeat(1001)}) {
+    for (String description : new String[]{"a".repeat(1001)}) {
       assertThatThrownBy(() -> validator.validate("X",new Graph(List.of(),List.of(),description)))
           .isInstanceOf(IllegalArgumentException.class);
     }

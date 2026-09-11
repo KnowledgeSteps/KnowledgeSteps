@@ -49,6 +49,14 @@ class SessionIntegrationTest {
       return ns.stream().map(n -> new Question(n.id(),"你了解"+n.name()+"吗？","用途")).toList();
     });
   }
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.ValueSource(strings={"MODEL_REQUEST_TIMEOUT","MODEL_JSON_PARSE_ERROR"})
+  void exposesSpecificModelFailureInSession(String code) throws Exception {
+    when(model.generateGraph(anyString())).thenThrow(new ModelGenerationException(code));
+    long id=create(); waitFor(id,"FAILED");
+    mvc.perform(get("/api/v1/learning-sessions/"+id).session(session))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.error.code").value(code));
+  }
   @Test void createsReadySessionWithSavedGraphResourcesAndQuestions() throws Exception {
     long id=create();waitFor(id,"READY");
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isEqualTo(2);
@@ -320,14 +328,14 @@ class SessionIntegrationTest {
   @Test void invalidGraphFailsBeforeSavingAnyNodes() throws Exception {
     when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","A","why")),List.of(), "目标的具体介绍"));
     long id=create();waitFor(id,"FAILED");
-    assertThat(store.findOwned(1,id).error().code()).isEqualTo("GRAPH_GENERATION_FAILED");
+    assertThat(store.findOwned(1,id).error().code()).isEqualTo("GRAPH_VALIDATION_FAILED");
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isZero();
     verifyNoInteractions(search);
   }
   @Test void missingQuestionsFailWithoutPartialQuestionRows() throws Exception {
     when(model.generateQuestions(anyList())).thenReturn(List.of());
     long id=create();waitFor(id,"FAILED");
-    assertThat(store.findOwned(1,id).error().code()).isEqualTo("QUESTION_GENERATION_FAILED");
+    assertThat(store.findOwned(1,id).error().code()).isEqualTo("QUESTION_VALIDATION_FAILED");
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Integer.class,id)).isZero();
   }
   @Test void noPrerequisitesSkipsSearchAndQuestionModel() throws Exception {
