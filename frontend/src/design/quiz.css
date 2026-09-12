@@ -1,6 +1,6 @@
 /* Assessment workspace: plain surfaces, no decorative cards. */
-.quiz-layout.twocol { grid-template-columns: minmax(0, 1fr) 320px; align-items: stretch; gap: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin: 24px 0; }
-.quiz-layout .quiz-main { padding: 32px 36px; min-width: 0; }
+.quiz-layout.twocol { height: 900px; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) 320px; align-items: stretch; gap: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin: 24px 0; }
+.quiz-layout .quiz-main { padding: 32px 36px; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--blue-light) transparent; }
 .quiz-layout .mentor { margin-bottom: 0; padding: 24px 0; }
 .quiz-layout .mentor .spark { display: none; }
 .quiz-layout .mentor strong { font-size: 20px; }
@@ -13,13 +13,13 @@
 .quiz-layout .ant-btn.answer.selected { background: var(--bg-subtle); border-color: var(--primary); box-shadow: inset 3px 0 0 var(--primary); }
 .quiz-layout .navline { gap: 16px; }
 .quiz-layout .quiz-rail { position: relative; min-height: 0; min-width: 0; border-left: 1px solid var(--border); }
-/* Removing the list from grid sizing lets the left column alone determine the row height. */
+/* Both columns keep the workspace height, including the shorter completion panel. */
 .quiz-rail-inner { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
 .quiz-rail-header { flex: none; padding: 28px 22px 18px; border-bottom: 1px solid var(--border); }
 .quiz-rail-header h3 { font-size: 20px; color: var(--text-main); margin: 0; font-weight: 650; }
 .quiz-rail-header h3 .anticon { color: var(--primary); }
 .quiz-rail-header .rail-note { margin: 10px 0 0; font-size: 15px; line-height: 1.8; }
-.quiz-rail-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--blue-light) transparent; padding: 0 16px 16px 22px; }
+.quiz-rail-scroll { flex: 1; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--blue-light) transparent; padding: 0 16px 16px 22px; }
 .quiz-rail-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
 .quiz-rail-scroll::-webkit-scrollbar { width: 6px; }
 .quiz-rail-scroll::-webkit-scrollbar-thumb { background: var(--blue-light); border-radius: 8px; }
@@ -38,19 +38,21 @@
 .quiz-rail-scroll .rail-name { overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .quiz-layout.twocol { grid-template-columns: minmax(0, 1fr) 260px; } .quiz-layout .quiz-main { padding: 28px 24px; } }
 @media (max-width: 760px) {
-  .quiz-layout.twocol { grid-template-columns: minmax(0, 1fr); }
+  .quiz-layout.twocol { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: 900px 420px; }
   .quiz-layout .quiz-main { padding: 24px 20px; }
   .quiz-layout .quiz-rail { border-left: 0; border-top: 1px solid var(--border); }
-  .quiz-rail-inner { position: relative; max-height: 420px; }
+  .quiz-rail-inner { position: absolute; }
   .quiz-rail-header { padding: 22px 20px 14px; }
   .quiz-rail-scroll { padding-left: 20px; max-height: 280px; }
   .quiz-layout .navline { flex-wrap: wrap; }
   .quiz-layout .navline .muted { text-align: left; max-width: none; }
 }
 
-.quiz-directory { list-style: none; padding: 16px 0; margin: 0; }
-.quiz-directory li { margin: 4px 0; }
-.quiz-directory .rail-item { min-height: 52px; }
+.quiz-directory { list-style: none; padding: 16px 0; margin: 0; min-width: 0; isolation: isolate; }
+.quiz-directory li { position: relative; min-width: 0; margin: 4px 0; }
+/* Keep button backgrounds below every check, including checks in neighboring rows. */
+.quiz-directory .ant-btn.rail-item { position: relative; z-index: 0; min-height: 52px; max-width: 100%; padding-right: 76px; }
+.quiz-directory .rail-item-check { position: absolute; z-index: 2; right: 36px; top: 50%; width: 24px; height: 24px; transform: translateY(-50%); pointer-events: none; }
 .quiz-layout .question-panel, .quiz-layout .complete-panel { animation: quiz-question-enter 260ms ease-out both; }
 @keyframes quiz-question-enter {
   from { opacity: 0; transform: translateY(10px); }
@@ -99,4 +101,56 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .quiz-surface-blob { animation: none; transform: translate(-100%, -100%); }
+}
+
+/* From Uiverse.io by Navarog21; blue/white adaptation for the quiz surface. */
+.quiz-layout .complete-panel > .quiz-result-button.ant-btn {
+  display: flex;
+  width: 10em;
+  max-width: 100%;
+  height: 3.5em;
+  margin: 32px auto 12px;
+  position: relative;
+  border: 3px ridge var(--blue-medium);
+  border-radius: 0.3em;
+  background: transparent;
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: bold;
+  box-shadow: none;
+  transition: box-shadow 1s, border-color 1s;
+}
+.quiz-result-button.ant-btn::before,
+.quiz-result-button.ant-btn::after {
+  content: "";
+  position: absolute;
+  left: 3%;
+  width: 95%;
+  height: 40%;
+  background: var(--bg-card);
+  transform-origin: center;
+  transition: transform 0.5s;
+  pointer-events: none;
+}
+.quiz-result-button.ant-btn::after { top: -10px; }
+.quiz-result-button.ant-btn::before { top: 80%; }
+.quiz-result-button.ant-btn > span { position: relative; z-index: 1; }
+.quiz-result-button.ant-btn:not(:disabled):is(:hover, :focus-visible)::before,
+.quiz-result-button.ant-btn:not(:disabled):is(:hover, :focus-visible)::after { transform: scale(0); }
+.quiz-layout .quiz-result-button.ant-btn:not(:disabled):is(:hover, :focus-visible) {
+  background: transparent;
+  color: var(--primary);
+  border-color: var(--primary);
+  box-shadow: inset 0 0 25px var(--blue-light);
+}
+.quiz-result-button.ant-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 6px; }
+.quiz-layout .quiz-result-button.ant-btn:disabled {
+  color: var(--text-muted);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+@media (prefers-reduced-motion: reduce) {
+  .quiz-layout .quiz-result-button.ant-btn,
+  .quiz-result-button.ant-btn::before,
+  .quiz-result-button.ant-btn::after { transition: none; }
 }

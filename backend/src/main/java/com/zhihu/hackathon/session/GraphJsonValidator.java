@@ -17,8 +17,8 @@ public final class GraphJsonValidator {
       var edge=GeneratedJsonSupport.object(item);
       edges.add(new Edge(GeneratedJsonSupport.id(edge,"from"),GeneratedJsonSupport.id(edge,"to")));
     }
-    var graph=new Graph(nodes,edges,GeneratedJsonSupport.text(root,"targetDescription"));
+    var graph=new Graph(nodes.stream().distinct().toList(),edges.stream().distinct().toList(),GeneratedJsonSupport.text(root,"targetDescription"));
     try { return new GraphValidator().validate(target,graph).graph(); }
-    catch (IllegalArgumentException ex) { throw new ModelGenerationException("GRAPH_VALIDATION_FAILED"); }
+    catch (IllegalArgumentException ex) { throw new ModelGenerationException("GRAPH_VALIDATION_FAILED",ex.getMessage()); }
   }
 }

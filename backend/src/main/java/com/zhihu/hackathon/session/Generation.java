@@ -12,7 +12,11 @@ public final class Generation {
   public record ValidGraph(Graph graph, Map<String, Integer> levels) {}
   public record SavedNode(String id, String name, String description) {}
   public record Question(String nodeId, String questionText, String hint) {}
-  public record Resource(String title, String url, String summary, String authorName, Long voteCount) {}
+  public record Resource(String title, String url, String summary, String authorName, Long voteCount, String contentDate) {
+    public Resource(String title, String url, String summary, String authorName, Long voteCount) {
+      this(title, url, summary, authorName, voteCount, null);
+    }
+  }
   public interface GraphGenerator { Graph generateGraph(String target); }
   public interface QuestionGenerator { List<Question> generateQuestions(List<SavedNode> nodes); }
   public interface ResourceSearch { List<Resource> search(String name, int count); }

@@ -9,12 +9,15 @@ public interface SessionStore {
   record Warning(String nodeId, String code, String message) {}
   record Snapshot(String sessionId, String target, String status, Progress progress, List<Warning> warnings, Error error) {}
   long create(long userId, String target);
+  long createWithinLimits(long userId, String target);
+  long createWithinLimits(long userId, String target, String requestKey);
+  Snapshot findCreation(long userId, String target, String requestKey);
   Snapshot findOwned(long userId, long id);
   List<SavedNode> saveGraph(long id, String target, ValidGraph graph);
   record ResourceRequest(long id, String name, int count) {}
   List<ResourceRequest> pendingResources(long sessionId);
   void finishResources(long sessionId);
-  void saveResources(long nodeId, List<Resource> resources, boolean failed);
+  void saveResources(long sessionId, long nodeId, List<Resource> resources, boolean failed);
   void generatingQuestions(long id);
   void ready(long id, List<Question> questions);
   void fail(long id, String code, String message);

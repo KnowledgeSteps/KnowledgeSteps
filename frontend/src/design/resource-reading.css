@@ -1,0 +1,87 @@
+@import './glitch.css';
+
+.path-drawer .drawer-intro > p,
+.path-drawer .resource-item .resource-summary {
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.85;
+}
+.path-drawer .resource-item .resource-summary { font-weight: 400; }
+
+.path-drawer .resource-original-link.ant-btn {
+  position: relative;
+  display: inline-flex;
+  max-width: 100%;
+  min-height: 50px;
+  height: auto;
+  margin-top: 12px;
+  padding: 10px 18px;
+  border: 2px solid var(--primary);
+  border-radius: 0;
+  background: transparent;
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 700;
+  white-space: normal;
+  text-align: center;
+  overflow: hidden;
+  transition: background-color .3s, color .3s, box-shadow .3s, transform .3s;
+}
+.path-drawer .resource-original-link.ant-btn:is(:hover, :focus-visible) {
+  background: var(--primary);
+  color: var(--bg-card);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--blue-light);
+}
+.resource-original-link.ant-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 5px; }
+.resource-original-link.ant-btn:active { transform: scale(.97); }
+.resource-original-link .resource-link-text { position: relative; z-index: 1; }
+.resource-original-link.ant-btn::before,
+.resource-original-link.ant-btn::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 18px;
+  background: var(--primary);
+  opacity: 0;
+  pointer-events: none;
+}
+.resource-original-link.ant-btn:is(:hover, :focus-visible) .resource-link-text { opacity: 0; }
+.resource-original-link.ant-btn:is(:hover, :focus-visible)::before {
+  opacity: 1;
+  color: var(--blue-light);
+  animation: ks-glitch .5s cubic-bezier(.25,.46,.45,.94) both;
+}
+.resource-original-link.ant-btn:is(:hover, :focus-visible)::after {
+  opacity: 1;
+  color: var(--bg-card);
+  animation: ks-glitch .5s cubic-bezier(.25,.46,.45,.94) reverse both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .path-drawer .resource-original-link.ant-btn { transition: none; transform: none; }
+  .resource-original-link.ant-btn:is(:hover, :focus-visible) .resource-link-text { opacity: 1; }
+  .resource-original-link.ant-btn::before,
+  .resource-original-link.ant-btn::after { animation: none; display: none; }
+}
+
+.path-drawer .target-node-description {
+  margin: 0;
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.85;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.path-drawer .resource-footer { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px 16px; margin-top:18px; color:var(--text-muted); }
+.path-drawer .resource-footer .resource-meta { margin:0; }
+.path-drawer .resource-date { margin-left:auto; white-space:nowrap; }
+
+.path-drawer .resource-not-recommended { color:var(--text-main); }
+.path-drawer .resource-not-recommended p { margin:20px 0 0; font-size:16px; line-height:1.85; overflow-wrap:anywhere; }
+.path-drawer .resource-not-recommended .resource-node-description { font-weight:600; white-space:pre-line; }

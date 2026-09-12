@@ -11,6 +11,8 @@ import type {
 } from './types'
 import { isMockMode } from './config'
 import {
+  mockGetSessionHistory,
+  mockDeleteSession,
   mockCompleteSession,
   mockCreateSession,
   mockGetNodeResources,
@@ -27,11 +29,11 @@ async function mockUser(ms: number): Promise<string> {
   return user.userId
 }
 
-export async function createSession(target: string): Promise<{
+export async function createSession(target: string, requestKey?: string): Promise<{
   sessionId: string
   status: SessionStatus
 }> {
-  if (!isMockMode) return realSessions.createSession(target)
+  if (!isMockMode) return realSessions.createSession(target, requestKey)
   const userId = await mockUser(320)
   return mockCreateSession(userId, target)
 }
@@ -75,4 +77,14 @@ export async function getNodeResources(
   if (!isMockMode) return realSessions.getNodeResources(sessionId, nodeId)
   const userId = await mockUser(280)
   return mockGetNodeResources(userId, sessionId, nodeId)
+}
+
+export async function getSessionHistory(page = 1): Promise<import('./types').SessionHistory> {
+  if (!isMockMode) return realSessions.getSessionHistory(page)
+  return mockGetSessionHistory(await mockUser(160), page)
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  if (!isMockMode) return realSessions.deleteSession(sessionId)
+  mockDeleteSession(await mockUser(160), sessionId)
 }

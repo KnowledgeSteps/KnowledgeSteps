@@ -15,6 +15,6 @@ public final class QuestionJsonValidator {
           GeneratedJsonSupport.text(question,"questionText"),GeneratedJsonSupport.text(question,"hint")));
     }
     try { return new GraphValidator().validateQuestions(nodes,questions); }
-    catch (IllegalArgumentException ex) { throw new ModelGenerationException("QUESTION_VALIDATION_FAILED"); }
+    catch (IllegalArgumentException ex) { throw new ModelGenerationException("QUESTION_VALIDATION_FAILED",ex.getMessage()); }
   }
 }

@@ -393,3 +393,33 @@ export function mockGetNodeResources(
     resources: resources.items.map((r) => ({ ...r })),
   }
 }
+
+export function mockGetSessionHistory(userId: string, page: number): import('../types').SessionHistory {
+  const prefix = `${STORAGE_KEY}${encodeURIComponent(userId)}:`
+  try {
+    for (let i=0;i<localStorage.length;i++) {
+      const key=localStorage.key(i)
+      if (key?.startsWith(prefix)) restore(userId, decodeURIComponent(key.slice(prefix.length)))
+    }
+    const old = JSON.parse(localStorage.getItem(`zhijie-mock-sessions-v2:${encodeURIComponent(userId)}`) ?? '[]')
+    if (Array.isArray(old)) for (const item of old) {
+      if (item.userId === userId && typeof item.id === 'string') restore(userId,item.id)
+    }
+  } catch { /* Keep available in-memory records when storage is unavailable. */ }
+  const records = [...sessions.values()].filter(item=>item.userId===userId)
+    .sort((a,b)=>b.createdAt-a.createdAt || b.id.localeCompare(a.id))
+  return { total: records.length, page, pageSize: 20, items: records.slice((page-1)*20,page*20).map(item=>({
+    sessionId:item.id, target:item.target, status:statusOf(item), createdAt:new Date(item.createdAt).toISOString(), targetDescription:item.nodes.find(isTargetNode)?.reason ?? null,
+  })) }
+}
+
+export function mockDeleteSession(userId: string, sessionId: string): void {
+  findSession(userId, sessionId)
+  try {
+    const legacyKey = `zhijie-mock-sessions-v2:${encodeURIComponent(userId)}`
+    const legacy = JSON.parse(localStorage.getItem(legacyKey) ?? '[]')
+    if (Array.isArray(legacy)) localStorage.setItem(legacyKey, JSON.stringify(legacy.filter(item => item.id !== sessionId || item.userId !== userId)))
+    localStorage.removeItem(storageKey(userId, sessionId))
+  } catch { throw error(0, 'STORAGE_FAILED', '无法删除本地记录，请重试。') }
+  sessions.delete(`${userId}:${sessionId}`)
+}

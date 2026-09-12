@@ -1,7 +1,8 @@
-import { useId, useState, type CSSProperties } from 'react'
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import { Button } from 'antd'
 import { ApartmentOutlined } from '@ant-design/icons'
 import '../../design/example-tree.css'
+import { loadingController } from './loadingController'
 
 const nodes = [
   { label: '注意力机制', detail: '理解信息如何聚合', x: 25, y: 330 },
@@ -23,8 +24,34 @@ export function ExampleTree() {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const [pinned, setPinned] = useState(false)
-  const expanded = hovered || focused || pinned
-  function collapse() { setHovered(false); setFocused(false); setPinned(false) }
+  const [previewing, setPreviewing] = useState(false)
+  const previewCancelled = useRef(false)
+  useEffect(() => {
+    let started = false
+    let startTimer: ReturnType<typeof setTimeout> | undefined
+    let endTimer: ReturnType<typeof setTimeout> | undefined
+    const checkReady = () => {
+      if (startTimer !== undefined) clearTimeout(startTimer)
+      if (started || previewCancelled.current || loadingController.getSnapshot().visible) return
+      // Wait until the shared loading overlay has gone, so the reveal is visible.
+      startTimer = setTimeout(() => {
+        if (previewCancelled.current) return
+        started = true
+        setPreviewing(true)
+        endTimer = setTimeout(() => setPreviewing(false), 4000)
+      }, 150)
+    }
+    const unsubscribe = loadingController.subscribe(checkReady)
+    checkReady()
+    return () => {
+      unsubscribe()
+      clearTimeout(startTimer)
+      clearTimeout(endTimer)
+    }
+  }, [])
+  const expanded = previewing || hovered || focused || pinned
+  function stopPreview() { previewCancelled.current = true; setPreviewing(false) }
+  function collapse() { stopPreview(); setHovered(false); setFocused(false); setPinned(false) }
   return <div className={`example-tree tooltip-container${expanded ? ' is-expanded' : ''}`}
     onPointerLeave={(event) => { if (event.pointerType === 'mouse') setHovered(false) }}
     onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false) }}
@@ -54,7 +81,7 @@ export function ExampleTree() {
         aria-label={`${pinned ? '收起' : '固定展开'} Transformer 前置知识`}
         onPointerEnter={(event) => { if (event.pointerType === 'mouse') setHovered(true) }}
         onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) setFocused(true) }}
-        onClick={() => { if (pinned) collapse(); else setPinned(true) }}>Transformer</Button>
+        onClick={() => { stopPreview(); if (pinned) collapse(); else setPinned(true) }}>Transformer</Button>
     </div>
     <p className="example-tree-hint">{expanded ? '沿着分支，向上追溯前置知识' : '靠近或点击 Transformer，展开知识台阶'}</p>
   </div>

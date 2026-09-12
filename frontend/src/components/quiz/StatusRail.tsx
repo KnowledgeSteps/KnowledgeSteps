@@ -30,8 +30,8 @@ export function StatusRail({ questions, currentIndex, onJump, disabled = false, 
                 onClick={() => onJump(index)}>
                 <span className="rail-dot" aria-hidden="true" />
                 <span className="rail-name">{question.nodeName}</span>
-                <AnswerCheck checked={answered} />
               </Button>
+              <span className="rail-item-check" aria-hidden="true"><AnswerCheck checked={answered} /></span>
             </li>
           })}
         </ol>
@@ -40,7 +40,7 @@ export function StatusRail({ questions, currentIndex, onJump, disabled = false, 
   </aside>
 }
 
-// From Uiverse.io by 00Kubi. Decorative status inside the directory button, not a second input.
+// From Uiverse.io by 00Kubi. Decorative overlay above directory buttons; the button exposes the answer status.
 function AnswerCheck({ checked }: { checked: boolean }) {
   return <span className="neon-checkbox" data-checked={checked} aria-hidden="true">
     <span className="neon-checkbox__frame">

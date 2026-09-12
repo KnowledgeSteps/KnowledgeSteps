@@ -6,6 +6,8 @@ import { AppShell } from './components/layout/AppShell'
 import { RequireAuth } from './components/layout/RequireAuth'
 import { ensureCurrentUser } from './api/auth'
 
+const SessionHistoryPage = lazy(() => import('./pages/SessionHistoryPage').then(m => ({ default: m.SessionHistoryPage })))
+
 const HomePage = lazy(() =>
   import('./pages/HomePage').then((m) => ({ default: m.HomePage })),
 )
@@ -43,6 +45,7 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/history" element={<SessionHistoryPage />} />
             <Route
               path="/sessions/:sessionId/questions"
               element={<SessionPage><SessionQuestionsPage /></SessionPage>}

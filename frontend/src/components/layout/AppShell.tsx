@@ -1,7 +1,7 @@
-import { UserOutlined } from '@ant-design/icons'
+import { HistoryOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Button } from 'antd'
 import { useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useMatch, useNavigate } from 'react-router-dom'
 import { isMockMode } from '../../api/config'
 import { logout } from '../../api/auth'
 import { useAuth } from '../../hooks/useAuth'
@@ -9,6 +9,10 @@ import { useAuth } from '../../hooks/useAuth'
 export function AppShell() {
   const navigate = useNavigate()
   const auth = useAuth()
+  const questionMatch = useMatch('/sessions/:sessionId/questions')
+  const resultMatch = useMatch('/sessions/:sessionId/result')
+  const isSessionPage = Boolean(questionMatch || resultMatch)
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null)
   const [loggingOut, setLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
 
@@ -31,7 +35,8 @@ export function AppShell() {
       <a className="skip-link" href="#main-content">
         跳到主要内容
       </a>
-      <header className="site-header">
+      <header className={`site-header${isSessionPage ? ' has-session-nav' : ''}`}>
+        {isSessionPage && <div className="header-session-slot" ref={setHeaderSlot} />}
         <div className="nav">
           <Button
             htmlType="button"
@@ -42,6 +47,7 @@ export function AppShell() {
           </Button>
 
           <div className="nav-actions">
+            <Button icon={<HistoryOutlined />} onClick={() => navigate('/history')}>历史寻路</Button>
             <div className="auth-actions">
               <div className="nav-user">
                 <Avatar src={auth.user?.avatarUrl} icon={<UserOutlined />} alt="用户头像" />
@@ -61,9 +67,9 @@ export function AppShell() {
         </div>
       </header>
 
-      <main className="page" id="main-content">
+      <main className={`page${isSessionPage ? ' session-page-content' : ''}`} id="main-content">
         {logoutError && <p className="field-error" role="alert">{logoutError}</p>}
-        <Outlet />
+        <Outlet context={{ headerSlot }} />
       </main>
 
       <footer className="site-footer">

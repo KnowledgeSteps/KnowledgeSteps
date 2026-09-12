@@ -1,6 +1,8 @@
 package com.zhihu.hackathon.session;
 
 import java.time.Instant;
+import java.time.Clock;
+import org.springframework.beans.factory.annotation.Autowired;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -12,16 +14,66 @@ import static com.zhihu.hackathon.session.Generation.*;
 public class JdbcSessionStore implements SessionStore {
   private final JdbcTemplate jdbc;
   private final TransactionTemplate tx;
-  public JdbcSessionStore(JdbcTemplate jdbc, PlatformTransactionManager manager) {
-    this.jdbc = jdbc; this.tx = new TransactionTemplate(manager);
+  private final SessionIdGenerator sessionIds;
+  private final Clock clock;
+  @Autowired
+  public JdbcSessionStore(JdbcTemplate jdbc, PlatformTransactionManager manager, SessionIdGenerator sessionIds) {
+    this(jdbc, manager, sessionIds, Clock.systemUTC());
+  }
+  JdbcSessionStore(JdbcTemplate jdbc, PlatformTransactionManager manager, SessionIdGenerator sessionIds, Clock clock) {
+    this.jdbc = jdbc; this.tx = new TransactionTemplate(manager); this.sessionIds = sessionIds; this.clock = clock;
   }
   private long insert(String sql, Object... args) {
     jdbc.update(sql, args);
     return Objects.requireNonNull(jdbc.queryForObject("SELECT last_insert_rowid()", Long.class));
   }
   public long create(long userId, String target) {
-    return tx.execute(s -> insert("INSERT INTO learning_sessions(user_id,target_name,status,created_at,updated_at) VALUES (?,?,'GENERATING_GRAPH',?,?)",
-        userId, target, Instant.now().toString(), Instant.now().toString()));
+    return create(userId, target, false, null);
+  }
+  public long createWithinLimits(long userId, String target) {
+    return create(userId, target, true, null);
+  }
+  public long createWithinLimits(long userId, String target, String requestKey) {
+    return create(userId,target,true,requestKey);
+  }
+  private static String targetHash(String target) {
+    try { return HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(target.getBytes(java.nio.charset.StandardCharsets.UTF_8))); }
+    catch(java.security.NoSuchAlgorithmException ex) { throw new IllegalStateException(ex); }
+  }
+  public Snapshot findCreation(long userId,String target,String requestKey) {
+    return tx.execute(s -> {
+      var rows=jdbc.queryForList("SELECT target_hash,session_id FROM session_creation_keys WHERE user_id=? AND request_key=? AND created_at_ms>?",userId,requestKey,clock.millis()-86_400_000);
+      if(rows.isEmpty()) return null;
+      var row=rows.getFirst();
+      if(!targetHash(target).equals(row.get("target_hash")))
+        throw new SessionException(409,"IDEMPOTENCY_CONFLICT","同一请求标识不能用于不同学习目标。");
+      if(row.get("session_id")==null) throw new SessionException(410,"IDEMPOTENCY_DELETED","原寻路已删除，请重新发起寻路。");
+      return findOwned(userId,((Number)row.get("session_id")).longValue());
+    });
+  }
+  private long create(long userId, String target, boolean enforceLimits, String requestKey) {
+    return tx.execute(s -> {
+      // The ID allocation acquires SQLite's write lock before counting; rejected creation rolls it back.
+      long id = sessionIds.nextId();
+      long now = clock.millis();
+      jdbc.update("DELETE FROM session_creation_keys WHERE created_at_ms<=?",now-86_400_000);
+      if (enforceLimits) {
+        if (jdbc.queryForObject("SELECT COUNT(*) FROM learning_sessions WHERE user_id=?", Long.class, userId) >= 20)
+          throw new SessionException(409,"SESSION_LIMIT_REACHED","最多保留20条寻路，请先在历史寻路中删除记录后再试。");
+        // Separate from history: deleting a session must not reset its creation rate limit.
+        jdbc.update("DELETE FROM session_creation_events WHERE created_at_ms<=?", now-60_000);
+        var recent = jdbc.queryForList("SELECT created_at_ms FROM session_creation_events WHERE user_id=? ORDER BY created_at_ms", Long.class, userId);
+        if (recent.size() >= 10) {
+          int retry = (int)Math.max(1, Math.min(60, (recent.getFirst()+60_000-now+999)/1000));
+          throw new SessionException(429,"USER_CREATE_RATE_LIMITED","每分钟最多创建10次寻路，请稍后再试。",retry);
+        }
+        jdbc.update("INSERT INTO session_creation_events(user_id,created_at_ms) VALUES (?,?)",userId,now);
+      }
+      jdbc.update("INSERT INTO learning_sessions(id,user_id,target_name,status,created_at,updated_at) VALUES (?,?,?,'GENERATING_GRAPH',?,?)",
+          id, userId, target, Instant.ofEpochMilli(now).toString(), Instant.ofEpochMilli(now).toString());
+      if(requestKey!=null) jdbc.update("INSERT INTO session_creation_keys(user_id,request_key,target_hash,session_id,created_at_ms) VALUES (?,?,?,?,?)",userId,requestKey,targetHash(target),id,now);
+      return id;
+    });
   }
   public Snapshot findOwned(long userId, long id) {
     return tx.execute(s -> {
@@ -40,6 +92,7 @@ public class JdbcSessionStore implements SessionStore {
   }
   public List<SavedNode> saveGraph(long id, String target, ValidGraph validated) {
     return tx.execute(s -> {
+      requireExistingSession(id);
       Map<String,Long> ids = new HashMap<>();
       List<SavedNode> saved = new ArrayList<>();
       for (Node n : validated.graph().nodes()) {
@@ -54,14 +107,15 @@ public class JdbcSessionStore implements SessionStore {
       return List.copyOf(saved);
     });
   }
-  public void saveResources(long nodeId, List<Resource> resources, boolean failed) {
+  public void saveResources(long sessionId, long nodeId, List<Resource> resources, boolean failed) {
     tx.executeWithoutResult(s -> {
+      if (jdbc.update("UPDATE knowledge_nodes SET resource_status=resource_status WHERE id=? AND session_id=?",nodeId,sessionId)==0) return;
       if (resources.size() > 5 || (failed && !resources.isEmpty())) throw new IllegalArgumentException("INVALID_RESOURCES");
       jdbc.update("DELETE FROM node_resources WHERE node_id=?", nodeId);
       for (int i=0;i<resources.size();i++) {
         Resource r=resources.get(i);
-        jdbc.update("INSERT INTO node_resources(node_id,title,url,summary,author_name,vote_count,sort_order,fetched_at) VALUES (?,?,?,?,?,?,?,?)",
-            nodeId,r.title(),r.url(),r.summary(),r.authorName(),r.voteCount(),i,Instant.now().toString());
+        jdbc.update("INSERT INTO node_resources(node_id,title,url,summary,author_name,vote_count,sort_order,fetched_at,content_date) VALUES (?,?,?,?,?,?,?,?,?)",
+            nodeId,r.title(),r.url(),r.summary(),r.authorName(),r.voteCount(),i,Instant.now().toString(),r.contentDate());
       }
       jdbc.update("UPDATE knowledge_nodes SET resource_status=? WHERE id=?",failed?"FAILED":resources.isEmpty()?"EMPTY":"READY",nodeId);
     });
@@ -83,10 +137,15 @@ public class JdbcSessionStore implements SessionStore {
       jdbc.update("UPDATE learning_sessions SET status='COMPLETED',completed_at=?,updated_at=? WHERE id=? AND status='SEARCHING_RESOURCES'",now,now,sessionId);
     });
   }
+  private void requireExistingSession(long id) {
+    if(jdbc.update("UPDATE learning_sessions SET status=status WHERE id=?",id)==0)
+      throw new SessionException(404,"NOT_FOUND","寻路记录已删除。");
+  }
   private void status(long id,String status) { jdbc.update("UPDATE learning_sessions SET status=?,updated_at=? WHERE id=?",status,Instant.now().toString(),id); }
   public void generatingQuestions(long id) { tx.executeWithoutResult(s -> status(id,"GENERATING_QUESTIONS")); }
   public void ready(long id,List<Question> questions) {
     tx.executeWithoutResult(s -> {
+      requireExistingSession(id);
       for(int i=0;i<questions.size();i++) {
         Question q=questions.get(i);
         jdbc.update("INSERT INTO assessment_questions(node_id,question_text,hint,sort_order) VALUES (?,?,?,?)",Long.parseLong(q.nodeId()),q.questionText(),q.hint(),i);
@@ -261,12 +320,12 @@ public class JdbcSessionStore implements SessionStore {
         return new ResourcesResponse(Long.toString(nodeId), node.name, node.description, "NOT_APPLICABLE", List.of());
       }
       List<ResourcesResponse.ResourceItem> resources = jdbc.query("""
-          SELECT id,title,url,summary,author_name,vote_count
+          SELECT id,title,url,summary,author_name,vote_count,content_date
           FROM node_resources WHERE node_id=? ORDER BY sort_order,id
           """, (rs, row) -> {
             Number voteCount = (Number) rs.getObject(6);
             return new ResourcesResponse.ResourceItem(Long.toString(rs.getLong(1)), rs.getString(2),
-                rs.getString(3), rs.getString(4), rs.getString(5), voteCount == null ? null : voteCount.longValue());
+                rs.getString(3), rs.getString(4), rs.getString(5), voteCount == null ? null : voteCount.longValue(),rs.getString(7));
           }, nodeId);
       return new ResourcesResponse(Long.toString(nodeId), node.name, node.description, node.resourceStatus, resources);
     });

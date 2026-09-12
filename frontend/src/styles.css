@@ -294,3 +294,38 @@ em { font-style: normal; color: var(--primary); }
 .nav .auth-actions { gap: 10px; }
 
 .nav .logout-slot { border-left: 1px solid var(--border); padding-left: 12px; box-sizing: content-box; }
+
+/* Question navigation shares the header instead of consuming a content row. */
+.site-header.has-session-nav { display: flex; align-items: center; gap: 24px; padding-left: 24px; }
+.has-session-nav .nav { flex: 1; min-width: 0; width: 100%; margin: 0 auto; }
+.header-session-slot { flex: 0 1 280px; min-width: 0; }
+.header-session-nav { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.header-session-nav .ant-btn { flex-shrink: 0; }
+.header-session-nav .tool-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-session-nav .muted { font-size: 12px; flex-shrink: 0; }
+.page.session-page-content { padding-top: 20px; }
+.session-page-content .quiz-layout.twocol { margin-top: 0; }
+.session-page-content .waiting { margin-top: 0; }
+@media (max-width: 760px) {
+  .site-header.has-session-nav { flex-wrap: wrap; gap: 0; padding-left: 0; }
+  .has-session-nav .nav { order: 0; flex-basis: 100%; }
+  .header-session-slot { order: 1; flex-basis: 100%; padding: 0 20px 12px; }
+  .page.session-page-content { padding-top: 16px; }
+}
+
+.path-drawer .resource-summary { white-space: pre-line; overflow-wrap: anywhere; }
+
+.path-drawer .resource-math { display: inline-block; max-width: 100%; overflow-x: auto; vertical-align: middle; white-space: normal; }
+.path-drawer .resource-math .katex { font-size: 1.05em; }
+
+.path-drawer .resource-blob-card { padding: 0; border: 0; border-radius: 14px; background: transparent; box-shadow: var(--waiting-shadow); }
+.path-drawer .resource-blob-card .waiting-content { padding: 28px; }
+.path-drawer .resource-list { gap: 24px; }
+@media (max-width: 600px) {
+  .path-drawer .resource-blob-card .waiting-content { padding: 24px 20px; }
+}
+
+@media (max-width: 760px) {
+  .site-header .nav { flex-wrap: wrap; row-gap: 12px; }
+  .site-header .nav-actions { flex-wrap: wrap; }
+}

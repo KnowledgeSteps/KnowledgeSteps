@@ -5,7 +5,8 @@ import { SessionNotice } from '../components/ui/SessionNotice';
 import { ClearOutlined, CompassOutlined } from '@ant-design/icons';
 import { Button, Progress } from 'antd';
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import type { AnswerValue, Question } from '../api/types';
 import { ApiError } from '../api/types';
 import { isMockMode } from '../api/config';
@@ -26,6 +27,7 @@ export function SessionQuestionsPage() {
 }
 function SessionQuestionsContent({ sessionId }: { sessionId: string }) {
     const navigate = useNavigate();
+    const { headerSlot } = useOutletContext<{ headerSlot: HTMLDivElement | null }>();
     const active = useRef(false);
     const submitting = useRef(false);
     useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
@@ -152,7 +154,7 @@ function SessionQuestionsContent({ sessionId }: { sessionId: string }) {
               {actionError && (<p className="field-error" role="alert">
                   {actionError}
                 </p>)}
-              <Button htmlType="button" type="primary" className="primary" disabled={completing} onClick={() => void handleComplete()}>
+              <Button htmlType="button" className="quiz-result-button" disabled={completing} aria-busy={completing} onClick={() => void handleComplete()}>
                 {completing ? '正在生成路径…' : '查看结果'}
               </Button>
             </div>) : (currentQuestion && (<>
@@ -172,13 +174,13 @@ function SessionQuestionsContent({ sessionId }: { sessionId: string }) {
       </div>);
     }
     return (<>
-      <div className="toolbar">
+      {headerSlot && createPortal(<nav className="header-session-nav" aria-label="当前寻路任务">
         <Button htmlType="button" type="text" className="textbutton" onClick={() => navigate('/')}>
           返回首页
         </Button>
-        <span className="tool-title">{session?.target ?? '寻路中'}</span>
+        <span className="tool-title" title={session?.target}>{session?.target ?? '寻路中'}</span>
         {isMockMode && <span className="muted">Mock 演示</span>}
-      </div>
+      </nav>, headerSlot)}
       {renderBody()}
     </>);
 }

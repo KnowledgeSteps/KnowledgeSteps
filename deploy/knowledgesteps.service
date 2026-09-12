@@ -1,0 +1,32 @@
+[Unit]
+Description=KnowledgeSteps backend
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=knowledgesteps
+Group=knowledgesteps
+WorkingDirectory=/opt/knowledgesteps
+Environment=SPRING_PROFILES_ACTIVE=admin-login
+Environment=SERVER_ADDRESS=127.0.0.1
+Environment=SERVER_PORT=8080
+Environment=SQLITE_JDBC_URL=jdbc:sqlite:/var/lib/knowledgesteps/hackathon.db
+Environment=SPRING_CONFIG_ADDITIONAL_LOCATION=file:/etc/knowledgesteps/
+Environment=SERVER_FORWARD_HEADERS_STRATEGY=framework
+Environment=SERVER_TOMCAT_THREADS_MAX=30
+Environment=SERVER_TOMCAT_THREADS_MIN_SPARE=2
+Environment=SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE=4
+ExecStart=/usr/bin/java -Xms64m -Xmx320m -XX:+UseSerialGC -XX:MaxMetaspaceSize=160m -XX:ReservedCodeCacheSize=64m -Xss512k -jar /opt/knowledgesteps/app.jar
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/knowledgesteps
+
+[Install]
+WantedBy=multi-user.target

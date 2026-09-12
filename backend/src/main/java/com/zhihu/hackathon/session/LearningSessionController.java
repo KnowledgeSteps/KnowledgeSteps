@@ -17,7 +17,7 @@ public class LearningSessionController {
   public record CreateRequest(String target) {}
   @PostMapping @ResponseStatus(HttpStatus.ACCEPTED)
   public LearningSessionService.Created create(@RequestBody CreateRequest body,HttpServletRequest request) {
-    long user=users.currentUserId();csrf.verify(request);return service.create(user,body.target());
+    long user=users.currentUserId();csrf.verify(request);return service.create(user,body.target(),request.getHeader("Idempotency-Key"));
   }
   @GetMapping("/{sessionId}")
   public SessionStore.Snapshot find(@PathVariable String sessionId) { return service.find(users.currentUserId(),sessionId); }

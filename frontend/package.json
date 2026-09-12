@@ -13,12 +13,14 @@
     "predev": "npm run fonts:prepare",
     "prebuild": "npm run fonts:prepare",
     "test:regressions": "node --test scripts/regressions.test.mjs",
-    "test:loading": "node --test scripts/loading-controller.test.mjs"
+    "test:loading": "node --test scripts/loading-controller.test.mjs",
+    "test:resource-math": "node --experimental-strip-types --test scripts/resource-math.test.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
     "@vitejs/plugin-react": "latest",
     "antd": "^6.6.3",
+    "katex": "^0.18.7",
     "react": "latest",
     "react-dom": "latest",
     "react-router-dom": "^7.18.3",
@@ -26,6 +28,7 @@
   },
   "devDependencies": {
     "@eslint/js": "latest",
+    "@types/katex": "^0.16.8",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
