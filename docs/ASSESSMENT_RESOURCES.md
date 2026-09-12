@@ -19,7 +19,7 @@
 
 `GENERATING_GRAPH → GENERATING_QUESTIONS → READY → SEARCHING_RESOURCES → COMPLETED`
 
-生成图谱和题目时不调用资料搜索。全部答题后提交 `POST /api/v1/learning-sessions/{id}/complete`，返回 HTTP 200；需要搜索时响应 `status=SEARCHING_RESOURCES`，前端继续轮询会话，结束后读取结果。没有待搜索节点时直接完成。
+生成图谱和题目时不调用资料搜索。选择暂存在前端，清空全部选择不修改后端；点击查看结果后逐题 PUT 保存全部答案，成功后提交 `POST /api/v1/learning-sessions/{id}/complete`，返回 HTTP 200；需要搜索时响应 `status=SEARCHING_RESOURCES`，前端继续轮询会话，结束后读取结果。没有待搜索节点时直接完成。
 
 结果节点新增 `answer` 和 `resourceLimit`。前端、真实 API 与 Mock 均使用四档规则。知乎搜索使用节点名称作为查询词，并将该档数量传入 `count`；不修改两次模型调用的职责。
 
@@ -39,10 +39,11 @@
 - `GenerationPipeline`、`LearningSessionService`：答题后异步搜索、重复请求保护。
 - `JdbcSessionStore`：完整图谱、答案缓存失效与恢复。
 - `ZhihuSearchClient`：请求数量与结果数量限制。
-- 前端结果节点显示四档标签与推荐上限，非常了解仍可打开说明。
+- 前端结果节点显示名称、描述和实际资料数量，非常了解仍可打开说明。
+- 保存中断不回滚已成功保存的答案，未提交草稿刷新后不保留；本地计数不等同于服务端已保存计数。
 
 ## 验证
 
 后端集成测试覆盖四档数量、非常了解节点保留、重复提交、修改答案、搜索期间禁止修改、失败降级与中断恢复。前端运行 lint、typecheck、build 和回归测试。
 
-浏览器连接工具当前返回 `nodeRepl.fetch request failed`，桌面和窄屏的实际浏览器视觉验收尚未完成。
+最近一次代码审查已通过前端 14 项回归测试、6 项加载测试和后端 99 项测试。桌面、窄屏及真实服务联调未在本轮完成，详见 [待办记录](../undo.md)。

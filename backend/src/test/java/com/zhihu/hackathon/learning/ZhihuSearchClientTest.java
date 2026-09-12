@@ -47,6 +47,16 @@ class ZhihuSearchClientTest {
     server.verify();
   }
 
+  @org.junit.jupiter.params.ParameterizedTest
+  @org.junit.jupiter.params.provider.CsvSource({"1710000000,2024-03-10", "0,NULL", "-1,NULL", "9223372036854775807,NULL"})
+  void preservesEditTimeAsShanghaiCalendarDate(long timestamp, String expected) {
+    server.expect(anything()).andRespond(withSuccess("""
+        {"Code":0,"Data":{"Items":[{"Title":"test","Url":"https://www.zhihu.com/question/1","EditTime":%d}]}}
+        """.formatted(timestamp), MediaType.APPLICATION_JSON));
+    assertThat(client.search("test").getFirst().contentDate()).isEqualTo(expected.equals("NULL") ? null : expected);
+    server.verify();
+  }
+
   @Test
   void treatsEmptyResultsAsSuccess() {
     server.expect(anything()).andRespond(withSuccess("{\"Code\":0,\"Data\":{\"Items\":[]}}", MediaType.APPLICATION_JSON));

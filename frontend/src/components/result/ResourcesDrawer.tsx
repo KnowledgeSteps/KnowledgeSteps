@@ -1,20 +1,22 @@
+import '../../design/resource-reading.css';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { CardDecoration } from '../ui/CardDecoration';
-import { ReadOutlined } from '@ant-design/icons';
+import '../../design/waiting.css';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ReloadOutlined } from '@ant-design/icons';
-import { Drawer, Spin, Button } from 'antd';
+import { Drawer, Spin, Button, Tag } from 'antd';
 import type { KnowledgeNode, NodeResources } from '../../api/types';
 import { getNodeResources } from '../../api/sessions';
 import { isMockMode } from '../../api/config';
+import { ResourceSummary } from './ResourceSummary';
 interface ResourcesDrawerProps {
     sessionId: string;
     node: KnowledgeNode | null;
     onClose: () => void;
 }
 export function ResourcesDrawer({ sessionId, node, onClose, }: ResourcesDrawerProps) {
-    return (<Drawer title={node ? node.name : ''} placement="right" open={Boolean(node)} onClose={onClose} size="min(440px, 94vw)" className="path-drawer" styles={{ body: { padding: 0 } }}>
+    return (<Drawer title={node ? node.name : ''} placement="right" open={Boolean(node)} onClose={onClose} size="min(680px, 94vw)" className="path-drawer" styles={{ body: { padding: 0 } }}>
       {node && (<NodeResourcesPanel key={node.id} sessionId={sessionId} node={node}/>)}
     </Drawer>);
 }
@@ -57,34 +59,40 @@ function NodeResourcesPanel({ sessionId, node, }: {
           <span>正在整理这个节点的资料…</span>
         </div>) : error ? (<StateBlock title="资料加载失败" body="暂时无法获取这个节点的学习资料，请稍后重新打开。" action={<Button htmlType="button" className="outline small" onClick={retry}>
               <ReloadOutlined /> 再试一次
-            </Button>}/>) : data?.resourceStatus === 'NOT_APPLICABLE' ? (<div className="uiverse-parent"><div className="explain-block uiverse-card"><CardDecoration icon={<InfoCircleOutlined />}/><div className="uiverse-content">
+            </Button>}/>) : data?.resourceStatus === 'NOT_APPLICABLE' && node.isTarget ? (<p className="target-node-description">{data.reason}</p>) : data?.resourceStatus === 'NOT_APPLICABLE' ? (<section className="resource-not-recommended">
 
-          <span className="badge">{node.isTarget ? '学习目标' : '非常了解 · 已掌握'}</span>
-          <p>{data.reason}</p>
+          <Tag>非常了解 · 已掌握</Tag>
+          <p className="resource-node-description">{data.reason}</p>
           <p className="muted">
-            {node.isTarget ? '目标节点保留说明，不推荐资料。' : '你已选择非常了解，节点仍保留在图谱中，不再推荐资料。'}
+            你已选择非常了解，节点仍保留在图谱中，不再推荐资料。
           </p>
-        </div></div></div>) : data?.resourceStatus === 'EMPTY' ? (<StateBlock title="暂时没有合适资料" body={isMockMode
+        </section>) : data?.resourceStatus === 'EMPTY' ? (<StateBlock title="暂时没有合适资料" body={isMockMode
                 ? '这个节点还没有找到匹配的知乎内容。接入真实接口后，会在这里展示检索结果。'
                 : '这个节点暂时没有找到匹配的知乎内容。'}/>) : data?.resourceStatus === 'FAILED' ? (<StateBlock title="资料搜索失败" body="本次资料搜索失败，暂不支持重新搜索。你可以继续查看其他节点的资料。"/>) : data ? (<>
           <div className="drawer-intro">
-            <p>{data.reason}</p>
+            <p className="resource-node-description">{data.reason}</p>
             {isMockMode && (<span className="muted">
                 以下为本地 Mock 资料；链接为知乎站内检索，不代表具体文章。
               </span>)}
           </div>
           <div className="resource-list">
-            {data.resources.map((item, index) => (<div className="uiverse-parent" key={item.id}><article className="resource-item uiverse-card"><CardDecoration icon={<ReadOutlined />}/><div className="uiverse-content">
+            {data.resources.map((item, index) => (<article className="resource-item resource-blob-card waiting-blob-card" key={item.id}>
+              <div className="waiting-blob-bg" aria-hidden="true" />
+              <div className="waiting-blob" aria-hidden="true" />
+              <div className="waiting-content">
 
                 <div className="between">
                   <span className="resource-index">资料 {index + 1}</span>
                   {isMockMode && <span className="badge demo">演示数据</span>}
                 </div>
-                <h4>{item.title}</h4>
-                {item.summary && <p>{item.summary}</p>}
-                <a href={item.url} target="_blank" rel="noopener noreferrer">
-                  {isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}
-                </a>
+                <h4>{item.title.replace(/\s*-\s*知乎\s*$/, '')}</h4>
+                {item.summary && <ResourceSummary text={item.summary}/>}
+                <Button className="resource-original-link" href={item.url} target="_blank" rel="noopener noreferrer"
+                  aria-label={isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}
+                  data-text={isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}>
+                  <span className="resource-link-text">{isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}</span>
+                </Button>
+                <div className="resource-footer">
                 {(item.authorName || item.voteCount !== null) && (<small className="resource-meta">
                     {item.authorName
                         ? `作者：${item.authorName}`
@@ -93,7 +101,9 @@ function NodeResourcesPanel({ sessionId, node, }: {
                         ? ` · ${item.voteCount} 赞同`
                         : ' · 赞同数暂未提供'}
                   </small>)}
-              </div></article></div>))}
+                  <small className="resource-date">{item.contentDate ? <>发布／更新：<time dateTime={item.contentDate}>{item.contentDate}</time></> : '发布时间未知'}</small>
+                </div>
+              </div></article>))}
           </div>
         </>) : null}
     </div>);

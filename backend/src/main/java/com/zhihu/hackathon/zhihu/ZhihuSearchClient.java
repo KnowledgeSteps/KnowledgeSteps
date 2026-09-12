@@ -77,11 +77,19 @@ public final class ZhihuSearchClient {
       Long voteCount = votes.isIntegralNumber() && votes.canConvertToLong() && votes.asLong() >= 0
           ? votes.asLong() : null;
       if (resources.stream().noneMatch(resource -> resource.url().equals(url))) {
-        resources.add(new Resource(title, url, text(item, "ContentText"), text(item, "AuthorName"), voteCount));
+        resources.add(new Resource(title, url, text(item, "ContentText"), text(item, "AuthorName"), voteCount, contentDate(item.path("EditTime"))));
       }
       if (resources.size() == count) break;
     }
     return List.copyOf(resources);
+  }
+
+  private static String contentDate(JsonNode value) {
+    if (!value.isIntegralNumber() || !value.canConvertToLong() || value.asLong() <= 0) return null;
+    try {
+      var date = java.time.Instant.ofEpochSecond(value.asLong()).atZone(java.time.ZoneId.of("Asia/Shanghai")).toLocalDate();
+      return date.getYear() >= 1970 && date.getYear() <= 9999 ? date.toString() : null;
+    } catch (java.time.DateTimeException ex) { return null; }
   }
 
   private static String text(JsonNode item, String field) {
@@ -99,7 +107,11 @@ public final class ZhihuSearchClient {
     }
   }
 
-  public record Resource(String title, String url, String summary, String authorName, Long voteCount) {}
+  public record Resource(String title, String url, String summary, String authorName, Long voteCount, String contentDate) {
+    public Resource(String title, String url, String summary, String authorName, Long voteCount) {
+      this(title, url, summary, authorName, voteCount, null);
+    }
+  }
 
   public static final class SearchException extends RuntimeException {
     private final boolean retryable;

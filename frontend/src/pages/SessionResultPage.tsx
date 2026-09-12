@@ -5,7 +5,8 @@ import '../design/waiting.css';
 import { CompassOutlined } from '@ant-design/icons';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useOutletContext, useParams } from 'react-router-dom';
+import { createPortal } from 'react-dom';
 import { Spin, Button } from 'antd';
 import type { CompletionResult, KnowledgeNode } from '../api/types';
 import { ApiError } from '../api/types';
@@ -26,6 +27,7 @@ export function SessionResultPage() {
 }
 function SessionResultContent({ sessionId }: { sessionId: string }) {
     const navigate = useNavigate();
+    const { headerSlot } = useOutletContext<{ headerSlot: HTMLDivElement | null }>();
     const { session, error: sessionError, reload } = useSession(sessionId);
     const graphProgress = useGraphProgress(session);
     const [result, setResult] = useState<CompletionResult | null>(null);
@@ -128,13 +130,13 @@ function SessionResultContent({ sessionId }: { sessionId: string }) {
       </>);
     }
     return (<>
-      <div className="toolbar">
+      {headerSlot && createPortal(<nav className="header-session-nav" aria-label="当前寻路任务">
         <Button htmlType="button" type="text" className="textbutton" disabled={session?.status === 'SEARCHING_RESOURCES'} onClick={() => navigate(`/sessions/${sessionId}/questions`)}>
           修改基础判断
         </Button>
-        <span className="tool-title">{session?.target ?? '路径结果'}</span>
+        <span className="tool-title" title={session?.target}>{session?.target ?? '路径结果'}</span>
         {isMockMode && <span className="muted">Mock 演示</span>}
-      </div>
+      </nav>, headerSlot)}
       {renderBody()}
     </>);
 }

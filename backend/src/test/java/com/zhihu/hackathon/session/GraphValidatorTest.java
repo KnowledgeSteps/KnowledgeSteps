@@ -36,6 +36,33 @@ class GraphValidatorTest {
     assertThatThrownBy(() -> validator.validateQuestions(saved,List.of(new Question("1","Q",null),new Question("1","Q",null))))
         .isInstanceOf(IllegalArgumentException.class);
   }
+  @Test void countsTargetWithoutRejectingValidDeepGraphs() {
+    assertThat(validator.validate("X",chain(4)).levels()).containsEntry("target",4);
+    assertThat(validator.validate("X",chain(5)).levels()).containsEntry("target",5);
+  }
+  @Test void shortcutDoesNotHideAnOverlongDependencyPath() {
+    var graph=chain(5);
+    var edges=new java.util.ArrayList<>(graph.edges());
+    edges.add(new Edge("n0","target"));
+    assertThat(validator.validate("X",new Graph(graph.nodes(),edges,"")).levels()).containsEntry("target",5);
+  }
+  @Test void preservesDeepAndWideValidGraphs() {
+    assertThat(validator.validate("X",chain(15)).levels()).containsEntry("target",15);
+    var graph=chain(15);
+    var edges=graph.nodes().stream().map(n->new Edge(n.key(),"target")).toList();
+    assertThat(validator.validate("X",new Graph(graph.nodes(),edges,"")).levels()).containsEntry("target",1);
+    // Larger graphs retain their existing policy; no implicit extension of the requested limit.
+    assertThat(validator.validate("X",chain(16)).graph().nodes()).hasSize(16);
+  }
+  private Graph chain(int count) {
+    var nodes=new java.util.ArrayList<Node>();
+    var edges=new java.util.ArrayList<Edge>();
+    for(int i=0;i<count;i++) {
+      nodes.add(new Node("n"+i,"知识"+i,""));
+      edges.add(new Edge("n"+i,i==count-1 ? "target" : "n"+(i+1)));
+    }
+    return new Graph(nodes,edges,"");
+  }
   private void reject(List<Edge> edges) {
     assertThatThrownBy(() -> validator.validate("Transformer",new Graph(nodes,edges, "目标的具体介绍"))).isInstanceOf(IllegalArgumentException.class);
   }

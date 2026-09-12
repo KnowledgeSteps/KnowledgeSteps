@@ -97,6 +97,7 @@ export interface LearningResource {
   url: string
   summary: string | null
   authorName: string | null
+  contentDate?: string | null
   voteCount: number | null
 }
 
@@ -138,3 +139,6 @@ export class ApiError extends Error {
     this.retryAfterSeconds = retryAfterSeconds
   }
 }
+
+export interface SessionHistoryItem { sessionId: string; target: string; status: SessionStatus; createdAt: string; targetDescription: string | null }
+export interface SessionHistory { total: number; page: number; pageSize: number; items: SessionHistoryItem[] }

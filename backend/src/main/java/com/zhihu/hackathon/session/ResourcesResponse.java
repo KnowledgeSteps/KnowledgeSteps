@@ -15,6 +15,7 @@ public record ResourcesResponse(
       String url,
       String summary,
       String authorName,
-      Long voteCount
+      Long voteCount,
+      String contentDate
   ) {}
 }

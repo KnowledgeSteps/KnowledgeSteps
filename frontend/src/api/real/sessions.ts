@@ -185,6 +185,7 @@ function parseResource(value: unknown): LearningResource {
     summary: nullableString(record.summary),
     authorName: nullableString(record.authorName),
     voteCount: nullableNumber(record.voteCount),
+    contentDate: record.contentDate == null ? null : stringValue(record.contentDate),
   }
 }
 
@@ -224,13 +225,13 @@ async function request<T>(
   }
 }
 
-export async function createSession(target: string): Promise<{
+export async function createSession(target: string, requestKey?: string): Promise<{
   sessionId: string
   status: SessionStatus
 }> {
   return request(
     '/api/v1/learning-sessions',
-    { method: 'POST', body: { target } },
+    { method: 'POST', body: { target }, headers: { 'Idempotency-Key': requestKey ?? crypto.randomUUID() } },
     parseCreateResponse,
     true,
   )
@@ -287,4 +288,22 @@ export async function getNodeResources(
     { method: 'GET' },
     parseNodeResources,
   )
+}
+
+export async function getSessionHistory(page: number): Promise<import('../types').SessionHistory> {
+  return request(`/api/v1/learning-sessions?page=${page}`, { method: 'GET' }, value => {
+    const data = objectValue(value)
+    return { total: numberValue(data.total), page: numberValue(data.page), pageSize: numberValue(data.pageSize),
+      items: arrayValue(data.items, value => {
+        const item = objectValue(value)
+        return { sessionId: stringValue(item.sessionId), target: stringValue(item.target),
+          status: enumValue(item.status, SESSION_STATUSES), createdAt: stringValue(item.createdAt), targetDescription: item.targetDescription == null ? null : stringValue(item.targetDescription) }
+      }) }
+  })
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  await request(`/api/v1/learning-sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' }, value => {
+    if (!booleanValue(objectValue(value).deleted)) throw new ApiError(0, 'INVALID_RESPONSE', '删除结果不明确，请刷新后重试。')
+  }, true)
 }

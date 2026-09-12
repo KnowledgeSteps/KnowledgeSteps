@@ -14,10 +14,10 @@ import static com.zhihu.hackathon.session.Generation.*;
 public class GenerationConfiguration {
   @Bean GraphValidator graphValidator() { return new GraphValidator(); }
   @Bean SiliconFlowGenerationClient generationClient(ObjectMapper json,
-      @Value("${model.base-url:https://api.siliconflow.cn/v1}") String url,
+      @Value("${model.base-url:https://api.openai-next.com/v1}") String url,
       @Value("${model.api-key:}") String key,
-      @Value("${model.graph-model:deepseek-ai/DeepSeek-V4-Flash}") String a,
-      @Value("${model.question-model:Qwen/Qwen3-30B-A3B-Instruct-2507}") String b) {
+      @Value("${model.graph-model:gemini-3-flash}") String a,
+      @Value("${model.question-model:gemini-3.1-flash-lite}") String b) {
     var http=java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     var factory=new JdkClientHttpRequestFactory(http);factory.setReadTimeout(Duration.ofSeconds(60));
     return new SiliconFlowGenerationClient(RestClient.builder().baseUrl(url).requestFactory(factory).build(),json,key,a,b);
@@ -25,7 +25,7 @@ public class GenerationConfiguration {
   @Bean ResourceSearch resourceSearch(ZhihuSearchClient client) {
     return (name, count) -> {
       for(int attempt=0;;attempt++) {
-        try { return client.search(name, count).stream().map(r -> new Resource(r.title(),r.url(),r.summary(),r.authorName(),r.voteCount())).toList(); }
+        try { return client.search(name, count).stream().map(r -> new Resource(r.title(),r.url(),r.summary(),r.authorName(),r.voteCount(),r.contentDate())).toList(); }
         catch(ZhihuSearchClient.SearchException ex) {
           if(!ex.retryable() || attempt==1) throw ex;
           try { Thread.sleep(1000); } catch(InterruptedException interrupted) {

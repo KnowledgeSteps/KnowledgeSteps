@@ -37,17 +37,174 @@ class SessionIntegrationTest {
   MockHttpSession session;
   String csrf;
   @BeforeEach void user() throws Exception {
+    // Each test starts a fresh per-user quota without changing admission policy.
+    seedUser(999,"archived-test-fixtures");
+    jdbc.update("UPDATE learning_sessions SET user_id=999 WHERE user_id=1");
+    jdbc.update("DELETE FROM session_creation_events WHERE user_id=1");
     seedUser(1, "test-one");
     seedUser(2, "test-two");
     session=new MockHttpSession();session.setAttribute(SessionAuthentication.USER_ID,1L);
     var me=mvc.perform(get("/api/v1/auth/me").session(session)).andExpect(status().isOk()).andReturn();
     csrf=json.readTree(me.getResponse().getContentAsString()).path("csrfToken").asText();
     when(model.generateGraph(anyString())).thenReturn(new Graph(List.of(new Node("a","矩阵运算","理解计算")),List.of(new Edge("a","target")), "目标的具体介绍"));
-    when(search.search(anyString(),anyInt())).thenReturn(List.of(new Resource("资料","https://www.zhihu.com/question/1",null,null,null)));
+    when(search.search(anyString(),anyInt())).thenReturn(List.of(new Resource("资料","https://www.zhihu.com/question/1",null,null,null,"2024-03-10")));
     when(model.generateQuestions(anyList())).thenAnswer(invocation -> {
       List<SavedNode> ns=invocation.getArgument(0);
       return ns.stream().map(n -> new Question(n.id(),"你了解"+n.name()+"吗？","用途")).toList();
     });
+  }
+  @Test void deletingRunningHistoryDoesNotBypassUserTaskLimit() throws Exception {
+    var started=new java.util.concurrent.CountDownLatch(2);var release=new java.util.concurrent.CountDownLatch(1);
+    when(model.generateGraph(anyString())).thenAnswer(call->{
+      started.countDown();release.await();
+      return new Graph(List.of(new Node("a","矩阵运算","理解计算")),List.of(new Edge("a","target")),"目标说明");
+    });
+    long first=0,second=0;
+    try {
+      first=create();second=create();assertThat(started.await(5,java.util.concurrent.TimeUnit.SECONDS)).isTrue();
+      mvc.perform(delete("/api/v1/learning-sessions/"+first).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isOk());
+      mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf).contentType("application/json").content("{\"target\":\"不能绕过\"}"))
+          .andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.error.code").value("USER_TASK_LIMIT_REACHED"));
+    } finally { release.countDown(); }
+    waitFor(second,"READY");
+  }
+  @Test void concurrentIdempotentRequestsCreateExactlyOneJob() throws Exception {
+    try(var pool=java.util.concurrent.Executors.newFixedThreadPool(4)) {
+      var gate=new java.util.concurrent.CountDownLatch(1);
+      var tasks=new java.util.ArrayList<java.util.concurrent.Future<String>>();
+      for(int i=0;i<4;i++) tasks.add(pool.submit(()->{
+        gate.await();
+        var response=mvc.perform(post("/api/v1/learning-sessions").session(session)
+            .header("X-CSRF-Token",csrf).header("Idempotency-Key","integration-request-123")
+            .contentType("application/json").content("{\"target\":\"Transformer\"}"))
+            .andExpect(status().isAccepted()).andReturn();
+        return json.readTree(response.getResponse().getContentAsString()).path("sessionId").asText();
+      }));
+      gate.countDown();var ids=new java.util.HashSet<String>();
+      for(var task:tasks) ids.add(task.get(5,java.util.concurrent.TimeUnit.SECONDS));
+      assertThat(ids).hasSize(1);waitFor(Long.parseLong(ids.iterator().next()),"READY");
+      verify(model,times(1)).generateGraph("Transformer");
+      assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM session_creation_events WHERE user_id=1",Integer.class)).isEqualTo(1);
+      mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf)
+          .header("Idempotency-Key","integration-request-123").contentType("application/json").content("{\"target\":\"不同目标\"}"))
+          .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("IDEMPOTENCY_CONFLICT"));
+    }
+  }
+  @Test void creationLimitsReturnActionableErrorsAndDeleteReleasesHistorySlot() throws Exception {
+    for(int i=0;i<20;i++) store.create(1,"已存在");
+    mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"target\":\"新目标\",\"userId\":2}"))
+        .andExpect(status().isConflict()).andExpect(jsonPath("$.error.code").value("SESSION_LIMIT_REACHED"));
+    long id=jdbc.queryForObject("SELECT MIN(id) FROM learning_sessions WHERE user_id=1",Long.class);
+    mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isOk());
+    long created=create();waitFor(created,"READY");
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM learning_sessions WHERE user_id=1",Integer.class)).isEqualTo(20);
+  }
+  @Test void creationRateLimitReturnsRetryAfterWithoutCreatingRecord() throws Exception {
+    for(int i=0;i<10;i++) store.createWithinLimits(1,"刚创建");
+    mvc.perform(post("/api/v1/learning-sessions").session(session).header("X-CSRF-Token",csrf)
+        .contentType("application/json").content("{\"target\":\"超出频率\"}"))
+        .andExpect(status().isTooManyRequests()).andExpect(header().exists("Retry-After"))
+        .andExpect(jsonPath("$.error.code").value("USER_CREATE_RATE_LIMITED"));
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM learning_sessions WHERE user_id=1",Integer.class)).isEqualTo(10);
+  }
+  @Test void hardDeleteRemovesAllChildrenAndRejectsUnauthorizedRequests() throws Exception {
+    long id=create(); waitFor(id,"READY");
+    long q=jdbc.queryForObject("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Long.class,id);
+    answer(id,q,"HEARD_OF"); complete(id);
+    long node=nodeId(id,"矩阵运算");
+    var other=new MockHttpSession();other.setAttribute(SessionAuthentication.USER_ID,2L);
+    var me=mvc.perform(get("/api/v1/auth/me").session(other)).andReturn();
+    String otherCsrf=json.readTree(me.getResponse().getContentAsString()).path("csrfToken").asText();
+    mvc.perform(delete("/api/v1/learning-sessions/"+id).session(other).header("X-CSRF-Token",otherCsrf)).andExpect(status().isNotFound());
+    mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session)).andExpect(status().isForbidden());
+    mvc.perform(delete("/api/v1/learning-sessions/"+id)).andExpect(status().isUnauthorized());
+    long retained=store.create(2,"保留另一用户");
+    mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session).header("X-CSRF-Token",csrf))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.deleted").value(true));
+    for(String table:List.of("learning_sessions","knowledge_nodes","knowledge_edges"))
+      assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM "+table+" WHERE "+(table.equals("learning_sessions")?"id":"session_id")+"=?",Integer.class,id)).isZero();
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_answers WHERE question_id=?",Integer.class,q)).isZero();
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_questions WHERE id=?",Integer.class,q)).isZero();
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM node_resources WHERE node_id=?",Integer.class,node)).isZero();
+    assertThat(store.findOwned(2,retained).target()).isEqualTo("保留另一用户");
+    mvc.perform(get("/api/v1/learning-sessions/"+id).session(session)).andExpect(status().isNotFound());
+    // Reuse a deleted SQLite node ID: a late search must not write into its new owner.
+    jdbc.update("INSERT INTO knowledge_nodes(id,session_id,name,description,level) VALUES (?,?,?,'',0)",node,retained,"复用节点");
+    store.saveResources(id,node,List.of(new Resource("迟到资料","https://www.zhihu.com/question/1",null,null,null)),false);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM node_resources WHERE node_id=?",Integer.class,node)).isZero();
+    assertThatThrownBy(() -> store.ready(id,List.of(new Question(Long.toString(node),"迟到问题","提示")))).isInstanceOf(SessionException.class);
+  }
+  @Test void deleteRollsBackAllChangesWhenAChildCannotBeRemoved() throws Exception {
+    long id=create(); waitFor(id,"READY");
+    long q=jdbc.queryForObject("SELECT q.id FROM assessment_questions q JOIN knowledge_nodes n ON n.id=q.node_id WHERE n.session_id=?",Long.class,id);
+    answer(id,q,"HEARD_OF"); complete(id);
+    jdbc.execute("CREATE TRIGGER block_test_delete BEFORE DELETE ON knowledge_nodes WHEN OLD.session_id="+id+" BEGIN SELECT RAISE(ABORT,'test rollback'); END");
+    try {
+      mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isInternalServerError());
+      assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_answers WHERE question_id=?",Integer.class,q)).isEqualTo(1);
+      assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM node_resources r JOIN knowledge_nodes n ON n.id=r.node_id WHERE n.session_id=?",Integer.class,id)).isPositive();
+      assertThat(store.findOwned(1,id).status()).isEqualTo("COMPLETED");
+    } finally { jdbc.execute("DROP TRIGGER block_test_delete"); }
+  }
+  @Test void deletingDuringGraphGenerationPreventsLateGraphInsertion() throws Exception {
+    long id=store.create(1,"删除生成中");
+    mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isOk());
+    var graph=new GraphValidator().validate("删除生成中",new Graph(List.of(new Node("a","基础","说明")),List.of(new Edge("a","target")),"目标"));
+    assertThatThrownBy(() -> store.saveGraph(id,"删除生成中",graph)).isInstanceOf(SessionException.class);
+    assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isZero();
+  }
+  @Test void snowflakeSessionsAreStringsAndLegacyIdsRemainReadable() throws Exception {
+    seedUser(95,"snowflake-owner");
+    var owner=new MockHttpSession();owner.setAttribute(SessionAuthentication.USER_ID,95L);
+    jdbc.update("INSERT INTO learning_sessions(id,user_id,target_name,status,created_at,updated_at) VALUES (90,95,'旧寻路','GENERATING_GRAPH','now','now')");
+    mvc.perform(get("/api/v1/learning-sessions/90").session(owner))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.sessionId").value("90"));
+    try (var executor=java.util.concurrent.Executors.newFixedThreadPool(4)) {
+      var tasks=new java.util.ArrayList<java.util.concurrent.Callable<Long>>();
+      for(int i=0;i<24;i++) tasks.add(() -> store.create(95,"新寻路"));
+      var ids=new java.util.HashSet<Long>();
+      for(var future:executor.invokeAll(tasks)) {
+        long id=future.get();
+        assertThat(id).isGreaterThan(9_007_199_254_740_991L);
+        assertThat(ids.add(id)).isTrue();
+        mvc.perform(get("/api/v1/learning-sessions/"+id).session(owner))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.sessionId").value(Long.toString(id)));
+      }
+    }
+  }
+  @Test void historyIsOwnedPaginatedAndNewestFirst() throws Exception {
+    seedUser(91, "history-owner");
+    seedUser(92, "history-other");
+    var owner=new MockHttpSession();owner.setAttribute(SessionAuthentication.USER_ID,91L);
+    for(int i=0;i<21;i++) store.create(91,"历史目标"+i);
+    store.create(92,"不应看到的目标");
+    mvc.perform(get("/api/v1/learning-sessions").session(owner).param("userId","92"))
+        .andExpect(status().isOk()).andExpect(header().string("Cache-Control","no-store"))
+        .andExpect(jsonPath("$.total").value(21)).andExpect(jsonPath("$.items.length()").value(20))
+        .andExpect(jsonPath("$.items[0].target").value("历史目标20"));
+    mvc.perform(get("/api/v1/learning-sessions").session(owner).param("page","2"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.items.length()").value(1))
+        .andExpect(jsonPath("$.items[0].target").value("历史目标0"));
+    mvc.perform(get("/api/v1/learning-sessions").session(owner).param("page","0"))
+        .andExpect(status().isBadRequest());
+    mvc.perform(get("/api/v1/learning-sessions")).andExpect(status().isUnauthorized());
+  }
+  @Test void historyIncludesOnlyItsOwnRootDescription() throws Exception {
+    seedUser(94,"history-description");
+    var owner=new MockHttpSession();owner.setAttribute(SessionAuthentication.USER_ID,94L);
+    long id=store.create(94,"线性代数");
+    jdbc.update("INSERT INTO knowledge_nodes(session_id,name,description,level,is_target,resource_status) VALUES (?,?,?,0,1,'NOT_APPLICABLE')", id,"线性代数","研究向量与矩阵的基础知识");
+    jdbc.update("INSERT INTO knowledge_nodes(session_id,name,description,level) VALUES (?,?,?,0)", id,"向量","不应作为根节点描述");
+    mvc.perform(get("/api/v1/learning-sessions").session(owner))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.items[0].targetDescription").value("研究向量与矩阵的基础知识"));
+  }
+  @Test void historyReturnsEmptyForNewUser() throws Exception {
+    seedUser(93,"history-empty");
+    var owner=new MockHttpSession();owner.setAttribute(SessionAuthentication.USER_ID,93L);
+    mvc.perform(get("/api/v1/learning-sessions").session(owner))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.total").value(0))
+        .andExpect(jsonPath("$.items.length()").value(0));
   }
   @org.junit.jupiter.params.ParameterizedTest
   @org.junit.jupiter.params.provider.ValueSource(strings={"MODEL_REQUEST_TIMEOUT","MODEL_JSON_PARSE_ERROR"})
@@ -260,7 +417,8 @@ class SessionIntegrationTest {
         .andExpect(jsonPath("$.resources.length()").value(1))
         .andExpect(jsonPath("$.resources[0].title").value("资料"))
         .andExpect(jsonPath("$.resources[0].url").value("https://www.zhihu.com/question/1"))
-        .andExpect(jsonPath("$.resources[0].voteCount").value(42));
+        .andExpect(jsonPath("$.resources[0].voteCount").value(42))
+        .andExpect(jsonPath("$.resources[0].contentDate").value("2024-03-10"));
     long targetId=jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=? AND is_target=1",Long.class,id);
     mvc.perform(get("/api/v1/learning-sessions/"+id+"/nodes/"+targetId+"/resources").session(session))
         .andExpect(jsonPath("$.reason").value("目标的具体介绍"))

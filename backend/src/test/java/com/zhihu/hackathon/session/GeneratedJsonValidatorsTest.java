@@ -19,6 +19,13 @@ class GeneratedJsonValidatorsTest {
     assertThat(result.nodes().getFirst().description()).isEmpty();
     assertThat(result.nodes().getFirst().name()).isEqualTo("矩阵");
   }
+  @Test void removesOnlyIdenticalRecordsWithoutChangingRelationships() {
+    var result=graph.validateAndRepair("{nodes:[{key:'a',name:'A'},{key:'a',name:'A'}],edges:[{from:'a',to:'target'},{from:'a',to:'target'}]}","X");
+    assertThat(result.nodes()).hasSize(1);
+    assertThat(result.edges()).hasSize(1);
+    assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a',name:'A'},{key:'a',name:'B'}],edges:[{from:'a',to:'target'}]}","X"))
+        .hasMessage("GRAPH_VALIDATION_FAILED");
+  }
   @Test void fillsAbsentCollectionsWithoutInventingNodes() {
     assertThat(graph.validateAndRepair("{}","X").nodes()).isEmpty();
     assertThat(questions.validateAndRepair("{questions:null}",List.of())).isEmpty();

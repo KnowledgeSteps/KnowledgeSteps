@@ -1,3 +1,4 @@
+@import '../../design/glitch.css';
 /* Login gateway. Component rules are scoped to avoid changing the learning pages. */
 .login-gateway {
   min-height: 100dvh;
@@ -83,14 +84,7 @@
 .glitch-form-wrapper .form-group input:focus + .form-label::after { content: attr(data-text); position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: var(--bg-color); }
 .glitch-form-wrapper .form-group input:focus + .form-label::before { color: var(--secondary-color); animation: ks-glitch var(--glitch-anim-duration) cubic-bezier(.25,.46,.45,.94) both; }
 .glitch-form-wrapper .form-group input:focus + .form-label::after { color: var(--primary-color); animation: ks-glitch var(--glitch-anim-duration) cubic-bezier(.25,.46,.45,.94) reverse both; }
-@keyframes ks-glitch {
-  0% { transform: translate(0); clip-path: inset(0 0 0 0); }
-  20% { transform: translate(-5px, 3px); clip-path: inset(50% 0 20% 0); }
-  40% { transform: translate(3px, -2px); clip-path: inset(20% 0 60% 0); }
-  60% { transform: translate(-4px, 2px); clip-path: inset(80% 0 5% 0); }
-  80% { transform: translate(4px, -3px); clip-path: inset(30% 0 45% 0); }
-  100% { transform: translate(0); clip-path: inset(0 0 0 0); }
-}
+
 .glitch-form-wrapper .submit-btn { height: auto; min-height: 50px; width: 100%; padding: .8em; margin-top: 1rem; background-color: transparent; border: 2px solid var(--primary-color); border-radius: 0; color: var(--primary-color); font-family: inherit; font-size: 1rem; font-weight: 700; text-transform: uppercase; letter-spacing: .2em; cursor: pointer; position: relative; transition: background-color .3s, color .3s, box-shadow .3s, transform .3s; overflow: hidden; }
 .glitch-form-wrapper .submit-btn:not(:disabled):hover,
 .glitch-form-wrapper .submit-btn:not(:disabled):focus-visible { background-color: var(--primary-color); color: var(--bg-color); box-shadow: 0 0 0 3px var(--blue-light); outline: none; }

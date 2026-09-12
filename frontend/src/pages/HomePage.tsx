@@ -13,13 +13,15 @@ export function HomePage() {
     const navigate = useNavigate();
     const location = useLocation();
     const active = useRef(false);
+    const submitLock = useRef(false);
+    const pendingRequest = useRef<{ target: string; key: string } | null>(null);
     useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
     const [goal, setGoal] = useState(() => typeof location.state?.draftTarget === 'string' ? location.state.draftTarget.slice(0, 100) : '');
     const [fieldError, setFieldError] = useState<string | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
     async function submit(value: string): Promise<void> {
-        if (submitting) return;
+        if (submitLock.current) return;
         const target = value.trim();
         setFieldError(null);
         setSubmitError(null);
@@ -31,9 +33,13 @@ export function HomePage() {
             setFieldError('目标太长了，请精简到 100 个字以内。');
             return;
         }
+        submitLock.current = true;
         setSubmitting(true);
+        if (!pendingRequest.current || pendingRequest.current.target !== target)
+            pendingRequest.current = { target, key: crypto.randomUUID() };
         try {
-            const { sessionId } = await createSession(target);
+            const { sessionId } = await createSession(target, pendingRequest.current.key);
+            pendingRequest.current = null;
             if (active.current) navigate(`/sessions/${sessionId}/questions`);
         }
         catch (caught) {
@@ -45,21 +51,23 @@ export function HomePage() {
                 navigate(loginUrl('/'));
                 return;
             }
+            if (caught instanceof ApiError && caught.code === 'IDEMPOTENCY_DELETED') pendingRequest.current = null;
             const message = caught instanceof ApiError
                 ? caught.message
                 : '创建任务失败，请稍后重试。';
             setSubmitError(message);
         }
         finally {
+            submitLock.current = false;
             if (active.current) setSubmitting(false);
         }
     }
     return (<>
       <section className="home-hero">
         <div className="home-copy">
-          <Tag variant="filled">一次性知识寻路</Tag>
-          <h1>你想学的知识，<br /><em>从哪一级开始？</em></h1>
-          <p className="home-description">告诉我你想学什么，我只告诉你还缺什么。<br />找到前置基础，确认已有知识，留下需要补齐的台阶。</p>
+          <Tag variant="filled">知识寻路</Tag>
+          <h1>想学新知识，<br /><em>先补哪些基础？</em></h1>
+          <p className="home-description">告诉我你想学什么，帮你找出要补的基础，<br />找到前置基础，确认已有知识，留下需要补齐的台阶。</p>
           <form className="goal-form" onSubmit={(event) => { event.preventDefault(); void submit(goal); }} noValidate>
             <label htmlFor="learning-goal">学习目标</label>
             <Input id="learning-goal" size="large" prefix={<SearchOutlined />} placeholder="例如：Transformer、RAG、Spring Boot" maxLength={100} value={goal} status={fieldError ? 'error' : undefined} aria-invalid={Boolean(fieldError)} aria-describedby={fieldError ? 'learning-goal-error' : undefined} onChange={(event) => { setGoal(event.target.value); setFieldError(null); }} disabled={submitting}/>

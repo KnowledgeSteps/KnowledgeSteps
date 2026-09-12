@@ -103,6 +103,8 @@ cd frontend
 npm ci
 npm run lint
 npm run typecheck
+npm run test:regressions
+npm run test:loading
 npm run build
 ```
 

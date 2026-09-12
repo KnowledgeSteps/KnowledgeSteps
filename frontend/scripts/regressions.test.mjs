@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 const server = await createServer({ root: fileURLToPath(new URL('../', import.meta.url)), configFile: false, optimizeDeps: { noDiscovery: true, include: [] }, server: { middlewareMode: true }, appType: 'custom' })
 after(() => server.close())
 const cache = new Map()
-globalThis.localStorage = { getItem: (key) => cache.get(key) ?? null, setItem: (key, value) => cache.set(key, value) }
+globalThis.localStorage = { removeItem: key => cache.delete(key), get length() { return cache.size }, key: index => [...cache.keys()][index] ?? null, getItem: (key) => cache.get(key) ?? null, setItem: (key, value) => cache.set(key, value) }
 const store = await server.ssrLoadModule('/src/api/mock/store.ts')
 const { withRequestTimeout } = await server.ssrLoadModule('/src/api/requestTimeout.ts')
 
@@ -213,4 +213,48 @@ test('assessment completes after all saves and ignores completion after leaving'
     async id => { calls.push(id) }, async () => { calls.push('complete'); active = false; return 'old result' }, () => active)
   assert.equal(result, null)
   assert.deepEqual(calls, ['1', '2', 'complete'])
+})
+
+ test('history lists only owned records and paginates twenty at a time', () => {
+  for (let i=0;i<21;i++) store.mockCreateSession('history-alice', `目标${i}`)
+  store.mockCreateSession('history-bob', '其他用户目标')
+  const first=store.mockGetSessionHistory('history-alice',1)
+  assert.equal(first.total,21)
+  assert.equal(first.items.length,20)
+  assert.ok(first.items.every(item=>item.target.startsWith('目标')))
+  assert.equal(store.mockGetSessionHistory('history-alice',2).items.length,1)
+  assert.equal(store.mockGetSessionHistory('history-empty',1).total,0)
+ })
+
+test('mock deletion removes owned persistent history and rejects another user', () => {
+  const {sessionId}=store.mockCreateSession('delete-alice','待删除')
+  assert.throws(()=>store.mockDeleteSession('delete-bob',sessionId),error=>error.status===404)
+  store.mockDeleteSession('delete-alice',sessionId)
+  assert.equal(cache.has(`zhijie-mock-session-v3:delete-alice:${sessionId}`),false)
+  assert.equal(store.mockGetSessionHistory('delete-alice',1).total,0)
+  assert.throws(()=>store.mockGetSession('delete-alice',sessionId),error=>error.status===404)
+})
+
+
+test('real create retries preserve the supplied idempotency key and CSRF header', async () => {
+  const originalFetch = globalThis.fetch
+  const auth = await server.ssrLoadModule('/src/api/auth.ts')
+  const real = await server.ssrLoadModule('/src/api/real/sessions.ts')
+  let user
+  const attempts = []
+  try {
+    globalThis.fetch = async (url, init) => {
+      if (String(url).endsWith('/auth/me')) return new Response(JSON.stringify({ userId: 'idem-user', csrfToken: 'idem-csrf' }), { status: 200 })
+      attempts.push({ key: new Headers(init.headers).get('Idempotency-Key'), csrf: new Headers(init.headers).get('X-CSRF-Token') })
+      if (attempts.length === 1) throw new TypeError('connection dropped')
+      return new Response(JSON.stringify({ sessionId: '123', status: 'GENERATING_GRAPH' }), { status: 202 })
+    }
+    user = await auth.ensureCurrentUser()
+    await assert.rejects(real.createSession('Transformer', 'retry-request-123'), error => error.code === 'NETWORK_ERROR')
+    assert.equal((await real.createSession('Transformer', 'retry-request-123')).sessionId, '123')
+    assert.deepEqual(attempts, [{ key: 'retry-request-123', csrf: user.csrfToken }, { key: 'retry-request-123', csrf: user.csrfToken }])
+  } finally {
+    if (user) auth.invalidateCurrentUser(user)
+    globalThis.fetch = originalFetch
+  }
 })

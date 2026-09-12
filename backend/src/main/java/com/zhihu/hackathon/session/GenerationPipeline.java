@@ -32,6 +32,7 @@ public class GenerationPipeline {
     } catch (RuntimeException ex) {
       if (ex instanceof ModelGenerationException) code=ex.getMessage();
       String message=switch(code) {
+        case "MODEL_RATE_LIMITED" -> "模型服务请求繁忙，稍后再试。";
         case "MODEL_REQUEST_TIMEOUT" -> "AI 请求超时，请稍后重新寻路。";
         case "MODEL_JSON_PARSE_ERROR" -> "AI 返回的数据格式有误，无法解析 JSON，请重新寻路。";
         case "MODEL_INVALID_RESPONSE" -> "AI 返回内容不完整或响应格式异常，请重新寻路。";
@@ -51,10 +52,10 @@ public class GenerationPipeline {
         if (Thread.currentThread().isInterrupted()) return;
         try {
           var found = resources.search(node.name(), node.count());
-          store.saveResources(node.id(), found.stream().limit(node.count()).toList(), false);
+          store.saveResources(id, node.id(), found.stream().limit(node.count()).toList(), false);
         } catch (RuntimeException ex) {
           if (Thread.currentThread().isInterrupted()) return;
-          store.saveResources(node.id(), List.of(), true);
+          store.saveResources(id, node.id(), List.of(), true);
         }
       }
       store.finishResources(id);

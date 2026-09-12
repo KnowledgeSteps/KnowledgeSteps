@@ -106,7 +106,6 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
         {levels.map((level) => {
             const nodes = rows.get(level) ?? [];
             return (<div className="path-level" key={level}>
-              <span className="path-level-label">第 {level + 1} 级</span>
               <div className={`path-row ${nodes.length === 1 ? 'single' : ''}`}>
                 {nodes.map((node) => (<GraphNodeCard key={`${result.sessionId}:${node.id}`} sessionId={result.sessionId} node={node} onOpen={() => onOpenNode(node)} buttonRef={(element) => {
                     if (element) nodeRefs.current.set(node.id, element);
