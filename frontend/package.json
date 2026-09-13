@@ -9,21 +9,30 @@
     "lint": "eslint . && node scripts/check-visuals.mjs",
     "typecheck": "tsc -b --pretty false",
     "preview": "vite preview",
+    "test": "npm run test:regressions && npm run test:loading && npm run test:resource-math && npm run test:graph-viewport && npm run test:analytics",
+    "test:analytics": "node --experimental-strip-types --test scripts/analytics.test.mjs",
     "fonts:prepare": "node scripts/prepare-fonts.mjs",
     "predev": "npm run fonts:prepare",
     "prebuild": "npm run fonts:prepare",
     "test:regressions": "node --test scripts/regressions.test.mjs",
     "test:loading": "node --test scripts/loading-controller.test.mjs",
-    "test:resource-math": "node --experimental-strip-types --test scripts/resource-math.test.mjs"
+    "test:resource-math": "node --experimental-strip-types --test scripts/resource-math.test.mjs",
+    "test:graph-viewport": "node --experimental-strip-types --test scripts/graph-viewport.test.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
     "@vitejs/plugin-react": "latest",
     "antd": "^6.6.3",
+    "dayjs": "^1.11.23",
+    "echarts": "^6.1.0",
     "katex": "^0.18.7",
     "react": "latest",
     "react-dom": "latest",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.3",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "vite": "latest"
   },
   "devDependencies": {

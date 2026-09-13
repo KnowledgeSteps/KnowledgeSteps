@@ -17,7 +17,9 @@ class ProviderTestProfileTest {
   private final WebApplicationContextRunner runner = new WebApplicationContextRunner()
       .withUserConfiguration(WebConfig.class)
       .withBean(ZhihuSearchClient.class, () -> mock(ZhihuSearchClient.class))
-      .withBean(RestClient.Builder.class, RestClient::builder);
+      .withBean("modelRestClient", RestClient.class, RestClient::create)
+      .withBean(com.zhihu.hackathon.session.ModelSettings.class,
+          () -> new com.zhihu.hackathon.session.ModelSettings("https://example.invalid", "", "test-graph", "test-questions"));
 
   @Configuration(proxyBeanMethods = false)
   @EnableWebMvc

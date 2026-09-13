@@ -10,6 +10,32 @@ globalThis.localStorage = { removeItem: key => cache.delete(key), get length() {
 const store = await server.ssrLoadModule('/src/api/mock/store.ts')
 const { withRequestTimeout } = await server.ssrLoadModule('/src/api/requestTimeout.ts')
 
+test('OAuth navigation retains only allowed local destinations and encodes the return path', async () => {
+  const { safeReturnTo, loginUrl } = await server.ssrLoadModule('/src/api/loginNavigation.ts')
+  const { zhihuLoginUrl } = await server.ssrLoadModule('/src/api/oauthNavigation.ts')
+  for (const path of ['/', '/history', '/sessions/1/questions', '/sessions/1234567890123456789/result']) {
+    assert.equal(safeReturnTo(path), path)
+    assert.equal(new URL(zhihuLoginUrl(path), 'https://app.example').pathname, '/api/v1/auth/zhihu/start')
+    assert.equal(new URL(zhihuLoginUrl(path), 'https://app.example').searchParams.get('returnTo'), path)
+    assert.equal(new URL(loginUrl(path), 'https://app.example').searchParams.get('returnTo'), path)
+  }
+  for (const path of [null, '', 'https://evil.example', '//evil.example', '/\\evil.example', '/login', '/api/v1/auth/logout', '/history?returnTo=//evil.example', '/sessions/0/result', '/sessions/12345678901234567890/result', '/sessions/1/result#section', '/sessions/1/result\n', '/sessions/1/result/..', '%2F%2Fevil.example']) {
+    assert.equal(safeReturnTo(path), '/', `unsafe destination: ${path}`)
+    assert.equal(zhihuLoginUrl(path), '/api/v1/auth/zhihu/start?returnTo=%2F')
+  }
+})
+
+test('OAuth callback errors use fixed local messages and never reflect upstream values', async () => {
+  const { oauthErrorMessage } = await server.ssrLoadModule('/src/api/oauthNavigation.ts')
+  assert.equal(oauthErrorMessage(null), null)
+  assert.equal(oauthErrorMessage('OAUTH_UNAVAILABLE'), '知乎登录暂时不可用，请稍后重试。')
+  assert.equal(oauthErrorMessage('OAUTH_STATE_INVALID'), '本次授权已过期或失效，请重新点击知乎登录。')
+  assert.equal(oauthErrorMessage('OAUTH_CANCELLED'), '你已取消知乎授权，可以重新登录。')
+  for (const code of ['OAUTH_FAILED', '', '<script>untrusted</script>', 'upstream secret details']) {
+    assert.equal(oauthErrorMessage(code), '知乎登录未完成，请重新授权登录。')
+  }
+})
+
 test('mock users cannot read, answer, complete, or retrieve another user task', () => {
   const { sessionId } = store.mockCreateSession('alice', 'Transformer')
   assert.equal(store.mockGetSession('alice', sessionId).target, 'Transformer')
@@ -128,10 +154,57 @@ test('mock retains all nodes and applies assessment resource counts after submis
     const expected = [0, 2, 3, 5][i % 4]
     assert.equal(node.resourceLimit, expected)
     const resources = store.mockGetNodeResources(user, sessionId, node.id)
+    assert.equal(node.description, resources.reason)
+    assert.equal(node.resourceStatus, resources.resourceStatus)
+    assert.equal(node.resourceCount, resources.resources.length)
     assert.ok(resources.resources.length <= expected)
     if (!expected) assert.equal(resources.resourceStatus, 'NOT_APPLICABLE')
     if (resources.resourceStatus === 'READY') assert.equal(resources.resources.length, expected)
   }
+})
+
+test('resource cache coalesces reads, isolates login/session/node, and expires values', async () => {
+  const { ResourceCache } = await server.ssrLoadModule('/src/api/resourceCache.ts')
+  let now = 0, calls = 0
+  const values = new ResourceCache(() => now, 30, 64)
+  const load = async () => ++calls
+  assert.deepEqual(await Promise.all([values.read('alice-login1', '1', '2', load), values.read('alice-login1', '1', '2', load)]), [1, 1])
+  assert.equal(await values.read('alice-login1', '1', '2', load), 1)
+  assert.equal(await values.read('alice-login2', '1', '2', load), 2)
+  assert.equal(await values.read('bob-login', '1', '2', load), 3)
+  assert.equal(await values.read('alice-login1', '3', '2', load), 4)
+  assert.equal(await values.read('alice-login1', '1', '3', load), 5)
+  now = 31
+  assert.equal(await values.read('alice-login1', '1', '2', load), 6)
+})
+
+test('resource invalidation rejects late responses and failures can be retried', async () => {
+  const { ResourceCache } = await server.ssrLoadModule('/src/api/resourceCache.ts')
+  const values = new ResourceCache()
+  let finish
+  const pending = values.read('alice', '1', '2', () => new Promise(resolve => { finish = resolve }))
+  await Promise.resolve()
+  values.invalidateSession('1')
+  finish('stale')
+  await assert.rejects(pending, e => e.code === 'RESOURCE_CACHE_INVALIDATED')
+  await assert.rejects(values.read('alice', '1', '2', async () => { throw new Error('network') }), /network/)
+  assert.equal(await values.read('alice', '1', '2', async () => 'new'), 'new')
+  values.clear()
+  assert.equal(await values.read('alice', '1', '2', async () => 'after-logout'), 'after-logout')
+})
+
+test('node cards render descriptions and actual counts without waiting for a resource request', async () => {
+  const { createElement } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { GraphNodeCard } = await server.ssrLoadModule('/src/components/result/GraphNodeCard.tsx')
+  const node = { id: '1', name: '向量', description: '向量的说明', isTarget: false, level: 0,
+    answer: 'DONT_KNOW', resourceLimit: 5, resourceStatus: 'READY', resourceCount: 2 }
+  const render = changes => renderToStaticMarkup(createElement(GraphNodeCard, { node: { ...node, ...changes }, onOpen() {}, buttonRef() {} }))
+  assert.ok(render({}).includes('向量的说明'))
+  assert.ok(render({}).includes('查看 2 条资料'))
+  assert.equal(render({}).includes('正在读取'), false)
+  assert.equal(render({ resourceCount: 0 }).includes('graph-node-more'), false)
+  assert.equal(render({ isTarget: true }).includes('graph-node-more'), false)
 })
 
 
@@ -256,5 +329,260 @@ test('real create retries preserve the supplied idempotency key and CSRF header'
   } finally {
     if (user) auth.invalidateCurrentUser(user)
     globalThis.fetch = originalFetch
+  }
+})
+
+const { ApiError } = await server.ssrLoadModule('/src/api/types.ts')
+const { startRecoverableRead, readRetryDelay } = await server.ssrLoadModule('/src/api/recoverableRead.ts')
+const flush = () => new Promise(resolve => setImmediate(resolve))
+
+test('answer drafts restore by user/session and reject changed questions, answers, expiry and corrupt data', async () => {
+  const memory = new Map()
+  globalThis.sessionStorage = { get length() { return memory.size }, key: i => [...memory.keys()][i] ?? null,
+    getItem: key => memory.get(key) ?? null, setItem: (key, value) => memory.set(key, value), removeItem: key => memory.delete(key) }
+  const { writeAnswerDraft, restoreAnswerDraft, clearAnswerDraft, clearAnswerDrafts } = await server.ssrLoadModule('/src/components/quiz/answerDraft.ts')
+  const base = [{ questionId: 'q1', nodeId: 'n1', nodeName: '向量', questionText: '熟悉吗？', hint: null,
+    options: [{ value: 'DONT_KNOW', label: '不了解' }, { value: 'HEARD_OF', label: '听说过' }], answer: null }]
+  const draft = [{ ...base[0], answer: 'DONT_KNOW' }]
+  const save = () => assert.equal(writeAnswerDraft('u1', 's1', base, draft), true)
+  save()
+  assert.deepEqual(restoreAnswerDraft('u1', 's1', base), draft)
+  assert.equal(restoreAnswerDraft('u2', 's1', base), base)
+  assert.equal(restoreAnswerDraft('u1', 's2', base), base)
+  assert.deepEqual(restoreAnswerDraft('u1', 's1', draft), draft, 'partially submitted answers are compatible')
+  const changed = [{ ...base[0], questionText: '新的问题' }]
+  assert.equal(restoreAnswerDraft('u1', 's1', changed), changed)
+  assert.equal(memory.size, 0)
+  save()
+  const otherAnswer = [{ ...base[0], answer: 'HEARD_OF' }]
+  assert.equal(restoreAnswerDraft('u1', 's1', otherAnswer), otherAnswer)
+  for (const mutate of [value => { value.answers = ['INVALID'] }, value => { value.savedAt = 0 }]) {
+    save(); const [key, raw] = [...memory][0]; const value = JSON.parse(raw); mutate(value); memory.set(key, JSON.stringify(value))
+    assert.equal(restoreAnswerDraft('u1', 's1', base), base)
+  }
+  save(); memory.set([...memory.keys()][0], '{bad')
+  assert.equal(restoreAnswerDraft('u1', 's1', base), base)
+  save(); clearAnswerDraft('u1', 's1'); assert.equal(memory.size, 0)
+  save(); memory.set('unrelated', 'keep'); clearAnswerDrafts(); assert.deepEqual([...memory], [['unrelated', 'keep']])
+})
+
+test('polling jitter, background cadence and visibility preserve retry cooldowns', async () => {
+  let hidden = false, clock = 0, changed, unsubscribed = false
+  const timers = [], recoveries = []
+  const stop = startRecoverableRead({
+    read: async () => { throw new ApiError(429, 'LIMIT', 'wait', 10) },
+    onData: () => assert.fail('unexpected data'), onRecovery: value => recoveries.push(value),
+    random: () => 0.5, now: () => clock,
+    visibility: { isHidden: () => hidden, subscribe: fn => { changed = fn; return () => { unsubscribed = true } } },
+    schedule: (callback, delay) => { const timer = { callback, delay, cancelled: false }; timers.push(timer); return () => { timer.cancelled = true } },
+  })
+  await flush()
+  assert.equal(timers.at(-1).delay, 10500)
+  hidden = true; changed()
+  assert.equal(timers.at(-1).delay, 30500)
+  assert.equal(timers[0].cancelled, true)
+  clock = 3000; hidden = false; changed()
+  assert.equal(timers.at(-1).delay, 7500, 'foreground must respect remaining Retry-After')
+  for (let i = 0; i < 4; i++) { timers.at(-1).callback(); await flush() }
+  assert.equal(recoveries.at(-1).retrying, false)
+  const count = timers.length
+  changed()
+  assert.equal(timers.length, count, 'visibility must not revive exhausted retries')
+  stop(); assert.equal(unsubscribed, true)
+})
+
+test('stopping a read aborts its pending operation without reporting a new error', async () => {
+  let signal
+  const recovery = []
+  const stop = startRecoverableRead({
+    read: value => { signal = value; return new Promise((resolve, reject) => value.addEventListener('abort', () => reject(new Error('aborted')), { once: true })) },
+    onData: () => assert.fail('late result'), onRecovery: value => recovery.push(value),
+  })
+  assert.equal(signal.aborted, false)
+  stop(); await flush()
+  assert.equal(signal.aborted, true)
+  assert.deepEqual(recovery, [])
+})
+
+function readHarness(read, shouldPoll = () => false) {
+  const data = []
+  const recovery = []
+  const timers = []
+  const stop = startRecoverableRead({ read, shouldPoll, random: () => 0, onData: value => data.push(value), onRecovery: value => recovery.push(value),
+    schedule: (callback, delay) => {
+      const timer = { callback, delay, cancelled: false }
+      timers.push(timer)
+      return () => { timer.cancelled = true }
+    } })
+  return { data, recovery, timers, stop, async advance() {
+    const timer = timers.shift()
+    assert.ok(timer && !timer.cancelled, 'an active retry should exist')
+    timer.callback()
+    await flush()
+    return timer.delay
+  } }
+}
+
+test('generation survives transient failures and reaches READY without replacing the task', async () => {
+  const generating = { sessionId: 'recover-1', status: 'GENERATING_QUESTIONS' }
+  const ready = { sessionId: 'recover-1', status: 'READY' }
+  const responses = [generating, new TypeError('offline'), new ApiError(502, 'HTTP_ERROR', 'gateway'), ready]
+  const reads = []
+  const harness = readHarness(async () => {
+    reads.push('recover-1')
+    const next = responses.shift()
+    if (next instanceof Error) throw next
+    return next
+  }, value => value.status === 'GENERATING_QUESTIONS')
+  await flush()
+  assert.deepEqual(harness.data, [generating])
+  assert.equal(await harness.advance(), 2000)
+  assert.equal(harness.recovery.at(-1).retrying, true)
+  assert.deepEqual(harness.data, [generating], 'known generation state must not be cleared on a failed read')
+  assert.equal(await harness.advance(), 2000)
+  assert.equal(await harness.advance(), 4000)
+  assert.deepEqual(harness.data, [generating, ready])
+  assert.deepEqual(reads, ['recover-1', 'recover-1', 'recover-1', 'recover-1'])
+  assert.equal(harness.recovery.at(-1).error, null)
+  assert.equal(harness.timers.length, 0)
+  harness.stop()
+})
+
+test('transient read retries stop after four retries and manual restart keeps the same operation', async () => {
+  let calls = 0
+  const read = async () => { calls++; throw new ApiError(0, 'INVALID_RESPONSE', 'bad JSON') }
+  const harness = readHarness(read)
+  await flush()
+  const delays = []
+  while (harness.timers.length) delays.push(await harness.advance())
+  assert.deepEqual(delays, [2000, 4000, 8000, 16000])
+  assert.equal(calls, 5)
+  assert.equal(harness.recovery.at(-1).retrying, false)
+  harness.stop()
+  const manual = readHarness(read)
+  await flush()
+  assert.equal(calls, 6)
+  manual.stop()
+})
+
+test('terminal access errors, cancellation and actual FAILED task responses are not retried', async () => {
+  for (const status of [401, 403, 404, 410]) {
+    const harness = readHarness(async () => { throw new ApiError(status, 'ACCESS_ERROR', 'no access') })
+    await flush()
+    assert.equal(harness.timers.length, 0)
+    assert.equal(harness.recovery.at(-1).retrying, false)
+    harness.stop()
+  }
+  for (const code of ['REQUEST_CANCELLED', 'AUTH_CHANGED']) assert.equal(readRetryDelay(new ApiError(0, code, code), 1), null)
+  const failed = { status: 'FAILED', error: { code: 'GRAPH_INVALID', message: 'unable to generate' } }
+  const harness = readHarness(async () => failed, value => value.status.startsWith('GENERATING'))
+  await flush()
+  assert.deepEqual(harness.data, [failed])
+  assert.equal(harness.timers.length, 0)
+  harness.stop()
+})
+
+test('unmount cancels scheduled retries and ignores late responses from the previous task', async () => {
+  let resolve
+  const late = readHarness(() => new Promise(done => { resolve = done }))
+  late.stop()
+  resolve({ sessionId: 'old-user-task', status: 'READY' })
+  await flush()
+  assert.deepEqual(late.data, [])
+  assert.deepEqual(late.recovery, [])
+  let calls = 0
+  const waiting = readHarness(async () => { calls++; throw new TypeError('offline') })
+  await flush()
+  waiting.stop()
+  assert.equal(waiting.timers[0].cancelled, true)
+  waiting.timers[0].callback()
+  await flush()
+  assert.equal(calls, 1)
+})
+
+test('invalid JSON and invalid question shapes recover through the real response validator', async () => {
+  const originalFetch = globalThis.fetch
+  const auth = await server.ssrLoadModule('/src/api/auth.ts')
+  const real = await server.ssrLoadModule('/src/api/real/sessions.ts')
+  let user
+  let calls = 0
+  const question = { questionId: 'q1', nodeId: 'n1', nodeName: '向量', questionText: '熟悉向量吗？', hint: null, options: [{ value: 'DONT_KNOW', label: '不了解' }], answer: null }
+  try {
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('/auth/me')) return new Response(JSON.stringify({ userId: 'recover-user', csrfToken: 'recover-csrf' }))
+      assert.ok(String(url).endsWith('/recover-2/questions'))
+      calls++
+      if (calls === 1) return new Response('{"questions":')
+      if (calls === 2) return new Response(JSON.stringify({ questions: 'not-an-array' }))
+      return new Response(JSON.stringify({ questions: [question] }))
+    }
+    user = await auth.ensureCurrentUser()
+    const harness = readHarness(() => real.getQuestions('recover-2'))
+    await flush()
+    assert.equal(harness.recovery.at(-1).error.code, 'INVALID_RESPONSE')
+    await harness.advance()
+    assert.equal(harness.recovery.at(-1).error.code, 'INVALID_RESPONSE')
+    await harness.advance()
+    assert.deepEqual(harness.data, [{ questions: [question] }])
+    assert.equal(calls, 3)
+    harness.stop()
+  } finally { if (user) auth.invalidateCurrentUser(user); globalThis.fetch = originalFetch }
+})
+
+test('HTML rate-limit and proxy errors retain Retry-After for bounded backoff', async () => {
+  const originalFetch = globalThis.fetch
+  const { apiJson } = await server.ssrLoadModule('/src/api/http.ts')
+  try {
+    for (const status of [429, 503]) {
+      globalThis.fetch = async () => new Response('<html>temporarily unavailable</html>', { status, headers: { 'Retry-After': '7' } })
+      await assert.rejects(apiJson('/test', { method: 'GET' }, value => value), error => {
+        assert.equal(error.status, status)
+        assert.equal(error.retryAfterSeconds, 7)
+        assert.equal(readRetryDelay(error, 1), 7000)
+        return true
+      })
+    }
+    assert.equal(readRetryDelay(new ApiError(429, 'LIMIT', 'wait', 120), 1), null)
+  } finally { globalThis.fetch = originalFetch }
+})
+
+test('a late task response is rejected after authentication changes', async () => {
+  const originalFetch = globalThis.fetch
+  const auth = await server.ssrLoadModule('/src/api/auth.ts')
+  const real = await server.ssrLoadModule('/src/api/real/sessions.ts')
+  let user
+  let release
+  try {
+    globalThis.fetch = async url => {
+      if (String(url).endsWith('/auth/me')) return new Response(JSON.stringify({ userId: 'previous-owner', csrfToken: 'previous-csrf' }))
+      return new Promise(resolve => { release = resolve })
+    }
+    user = await auth.ensureCurrentUser()
+    const harness = readHarness(() => real.getSession('old-task'))
+    await flush()
+    auth.invalidateCurrentUser(user)
+    release(new Response(JSON.stringify({ sessionId: 'old-task', target: 'private target', status: 'READY', progress: { processedNodes: 1, totalNodes: 1 }, warnings: [], error: null })))
+    await flush()
+    assert.equal(harness.recovery.at(-1).error.code, 'AUTH_CHANGED')
+    assert.deepEqual(harness.data, [])
+    assert.equal(harness.timers.length, 0)
+    harness.stop()
+  } finally { if (user) auth.invalidateCurrentUser(user); globalThis.fetch = originalFetch }
+})
+
+test('transient recovery notice keeps an inline retry action rather than a failure or home dialog', async () => {
+  const { createElement } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { MemoryRouter } = await import('react-router-dom')
+  const { SessionReadNotice } = await server.ssrLoadModule('/src/components/ui/SessionReadNotice.tsx')
+  for (const retrying of [true, false]) {
+    const html = renderToStaticMarkup(createElement(MemoryRouter, { initialEntries: ['/sessions/100/questions'] },
+      createElement(SessionReadNotice, { error: new ApiError(502, 'HTTP_ERROR', 'gateway'), retrying,
+        retryDelayMs: retrying ? 2000 : null, reload() {}, label: '读取问卷' })))
+    assert.ok(html.includes(retrying ? '正在恢复' : '重试读取'))
+    assert.ok(html.includes(retrying ? '当前寻路已保留' : '无需重新创建'))
+    assert.equal(html.includes('寻路失败'), false)
+    assert.equal(html.includes('回到首页'), false)
+    assert.equal(html.includes('role="dialog"'), false)
   }
 })

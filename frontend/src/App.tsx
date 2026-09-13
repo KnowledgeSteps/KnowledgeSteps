@@ -5,6 +5,11 @@ import { Route, Routes, useParams } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { RequireAuth } from './components/layout/RequireAuth'
 import { ensureCurrentUser } from './api/auth'
+import { PageviewTracker } from './components/analytics/PageviewTracker'
+
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
+const DoubtsPage = lazy(() => import('./pages/DoubtsPage').then(m => ({ default: m.DoubtsPage })))
+const KnowledgeCardsPage = lazy(() => import('./pages/KnowledgeCardsPage').then(m => ({ default: m.KnowledgeCardsPage })))
 
 const SessionHistoryPage = lazy(() => import('./pages/SessionHistoryPage').then(m => ({ default: m.SessionHistoryPage })))
 
@@ -37,6 +42,7 @@ export function App() {
   }, [])
 
   return (
+    <><PageviewTracker />
     <Suspense
       fallback={<LoadingScreen />}
     >
@@ -46,6 +52,9 @@ export function App() {
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/history" element={<SessionHistoryPage />} />
+            <Route path="/doubts" element={<DoubtsPage />} />
+            <Route path="/knowledge-cards" element={<KnowledgeCardsPage />} />
+            <Route path="/admin/analytics" element={<AnalyticsPage />} />
             <Route
               path="/sessions/:sessionId/questions"
               element={<SessionPage><SessionQuestionsPage /></SessionPage>}
@@ -58,6 +67,6 @@ export function App() {
           </Route>
         </Route>
       </Routes>
-    </Suspense>
+    </Suspense></>
   )
 }

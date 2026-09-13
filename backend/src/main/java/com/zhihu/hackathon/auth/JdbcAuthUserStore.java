@@ -28,4 +28,20 @@ public class JdbcAuthUserStore implements AuthUserStore {
         external, "管理员", Instant.now().toString());
     return jdbc.queryForObject("SELECT id FROM users WHERE zhihu_user_id=?", Long.class, external);
   }
+  public boolean isAdmin(long id) {
+    return Boolean.TRUE.equals(jdbc.queryForObject(
+        "SELECT EXISTS(SELECT 1 FROM users WHERE id=? AND zhihu_user_id LIKE 'admin:%')", Boolean.class, id));
+  }
+  public long zhihuUser(String externalId, String nickname, String avatarUrl) {
+    if (externalId == null || !externalId.matches("[A-Za-z0-9_-]{1,128}")) {
+      throw new IllegalArgumentException("Invalid verified Zhihu identity");
+    }
+    // 独立命名空间，不能与管理员或测试身份合并。重新登录只更新展示资料。
+    String external = "zhihu:" + externalId;
+    jdbc.update("""
+        INSERT INTO users(zhihu_user_id,nickname,avatar_url,created_at) VALUES (?,?,?,?)
+        ON CONFLICT(zhihu_user_id) DO UPDATE SET nickname=excluded.nickname,avatar_url=excluded.avatar_url
+        """, external, nickname, avatarUrl, Instant.now().toString());
+    return jdbc.queryForObject("SELECT id FROM users WHERE zhihu_user_id=?", Long.class, external);
+  }
 }

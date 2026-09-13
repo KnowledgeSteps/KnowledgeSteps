@@ -11,7 +11,7 @@ class AdminLoginServiceTest {
 
   @Test void disabledLoginDoesNotCreateUsersOrRequireCredentials() {
     var service = new AdminLoginService(users, false, "admin", "");
-    assertThatThrownBy(() -> service.login("admin", "test-admin-password"))
+    assertThatThrownBy(() -> service.login("192.0.2.1", "admin", "test-admin-password"))
         .isInstanceOfSatisfying(AuthException.class, e -> assertThat(e.code()).isEqualTo("ADMIN_LOGIN_DISABLED"));
     verifyNoInteractions(users);
   }
@@ -25,16 +25,16 @@ class AdminLoginServiceTest {
 
   @Test void validPasswordWithWrongUsernameStillFailsWithoutCreatingUser() {
     var service = new AdminLoginService(users, true, "admin", HASH);
-    assertInvalid(() -> service.login("other", "test-admin-password"));
-    assertInvalid(() -> service.login("admin", "wrong-password"));
-    assertInvalid(() -> service.login("admin", "x".repeat(257)));
+    assertInvalid(() -> service.login("192.0.2.1", "other", "test-admin-password"));
+    assertInvalid(() -> service.login("192.0.2.1", "admin", "wrong-password"));
+    assertInvalid(() -> service.login("192.0.2.1", "admin", "x".repeat(257)));
     verifyNoInteractions(users);
   }
 
   @Test void validCredentialsResolvePersistentInternalIdentity() {
     when(users.adminUser("admin")).thenReturn(12L);
     var service = new AdminLoginService(users, true, "admin", HASH);
-    assertThat(service.login("admin", "test-admin-password")).isEqualTo(12L);
+    assertThat(service.login("192.0.2.1", "admin", "test-admin-password")).isEqualTo(12L);
     verify(users).adminUser("admin");
   }
 
@@ -44,14 +44,16 @@ class AdminLoginServiceTest {
     var service = new AdminLoginService(users, true, "admin", HASH, clock);
     for (int i = 0; i < 10; i++) {
       String name = "wrong" + i;
-      assertInvalid(() -> service.login(name, null));
+      assertInvalid(() -> service.login("192.0.2.1", name, null));
     }
-    assertThatThrownBy(() -> service.login("admin", "test-admin-password"))
+    assertThatThrownBy(() -> service.login("192.0.2.1", "admin", "test-admin-password"))
         .isInstanceOfSatisfying(AuthException.class, e -> assertThat(e.status()).isEqualTo(429));
     verifyNoInteractions(users);
+    when(users.adminUser("admin")).thenReturn(12L);
+    assertThat(service.login("192.0.2.2", "admin", "test-admin-password")).isEqualTo(12L);
     when(clock.millis()).thenReturn(60_000L);
     when(users.adminUser("admin")).thenReturn(12L);
-    assertThat(service.login("admin", "test-admin-password")).isEqualTo(12L);
+    assertThat(service.login("192.0.2.1", "admin", "test-admin-password")).isEqualTo(12L);
   }
 
   private void assertInvalid(org.assertj.core.api.ThrowableAssert.ThrowingCallable call) {

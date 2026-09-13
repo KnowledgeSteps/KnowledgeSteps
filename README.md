@@ -5,7 +5,7 @@
 一次性知识寻路工具：告诉我你想学什么，我只告诉你还缺什么。
 输入目标后生成知识图与自评题，答题后按熟悉程度搜索知乎资料。结果保留全部节点和依赖：非常了解 0 条、基本了解最多 2 条、听说过最多 3 条、不了解最多 5 条。详见 [自评与资料规则](docs/ASSESSMENT_RESOURCES.md)。
 
-当前已实现六个寻路接口、管理员密码登录，以及“模型生成依赖图 → 校验分层 → 生成自评题 → 提交答案 → 知乎搜索”的异步链路。知乎 OAuth 登录仍待实现。管理员登录使用真实会话；local-test 提供独立的自动测试身份，两者不能同时开启。产品范围见 [项目计划](docs/PROJECT.md)，接口及 Apifox 调试步骤见 [接口约定](docs/API_CONTRACT.md)。
+当前已实现六个寻路接口、管理员密码登录、知乎 OAuth 登录，以及“模型生成依赖图 → 校验分层 → 生成自评题 → 提交答案 → 知乎搜索”的异步链路。OAuth 已部署并通过真实授权验证，配置及边界见 [知乎登录说明](docs/ZHIHU_OAUTH.md)。登录使用真实会话；local-test 提供独立的自动测试身份，不能与管理员或 OAuth 登录同时启用。产品范围见 [项目计划](docs/PROJECT.md)，接口及 Apifox 调试步骤见 [接口约定](docs/API_CONTRACT.md)。
 
 ## 目录
 
@@ -47,7 +47,7 @@ cd backend
 
 后端使用 `admin-local` 配置启动：`.\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=admin-local"`。IDEA 工作目录仍为 `$PROJECT_DIR$/backend`，有效配置文件填写 `admin-local`，不要同时填写 `local-test`。前端设置 `VITE_DATA_MODE=api` 后运行，统一入口为 `/login`，左下角“管理员登录”打开账号密码弹窗。原 local-test 用户的任务不会自动转给管理员。
 
-未登录访问首页、答卷、结果或其他路径都会进入统一登录页；已登录访问登录页会回到业务页面，退出后返回登录页。Mock 仅替换学习数据，也需要真实后端登录，不再提供免登录入口。知乎授权按钮暂时显示申请中提示，尚未接通 OAuth。按钮与弹窗复用 [Uiverse 组件](https://uiverse.io/pharmacist-sabot/funny-gecko-48)，许可随 `frontend/public/uiverse.LICENSE` 发布。
+未登录访问首页、答卷、结果或其他路径都会进入统一登录页；已登录访问登录页会回到业务页面，退出后返回登录页。Mock 仅替换学习数据，也需要真实后端登录，不再提供免登录入口。知乎授权按钮进入服务端 OAuth 流程，配置未开启或授权校验失败时展示固定错误提示。按钮与弹窗复用 [Uiverse 组件](https://uiverse.io/pharmacist-sabot/funny-gecko-48)，许可随 `frontend/public/uiverse.LICENSE` 发布。
 
 演示站点使用 `admin-login` 配置，强制 Secure Cookie；需要 HTTPS 和同源 `/api` 代理，详情见部署说明。管理员只是独立的团队登录账号，不具有跨用户读取任务的权限。
 
@@ -112,3 +112,9 @@ cd backend
 文档更新日期：2026-09-12。已实现与待验收分开记录，不把构建或 Mock 测试当作真实浏览器和上游服务验收。
 
 历史寻路：登录后可通过顶部“历史寻路”查看自己的寻路总数及分页记录，继续历史自评或查看已生成的学习路径。
+
+## 本地审查修复
+
+访问统计新增 UV、PV 和每日独立 IP 数，管理员通过顶栏“访问统计”查看今日及近 30 天数据。本功能尚未部署，需发布 V8 后端和配套前端后开始采集。详见 [统计口径与使用方式](docs/VISITOR_ANALYTICS.md)。
+
+本轮改进管理员入口限流、任务取消与总时限、SQLite 写竞争、按需资料读取、脱敏诊断、字体分片、页面恢复、轮询取消及答题草稿。逐项验证与发布边界见 [修复进度](docs/REVIEW_FIX_PROGRESS.md)。备份恢复与同一产物发布流程见 [部署说明](docs/DEPLOYMENT.md)；本轮已于 2026-09-13 17:10（北京时间）部署，并启用每日同机备份，详见部署历史。

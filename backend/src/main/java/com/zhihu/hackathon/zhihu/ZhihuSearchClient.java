@@ -24,6 +24,7 @@ public final class ZhihuSearchClient {
   public List<Resource> search(String query) { return search(query, 3); }
 
   public List<Resource> search(String query, int count) {
+    com.zhihu.hackathon.session.GenerationTaskContext.check();
     if (count < 1 || count > 5) throw new IllegalArgumentException("Invalid resource count");
     if (query == null || query.isBlank()) {
       throw new IllegalArgumentException("搜索词不能为空");
@@ -47,7 +48,9 @@ public final class ZhihuSearchClient {
                 status == 429 || status >= 500);
           })
           .body(JsonNode.class);
+      com.zhihu.hackathon.session.GenerationTaskContext.check();
     } catch (RestClientException exception) {
+      com.zhihu.hackathon.session.GenerationTaskContext.check();
       throw new SearchException("ZHIHU_REQUEST_FAILED", true);
     }
     if (response == null || !response.path("Code").isIntegralNumber()) {

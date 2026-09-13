@@ -1,13 +1,53 @@
-import { HistoryOutlined, UserOutlined } from '@ant-design/icons'
+import { BarChartOutlined, BookOutlined, HistoryOutlined, UserOutlined, ReadOutlined } from '@ant-design/icons'
 import { Avatar, Button } from 'antd'
-import { useState } from 'react'
-import { Outlet, useMatch, useNavigate } from 'react-router-dom'
+import { startTransition, useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
+import { Outlet, useLocation, useMatch, useNavigate } from 'react-router-dom'
+import { menuPageLoaders, type MenuPagePath } from './menuPages'
+import '../../design/navigation.css'
 import { isMockMode } from '../../api/config'
 import { logout } from '../../api/auth'
 import { useAuth } from '../../hooks/useAuth'
 
 export function AppShell() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const contentRef = useRef<HTMLDivElement>(null)
+  const fade = useRef<Animation | null>(null)
+  const navigationSequence = useRef(0)
+  const [pendingMenu, setPendingMenu] = useState<{ path: MenuPagePath; from: string } | null>(null)
+  const [navigationError, setNavigationError] = useState<string | null>(null)
+  const menuBusy = pendingMenu?.from === location.key
+  useEffect(() => () => { navigationSequence.current += 1; fade.current?.cancel() }, [location.key])
+
+  async function switchMenu(path: MenuPagePath) {
+    if (path === location.pathname || menuBusy) return
+    const sequence = ++navigationSequence.current
+    setPendingMenu({ path, from: location.key }); setNavigationError(null)
+    try {
+      await menuPageLoaders[path]()
+      if (sequence !== navigationSequence.current) return
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && contentRef.current?.animate) {
+        fade.current = contentRef.current.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, easing: 'ease-out', fill: 'forwards' })
+        await fade.current.finished
+      }
+      if (sequence !== navigationSequence.current) return
+      startTransition(() => {
+        navigate(path)
+        setPendingMenu(null)
+      })
+    } catch {
+      if (sequence !== navigationSequence.current) return
+      fade.current?.cancel(); setPendingMenu(null); setNavigationError('页面暂时无法打开，请再次点击菜单重试。')
+    }
+  }
+  function menuButton(path: MenuPagePath, label: string, icon: ReactNode) {
+    const active = location.pathname === path
+    return <Button className={`nav-history${active ? ' nav-menu-active' : ''}`} aria-label={label}
+      aria-current={active ? 'page' : undefined} icon={icon} disabled={menuBusy}
+      loading={menuBusy && pendingMenu.path === path} onClick={() => void switchMenu(path)}>
+      <span className="nav-history-label">{label}</span></Button>
+  }
   const auth = useAuth()
   const questionMatch = useMatch('/sessions/:sessionId/questions')
   const resultMatch = useMatch('/sessions/:sessionId/result')
@@ -35,7 +75,7 @@ export function AppShell() {
       <a className="skip-link" href="#main-content">
         跳到主要内容
       </a>
-      <header className={`site-header${isSessionPage ? ' has-session-nav' : ''}`}>
+      <header className={`site-header${isSessionPage ? ' has-session-nav' : ''}${questionMatch ? ' has-quiz-nav' : ''}`}>
         {isSessionPage && <div className="header-session-slot" ref={setHeaderSlot} />}
         <div className="nav">
           <Button
@@ -47,7 +87,10 @@ export function AppShell() {
           </Button>
 
           <div className="nav-actions">
-            <Button icon={<HistoryOutlined />} onClick={() => navigate('/history')}>历史寻路</Button>
+            {auth.user?.role === 'ADMIN' && menuButton('/admin/analytics', '访问统计', <BarChartOutlined />)}
+            {menuButton('/history', '历史寻路', <HistoryOutlined />)}
+            {menuButton('/doubts', '疑惑本', <BookOutlined />)}
+            {menuButton('/knowledge-cards', '知识卡片', <ReadOutlined />)}
             <div className="auth-actions">
               <div className="nav-user">
                 <Avatar src={auth.user?.avatarUrl} icon={<UserOutlined />} alt="用户头像" />
@@ -69,7 +112,10 @@ export function AppShell() {
 
       <main className={`page${isSessionPage ? ' session-page-content' : ''}`} id="main-content">
         {logoutError && <p className="field-error" role="alert">{logoutError}</p>}
-        <Outlet context={{ headerSlot }} />
+        {navigationError && <p className="field-error" role="alert">{navigationError}</p>}
+        <div key={location.pathname} ref={contentRef} className={location.pathname in menuPageLoaders ? 'menu-page-transition' : undefined} data-page-path={location.pathname}>
+          <Outlet context={{ headerSlot }} />
+        </div>
       </main>
 
       <footer className="site-footer">

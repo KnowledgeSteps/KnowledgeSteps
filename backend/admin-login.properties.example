@@ -2,3 +2,6 @@
 # Use admin-local for local HTTP, admin-login for an HTTPS demo; never combine with local-test.
 auth.admin.username=admin
 auth.admin.password-hash=
+# Exact IPs of trusted immediate reverse proxies. Nginx must overwrite X-Real-IP.
+# Empty value disables forwarded client addresses. Never add public client networks.
+auth.admin.trusted-proxies=127.0.0.1,::1

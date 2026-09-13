@@ -19,16 +19,18 @@ class GeneratedJsonValidatorsTest {
     assertThat(result.nodes().getFirst().description()).isEmpty();
     assertThat(result.nodes().getFirst().name()).isEqualTo("矩阵");
   }
-  @Test void removesOnlyIdenticalRecordsWithoutChangingRelationships() {
-    var result=graph.validateAndRepair("{nodes:[{key:'a',name:'A'},{key:'a',name:'A'}],edges:[{from:'a',to:'target'},{from:'a',to:'target'}]}","X");
-    assertThat(result.nodes()).hasSize(1);
-    assertThat(result.edges()).hasSize(1);
-    assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a',name:'A'},{key:'a',name:'B'}],edges:[{from:'a',to:'target'}]}","X"))
-        .hasMessage("GRAPH_VALIDATION_FAILED");
+  @Test void rejectsDuplicateNodesAndEdgesRatherThanSilentlyChangingTheGraph() {
+    for(var raw:List.of(
+        "{nodes:[{key:'a',name:'A'},{key:'a',name:'A'}],edges:[{from:'a',to:'target'}]}",
+        "{nodes:[{key:'a',name:'A'},{key:'a',name:'B'}],edges:[{from:'a',to:'target'}]}",
+        "{nodes:[{key:'a',name:'A'}],edges:[{from:'a',to:'target'},{from:'a',to:'target'}]}"))
+      assertThatThrownBy(()->graph.validateAndRepair(raw,"X")).hasMessage("GRAPH_VALIDATION_FAILED");
   }
-  @Test void fillsAbsentCollectionsWithoutInventingNodes() {
-    assertThat(graph.validateAndRepair("{}","X").nodes()).isEmpty();
-    assertThat(questions.validateAndRepair("{questions:null}",List.of())).isEmpty();
+  @Test void requiresExplicitCollectionsEvenForAnEmptyGraphOrQuestionList() {
+    assertThat(graph.validateAndRepair("{nodes:[],edges:[]}","X").nodes()).isEmpty();
+    assertThat(questions.validateAndRepair("{questions:[]}",List.of())).isEmpty();
+    assertThatThrownBy(()->graph.validateAndRepair("{}","X")).hasMessage("MODEL_JSON_PARSE_ERROR");
+    assertThatThrownBy(()->questions.validateAndRepair("{questions:null}",List.of())).hasMessage("MODEL_JSON_PARSE_ERROR");
   }
   @Test void repairsQuestionIdsAndMissingHint() {
     var result=questions.validateAndRepair("{questions:[{nodeId:1,questionText:'你了解矩阵吗？',},]}",nodes);
@@ -46,10 +48,15 @@ class GeneratedJsonValidatorsTest {
       assertThatThrownBy(()->graph.validateAndRepair(raw,"X")).hasMessage("MODEL_JSON_PARSE_ERROR");
   }
   @Test void doesNotInventRelationsOrRequiredContent() {
-    assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a',name:'A'}]}","X")).hasMessage("GRAPH_VALIDATION_FAILED");
-    assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a'}],edges:[{from:'a',to:'target'}]}","X")).hasMessage("GRAPH_VALIDATION_FAILED");
-    assertThatThrownBy(()->questions.validateAndRepair("{}",nodes)).hasMessage("QUESTION_VALIDATION_FAILED");
-    assertThatThrownBy(()->questions.validateAndRepair("{questions:[{nodeId:1}]}",nodes)).hasMessage("QUESTION_VALIDATION_FAILED");
+    assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a',name:'A'}]}","X")).hasMessage("MODEL_JSON_PARSE_ERROR");
+    assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a'}],edges:[{from:'a',to:'target'}]}","X")).hasMessage("MODEL_JSON_PARSE_ERROR");
+    assertThatThrownBy(()->questions.validateAndRepair("{}",nodes)).hasMessage("MODEL_JSON_PARSE_ERROR");
+    assertThatThrownBy(()->questions.validateAndRepair("{questions:[{nodeId:1}]}",nodes)).hasMessage("MODEL_JSON_PARSE_ERROR");
     assertThatThrownBy(()->questions.validateAndRepair("{questions:[{nodeId:2,questionText:'Q'}]}",nodes)).hasMessage("QUESTION_VALIDATION_FAILED");
+  }
+  @Test void syntaxDiagnosticContainsOnlyCategoryAndLocation() {
+    var failure=catchThrowableOfType(()->graph.validateAndRepair("{private_user_data:","X"),ModelGenerationException.class);
+    assertThat(failure.detail()).startsWith("JSON_INCOMPLETE_LINE_").doesNotContain("private_user_data");
+    assertThat(failure.getCause()).isNull();
   }
 }

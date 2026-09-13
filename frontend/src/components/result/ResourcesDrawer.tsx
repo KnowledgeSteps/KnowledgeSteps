@@ -1,122 +1,86 @@
-import '../../design/resource-reading.css';
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { CardDecoration } from '../ui/CardDecoration';
-import '../../design/waiting.css';
-import { useEffect, useState } from 'react';
-import type { ReactNode } from 'react';
-import { ReloadOutlined } from '@ant-design/icons';
-import { Drawer, Spin, Button, Tag } from 'antd';
-import type { KnowledgeNode, NodeResources } from '../../api/types';
-import { getNodeResources } from '../../api/sessions';
-import { isMockMode } from '../../api/config';
-import { ResourceSummary } from './ResourceSummary';
-interface ResourcesDrawerProps {
-    sessionId: string;
-    node: KnowledgeNode | null;
-    onClose: () => void;
-}
-export function ResourcesDrawer({ sessionId, node, onClose, }: ResourcesDrawerProps) {
-    return (<Drawer title={node ? node.name : ''} placement="right" open={Boolean(node)} onClose={onClose} size="min(680px, 94vw)" className="path-drawer" styles={{ body: { padding: 0 } }}>
-      {node && (<NodeResourcesPanel key={node.id} sessionId={sessionId} node={node}/>)}
-    </Drawer>);
-}
-function NodeResourcesPanel({ sessionId, node, }: {
-    sessionId: string;
-    node: KnowledgeNode;
-}) {
-    const [data, setData] = useState<NodeResources | null>(null);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
-    const [retryKey, setRetryKey] = useState(0);
-    useEffect(() => {
-        let cancelled = false;
-        getNodeResources(sessionId, node.id)
-            .then((payload) => {
-            if (!cancelled)
-                setData(payload);
-        })
-            .catch(() => {
-            if (!cancelled)
-                setError('资料加载失败，请稍后重试。');
-        })
-            .finally(() => {
-            if (!cancelled)
-                setLoading(false);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [sessionId, node.id, retryKey]);
-    function retry(): void {
-        setData(null);
-        setError(null);
-        setLoading(true);
-        setRetryKey((key) => key + 1);
-    }
-    return (<div className="drawer-body">
-      {loading ? (<div className="resource-loading">
-          <Spin />
-          <span>正在整理这个节点的资料…</span>
-        </div>) : error ? (<StateBlock title="资料加载失败" body="暂时无法获取这个节点的学习资料，请稍后重新打开。" action={<Button htmlType="button" className="outline small" onClick={retry}>
-              <ReloadOutlined /> 再试一次
-            </Button>}/>) : data?.resourceStatus === 'NOT_APPLICABLE' && node.isTarget ? (<p className="target-node-description">{data.reason}</p>) : data?.resourceStatus === 'NOT_APPLICABLE' ? (<section className="resource-not-recommended">
+import '../../design/reading.css'
+import { useEffect, useState } from 'react'
+import { ArrowRightOutlined, ReloadOutlined, LikeOutlined } from '@ant-design/icons'
+import { Button, Drawer, Spin, Tag } from 'antd'
+import type { KnowledgeNode, NodeResources } from '../../api/types'
+import { getNodeResources } from '../../api/sessions'
+import { isMockMode } from '../../api/config'
+import { ReadingCard } from '../ui/ReadingCard'
+import { NodeOverview } from '../reading/NodeOverview'
+import { ReadingModal } from '../reading/ReadingModal'
+import { OriginalArticleButton } from '../reading/OriginalArticleButton'
+import type { ReadingSource } from '../reading/ReadingModal'
 
-          <Tag>非常了解 · 已掌握</Tag>
-          <p className="resource-node-description">{data.reason}</p>
-          <p className="muted">
-            你已选择非常了解，节点仍保留在图谱中，不再推荐资料。
-          </p>
-        </section>) : data?.resourceStatus === 'EMPTY' ? (<StateBlock title="暂时没有合适资料" body={isMockMode
-                ? '这个节点还没有找到匹配的知乎内容。接入真实接口后，会在这里展示检索结果。'
-                : '这个节点暂时没有找到匹配的知乎内容。'}/>) : data?.resourceStatus === 'FAILED' ? (<StateBlock title="资料搜索失败" body="本次资料搜索失败，暂不支持重新搜索。你可以继续查看其他节点的资料。"/>) : data ? (<>
-          <div className="drawer-intro">
-            <p className="resource-node-description">{data.reason}</p>
-            {isMockMode && (<span className="muted">
-                以下为本地 Mock 资料；链接为知乎站内检索，不代表具体文章。
-              </span>)}
+interface ResourcesDrawerProps { sessionId: string; node: KnowledgeNode | null; onClose: () => void }
+
+export function ResourcesDrawer({ sessionId, node, onClose }: ResourcesDrawerProps) {
+  return <Drawer title={node?.name ?? ''} placement="right" open={Boolean(node)} onClose={onClose}
+    size="min(720px, 96vw)" className="path-drawer reading-drawer" styles={{ body: { padding: 0 } }}>
+    {node && <NodeResourcesPanel key={`${sessionId}:${node.id}`} sessionId={sessionId} node={node} />}
+  </Drawer>
+}
+
+function NodeResourcesPanel({ sessionId, node }: { sessionId: string; node: KnowledgeNode }) {
+  const [data, setData] = useState<NodeResources | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [retryKey, setRetryKey] = useState(0)
+  const [reading, setReading] = useState<ReadingSource | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    const request = node.resourceCount === 0 && node.resourceStatus !== 'PENDING'
+      ? Promise.resolve({ nodeId: node.id, nodeName: node.name, reason: node.description,
+        resourceStatus: node.resourceStatus, resources: [] } satisfies NodeResources)
+      : getNodeResources(sessionId, node.id)
+    request.then(payload => { if (!cancelled) setData(payload) })
+      .catch(() => { if (!cancelled) setError('资料暂时无法加载，请重试。') })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [sessionId, node.id, node.name, node.description, node.resourceStatus, node.resourceCount, retryKey])
+  function retry() { setData(null); setError(null); setLoading(true); setRetryKey(value => value + 1) }
+  const status = data?.resourceStatus
+  const statusMessage = status === 'EMPTY' ? '暂时没有找到匹配的知乎资料，可以先阅读知识点卡片。'
+    : status === 'FAILED' ? '资料搜索暂时失败，可以先阅读知识点卡片，或查看其他节点。'
+    : status === 'PENDING' ? '资料仍在整理中，请稍后刷新。' : null
+  return <div className="drawer-body reading-node-panel">
+    <p className="reading-node-description">{node.description}</p>
+    <NodeOverview sessionId={sessionId} node={node} />
+    <section className="reading-resources" aria-labelledby={`resources-title-${node.id}`}>
+      <div className="reading-section-heading"><h3 id={`resources-title-${node.id}`}>相关资料</h3>
+        {data && <span className="reading-muted">{data.resources.length} 条</span>}</div>
+      {loading ? <div className="reading-loading" role="status"><Spin /><span>正在加载资料…</span></div>
+        : error ? <ReadingCard className="reading-state"><h4>资料加载失败</h4><p role="alert">{error}</p>
+          <Button icon={<ReloadOutlined />} onClick={retry}>重新加载</Button></ReadingCard>
+          : status === 'NOT_APPLICABLE' ? <div className="reading-empty-note">
+            {!node.isTarget && <Tag>非常了解 · 已掌握</Tag>}
+            <p>{node.isTarget ? '这个节点是学习目标，可以通过知识点卡片了解整体内容。' : '已了解的知识点无需重复阅读资料，可按需查看上方讲解。'}</p>
           </div>
-          <div className="resource-list">
-            {data.resources.map((item, index) => (<article className="resource-item resource-blob-card waiting-blob-card" key={item.id}>
-              <div className="waiting-blob-bg" aria-hidden="true" />
-              <div className="waiting-blob" aria-hidden="true" />
-              <div className="waiting-content">
-
-                <div className="between">
-                  <span className="resource-index">资料 {index + 1}</span>
-                  {isMockMode && <span className="badge demo">演示数据</span>}
-                </div>
-                <h4>{item.title.replace(/\s*-\s*知乎\s*$/, '')}</h4>
-                {item.summary && <ResourceSummary text={item.summary}/>}
-                <Button className="resource-original-link" href={item.url} target="_blank" rel="noopener noreferrer"
-                  aria-label={isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}
-                  data-text={isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}>
-                  <span className="resource-link-text">{isMockMode ? '去知乎检索相关讨论' : '在知乎阅读原文'}</span>
-                </Button>
-                <div className="resource-footer">
-                {(item.authorName || item.voteCount !== null) && (<small className="resource-meta">
-                    {item.authorName
-                        ? `作者：${item.authorName}`
-                        : '作者暂未提供'}
-                    {item.voteCount !== null
-                        ? ` · ${item.voteCount} 赞同`
-                        : ' · 赞同数暂未提供'}
-                  </small>)}
-                  <small className="resource-date">{item.contentDate ? <>发布／更新：<time dateTime={item.contentDate}>{item.contentDate}</time></> : '发布时间未知'}</small>
-                </div>
-              </div></article>))}
-          </div>
-        </>) : null}
-    </div>);
-}
-function StateBlock({ title, body, action, }: {
-    title: string;
-    body: string;
-    action?: ReactNode;
-}) {
-    return (<div className="uiverse-parent"><div className="explain-block uiverse-card"><CardDecoration icon={<InfoCircleOutlined />}/><div className="uiverse-content">
-
-      <h4>{title}</h4>
-      <p>{body}</p>
-      {action}
-    </div></div></div>);
+            : statusMessage ? <ReadingCard className="reading-state"><p>{statusMessage}</p>
+              {status === 'PENDING' && <Button icon={<ReloadOutlined />} onClick={retry}>刷新资料</Button>}</ReadingCard>
+              : <div className="reading-resource-list">
+                {isMockMode && <p className="reading-muted">本地演示资料，链接用于检索相关讨论。</p>}
+                {data?.resources.map((item, index) => {
+                  const title = item.title.replace(/\s*-\s*知乎\s*$/, '')
+                  const characters = Array.from((item.summary ?? '').replace(/\s+/g, ' ').trim())
+                  const preview = characters.length ? `${characters.slice(0, 50).join('')}${characters.length > 50 ? '…' : ''}` : '暂未提供内容摘要，可在阅读页打开知乎原文。'
+                  return <ReadingCard className="reading-resource-card" key={item.id}>
+                    <Button type="text" className="reading-resource-trigger" onClick={() => setReading({
+                      kind: 'summary', resourceId: item.id, title, text: item.summary ?? '',
+                      sourceUrl: item.url, authorName: item.authorName, authorUrl: item.authorUrl, contentDate: item.contentDate, voteCount: item.voteCount,
+                    })} aria-label={`阅读摘要：${title}`}>
+                      <span className="reading-resource-top"><span>资料 {index + 1}</span><ArrowRightOutlined /></span>
+                      <span className="reading-resource-title">{title}</span><span className="reading-resource-preview">{preview}</span>
+                      <span className="reading-resource-meta"><span>{item.authorName || '作者暂未提供'}</span><span>{item.contentDate || '日期未知'}</span></span>
+                    </Button>
+                    <div className="reading-resource-footer">
+                      {item.voteCount != null && <span className="reading-votes"><LikeOutlined /> {item.voteCount.toLocaleString()} 赞同</span>}
+                      <OriginalArticleButton url={item.url} />
+                    </div>
+                  </ReadingCard>
+                })}
+              </div>}
+    </section>
+    {reading && <ReadingModal key={reading.resourceId} sessionId={sessionId} nodeId={node.id}
+      nodeName={node.name} source={reading} onClose={() => setReading(null)} />}
+  </div>
 }

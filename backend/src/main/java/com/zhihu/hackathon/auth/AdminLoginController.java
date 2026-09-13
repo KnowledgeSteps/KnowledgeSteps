@@ -14,11 +14,13 @@ public class AdminLoginController {
   private final AdminLoginService login;
   private final SessionAuthentication sessions;
   private final CsrfTokens csrf;
+  private final LoginClientAddress clients;
 
-  public AdminLoginController(AdminLoginService login, SessionAuthentication sessions, CsrfTokens csrf) {
+  public AdminLoginController(AdminLoginService login, SessionAuthentication sessions, CsrfTokens csrf, LoginClientAddress clients) {
     this.login = login;
     this.sessions = sessions;
     this.csrf = csrf;
+    this.clients = clients;
   }
 
   // 使用普通类，避免 record 自动生成的 toString 包含密码。
@@ -30,7 +32,7 @@ public class AdminLoginController {
   @PostMapping("/api/v1/auth/admin/login")
   public ResponseEntity<?> login(@RequestBody LoginRequest body, HttpServletRequest request) {
     csrf.verify(request);
-    long userId = login.login(body == null ? null : body.username, body == null ? null : body.password);
+    long userId = login.login(clients.resolve(request), body == null ? null : body.username, body == null ? null : body.password);
     sessions.establish(request, userId);
     return ResponseEntity.ok().header("Cache-Control", "no-store")
         .body(sessions.userResponse(request, userId));

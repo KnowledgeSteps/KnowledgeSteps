@@ -6,6 +6,7 @@ export type ResponseValidator<T> = (value: unknown) => T
 
 interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown
+  timeoutMs?: number
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -35,13 +36,15 @@ async function readJson(response: Response): Promise<unknown> {
     throw new ApiError(
       response.ok ? 0 : response.status,
       'INVALID_RESPONSE',
-      '服务返回了无法解析的数据。',
+      '服务响应暂时不完整，请重试读取。',
+      retryAfterSeconds(response),
     )
   }
 }
 
 function buildInit(options: ApiRequestOptions = {}): RequestInit {
-  const { body, ...requestOptions } = options
+  const { body, timeoutMs: _timeoutMs, ...requestOptions } = options
+  void _timeoutMs
   const headers = new Headers(options.headers)
   headers.set('Accept', 'application/json')
   const init: RequestInit = {
@@ -75,7 +78,7 @@ async function requestPayload(path: string, options: ApiRequestOptions) {
         body?.error.message ?? '请求没有成功，请稍后重试。', retryAfterSeconds(response))
     }
     return payload
-  }, options.signal)
+  }, options.signal, options.timeoutMs)
 }
 
 export async function apiJson<T>(path: string, options: ApiRequestOptions, validate: ResponseValidator<T>): Promise<T> {

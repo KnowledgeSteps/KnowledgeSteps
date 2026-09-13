@@ -1,0 +1,18 @@
+.reading-markdown { color: var(--text-main); line-height: 1.9; font-size: 16px; overflow-wrap: anywhere; min-width: 0; }
+.reading-markdown > :first-child { margin-top: 0; }
+.reading-markdown > :last-child { margin-bottom: 0; }
+.reading-markdown p { white-space: pre-line; margin: 0 0 18px; }
+.reading-markdown h1, .reading-markdown h2, .reading-markdown h3 { font-size: 20px; line-height: 1.5; margin: 26px 0 12px; }
+.reading-markdown h4, .reading-markdown h5, .reading-markdown h6 { font-size: 17px; margin: 20px 0 10px; }
+.reading-markdown ul, .reading-markdown ol { padding-left: 24px; }
+.reading-markdown li { margin: 6px 0; }
+.reading-markdown blockquote { border-left: 3px solid var(--blue-light); background: var(--bg-subtle); padding: 14px 18px; margin: 16px 0; }
+.reading-markdown code { font-size: .9em; background: var(--bg-subtle); padding: 2px 5px; border-radius: 4px; }
+.reading-markdown pre { overflow: auto; padding: 16px; background: var(--bg-subtle); border-radius: var(--radius-item); }
+.reading-markdown a { color: var(--primary); text-decoration: underline; }
+.reading-markdown a:focus-visible, .reading-table-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.reading-table-scroll, .reading-markdown .katex-display { max-width: 100%; overflow-x: auto; }
+.reading-markdown table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.reading-markdown th, .reading-markdown td { padding: 10px 14px; border: 1px solid var(--border); text-align: left; }
+.reading-markdown th { background: var(--bg-subtle); }
+@media (max-width: 760px) { .reading-markdown { font-size: 15px; } .reading-markdown h1, .reading-markdown h2, .reading-markdown h3 { font-size: 18px; } }

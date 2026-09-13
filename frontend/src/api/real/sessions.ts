@@ -153,6 +153,9 @@ function parseNode(value: unknown): KnowledgeNode {
     level: numberValue(record.level),
     answer: record.answer === null ? null : enumValue(record.answer, ANSWER_VALUES),
     resourceLimit: numberValue(record.resourceLimit),
+    description: stringValue(record.description),
+    resourceStatus: enumValue(record.resourceStatus, RESOURCE_STATUSES),
+    resourceCount: numberValue(record.resourceCount),
   }
 }
 
@@ -184,6 +187,7 @@ function parseResource(value: unknown): LearningResource {
     url: stringValue(record.url),
     summary: nullableString(record.summary),
     authorName: nullableString(record.authorName),
+    authorUrl: record.authorUrl == null ? null : nullableString(record.authorUrl),
     voteCount: nullableNumber(record.voteCount),
     contentDate: record.contentDate == null ? null : stringValue(record.contentDate),
   }
@@ -237,20 +241,21 @@ export async function createSession(target: string, requestKey?: string): Promis
   )
 }
 
-export async function getSession(sessionId: string): Promise<SessionDetail> {
+export async function getSession(sessionId: string, signal?: AbortSignal): Promise<SessionDetail> {
   return request(
     `/api/v1/learning-sessions/${encodeURIComponent(sessionId)}`,
-    { method: 'GET' },
+    { method: 'GET', signal },
     parseSessionDetail,
   )
 }
 
 export async function getQuestions(
   sessionId: string,
+  signal?: AbortSignal,
 ): Promise<{ questions: Question[] }> {
   return request(
     `/api/v1/learning-sessions/${encodeURIComponent(sessionId)}/questions`,
-    { method: 'GET' },
+    { method: 'GET', signal },
     parseQuestionsResponse,
   )
 }
@@ -270,10 +275,11 @@ export async function saveAnswer(
 
 export async function completeSession(
   sessionId: string,
+  signal?: AbortSignal,
 ): Promise<CompletionResult> {
   return request(
     `/api/v1/learning-sessions/${encodeURIComponent(sessionId)}/complete`,
-    { method: 'POST' },
+    { method: 'POST', signal },
     parseCompletionResult,
     true,
   )

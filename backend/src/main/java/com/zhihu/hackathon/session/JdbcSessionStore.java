@@ -217,6 +217,7 @@ public class JdbcSessionStore implements SessionStore {
       throw new SessionException(400, "INVALID_ANSWER", "答案选项无效。");
     }
     return tx.execute(status -> {
+      requireOwnedWriteSession(userId, sessionId);
       var sessions = jdbc.query("SELECT status FROM learning_sessions WHERE id=? AND user_id=?",
           (rs, row) -> rs.getString(1), sessionId, userId);
       if (sessions.isEmpty()) throw new SessionException(404, "NOT_FOUND", "任务不存在。");
@@ -267,6 +268,7 @@ public class JdbcSessionStore implements SessionStore {
 
   public CompletionResponse completeOwned(long userId, long sessionId) {
     return tx.execute(status -> {
+      requireOwnedWriteSession(userId, sessionId);
       var sessions = jdbc.query("SELECT target_name,status FROM learning_sessions WHERE id=? AND user_id=?",
           (rs, row) -> new String[]{rs.getString(1), rs.getString(2)}, sessionId, userId);
       if (sessions.isEmpty()) throw new SessionException(404, "NOT_FOUND", "任务不存在。");
@@ -333,12 +335,15 @@ public class JdbcSessionStore implements SessionStore {
 
   private CompletionResponse completedResult(long sessionId, String target, String resultStatus) {
     List<CompletionResponse.Node> nodes = jdbc.query("""
-        SELECT n.id,n.name,n.is_target,n.level,a.answer_value FROM knowledge_nodes n
+        SELECT n.id,n.name,n.is_target,n.level,a.answer_value,n.description,n.resource_status,
+          (SELECT COUNT(*) FROM node_resources r WHERE r.node_id=n.id) FROM knowledge_nodes n
         LEFT JOIN assessment_questions q ON q.node_id=n.id
         LEFT JOIN assessment_answers a ON a.question_id=q.id
         WHERE n.session_id=? ORDER BY n.level,n.id
         """, (rs,row) -> new CompletionResponse.Node(rs.getString(1),rs.getString(2),rs.getInt(3)==1,
-            rs.getInt(4),rs.getString(5),rs.getInt(3)==1?0:ResourcePolicy.limit(rs.getString(5))),sessionId);
+            rs.getInt(4),rs.getString(5),rs.getInt(3)==1?0:ResourcePolicy.limit(rs.getString(5)),
+            rs.getString(6),rs.getInt(3)==1 || "VERY_FAMILIAR".equals(rs.getString(5)) ? "NOT_APPLICABLE" : rs.getString(7),
+            rs.getInt(3)==1 || "VERY_FAMILIAR".equals(rs.getString(5)) ? 0 : rs.getInt(8)),sessionId);
     List<CompletionResponse.Edge> orderedEdges = jdbc.query("SELECT prerequisite_node_id,dependent_node_id FROM knowledge_edges WHERE session_id=? ORDER BY id",
         (rs,row) -> new CompletionResponse.Edge(rs.getString(1),rs.getString(2)),sessionId);
     int missing = (int) nodes.stream().filter(node -> !node.isTarget() && !"VERY_FAMILIAR".equals(node.answer())).count();
@@ -346,4 +351,9 @@ public class JdbcSessionStore implements SessionStore {
   }
 
   private record ResourceNode(String name, String description, boolean target, String mastery, String resourceStatus) {}
+
+  private void requireOwnedWriteSession(long userId, long sessionId) {
+    if (jdbc.update("UPDATE learning_sessions SET status=status WHERE id=? AND user_id=?", sessionId, userId) == 0)
+      throw new SessionException(404, "NOT_FOUND", "任务不存在。");
+  }
 }

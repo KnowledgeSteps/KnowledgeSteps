@@ -32,6 +32,7 @@ class SessionIntegrationTest {
   @Autowired JdbcTemplate jdbc;
   @Autowired ObjectMapper json;
   @Autowired SessionStore store;
+  @org.springframework.test.context.bean.override.mockito.MockitoSpyBean LearningSessionService sessions;
   @MockitoBean SiliconFlowGenerationClient model;
   @MockitoBean ResourceSearch search;
   MockHttpSession session;
@@ -56,7 +57,11 @@ class SessionIntegrationTest {
   @Test void deletingRunningHistoryDoesNotBypassUserTaskLimit() throws Exception {
     var started=new java.util.concurrent.CountDownLatch(2);var release=new java.util.concurrent.CountDownLatch(1);
     when(model.generateGraph(anyString())).thenAnswer(call->{
-      started.countDown();release.await();
+      started.countDown();
+      // 模拟不能立即取消的外部调用：名额必须保留到实际退出。
+      while (release.getCount() > 0) {
+        try { release.await(); } catch (InterruptedException ignored) { }
+      }
       return new Graph(List.of(new Node("a","矩阵运算","理解计算")),List.of(new Edge("a","target")),"目标说明");
     });
     long first=0,second=0;
@@ -142,6 +147,7 @@ class SessionIntegrationTest {
     jdbc.execute("CREATE TRIGGER block_test_delete BEFORE DELETE ON knowledge_nodes WHEN OLD.session_id="+id+" BEGIN SELECT RAISE(ABORT,'test rollback'); END");
     try {
       mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isInternalServerError());
+      verify(sessions, never()).cancelDeleted(1, id);
       assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM assessment_answers WHERE question_id=?",Integer.class,q)).isEqualTo(1);
       assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM node_resources r JOIN knowledge_nodes n ON n.id=r.node_id WHERE n.session_id=?",Integer.class,id)).isPositive();
       assertThat(store.findOwned(1,id).status()).isEqualTo("COMPLETED");
@@ -150,6 +156,7 @@ class SessionIntegrationTest {
   @Test void deletingDuringGraphGenerationPreventsLateGraphInsertion() throws Exception {
     long id=store.create(1,"删除生成中");
     mvc.perform(delete("/api/v1/learning-sessions/"+id).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isOk());
+    verify(sessions).cancelDeleted(1, id);
     var graph=new GraphValidator().validate("删除生成中",new Graph(List.of(new Node("a","基础","说明")),List.of(new Edge("a","target")),"目标"));
     assertThatThrownBy(() -> store.saveGraph(id,"删除生成中",graph)).isInstanceOf(SessionException.class);
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM knowledge_nodes WHERE session_id=?",Integer.class,id)).isZero();
@@ -544,6 +551,10 @@ class SessionIntegrationTest {
       var node=result.nodes().stream().filter(n -> n.name().equals(definitions.get(index).name())).findFirst().orElseThrow();
       assertThat(node.answer()).isEqualTo(answers[i]);
       assertThat(node.resourceLimit()).isEqualTo(counts[i]);
+      var detail = store.findResourcesOwned(1, id, Long.parseLong(node.id()));
+      assertThat(node.description()).isEqualTo(detail.reason());
+      assertThat(node.resourceStatus()).isEqualTo(detail.resourceStatus());
+      assertThat(node.resourceCount()).isEqualTo(detail.resources().size());
       assertThat(store.findResourcesOwned(1,id,Long.parseLong(node.id())).resources()).hasSize(counts[i]);
     }
     verify(search,never()).search(eq("熟练"),anyInt());
@@ -557,6 +568,9 @@ class SessionIntegrationTest {
     answer(id,questionId(id,"基本"),"VERY_FAMILIAR");complete(id);
     assertThat(store.findResourcesOwned(1,id,nodeId(id,"基本")).resources()).isEmpty();
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM node_resources WHERE node_id=?",Integer.class,nodeId(id,"基本"))).isZero();
+    var mastered = store.completeOwned(1, id).nodes().stream().filter(n -> n.name().equals("基本")).findFirst().orElseThrow();
+    assertThat(mastered.resourceCount()).isZero();
+    assertThat(mastered.resourceStatus()).isEqualTo("NOT_APPLICABLE");
   }
   @Test void repeatedCompletionDoesNotDispatchTwiceAndFreezesAnswersWhileSearching() throws Exception {
     var entered=new java.util.concurrent.CountDownLatch(1);

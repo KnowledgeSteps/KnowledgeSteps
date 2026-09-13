@@ -38,11 +38,16 @@ class FlywayMigrationTest {
     for (int start = 0; start < 2; start++) {
       try (var context = new SpringApplicationBuilder(LearningApplication.class)
           .web(WebApplicationType.NONE)
-          .run("--spring.datasource.url=" + url, "--spring.flyway.baseline-on-migrate=false")) {
+          .run("--spring.datasource.url=" + url, "--spring.flyway.baseline-on-migrate=false",
+              "--spring.config.import=", "--spring.profiles.active=schema-test",
+              "--auth.admin.enabled=false", "--auth.zhihu.enabled=false", "--model.api-key=", "--zhihu.access-secret=")) {
+        assertThat(context.getEnvironment().getProperty("spring.config.import", "missing").isEmpty()).isTrue();
+        assertThat(context.getEnvironment().getProperty("model.api-key", "missing").isEmpty()).isTrue();
+        assertThat(context.getEnvironment().getProperty("zhihu.access-secret", "missing").isEmpty()).isTrue();
         var jdbc = context.getBean(JdbcTemplate.class);
         assertThat(jdbc.queryForObject("PRAGMA foreign_keys", Integer.class)).isEqualTo(1);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM flyway_schema_history WHERE success=1", Integer.class))
-            .isEqualTo(7);
+            .isEqualTo(12);
         if (start == 0) {
           jdbc.update("INSERT INTO users (zhihu_user_id, created_at) VALUES ('restart-user', '2026-09-08T00:00:00Z')");
         }
@@ -56,7 +61,7 @@ class FlywayMigrationTest {
   void migratesEmptyDatabaseAndDoesNotRepeatMigrations() throws Exception {
     String url = "jdbc:sqlite:" + directory.resolve("empty.db");
     Flyway flyway = Flyway.configure().dataSource(url, null, null).load();
-    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(7);
+    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(12);
     assertThat(flyway.migrate().migrationsExecuted).isZero();
     try (var connection = DriverManager.getConnection(url);
          var statement = connection.createStatement();
@@ -75,7 +80,7 @@ class FlywayMigrationTest {
     }
     Flyway flyway = Flyway.configure().dataSource(url, null, null)
         .baselineOnMigrate(true).baselineVersion("0").load();
-    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(7);
+    assertThat(flyway.migrate().migrationsExecuted).isEqualTo(12);
     try (var connection = DriverManager.getConnection(url);
          var statement = connection.createStatement();
          var result = statement.executeQuery("SELECT user_id FROM learning_records WHERE id=1")) {

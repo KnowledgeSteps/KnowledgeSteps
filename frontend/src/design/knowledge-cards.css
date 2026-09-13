@@ -1,0 +1,39 @@
+/* From Uiverse.io by Kaizen0000; same layered capsule, sweep and star interaction in brand blue/white. */
+.favorite-card-button.ant-btn { position: relative; isolation: isolate; height: 44px; padding: 0 16px; gap: 9px; border: 0; border-radius: 999px; background: transparent; color: var(--primary); font-weight: 700; flex-shrink: 0; transition: transform 300ms, color 300ms; }
+.favorite-card-button.ant-btn:not(:disabled):active { transform: scale(.95); transition-duration: 75ms; }
+.favorite-card-button.ant-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.favorite-border { position: absolute; inset: -1px; border-radius: inherit; overflow: hidden; background: var(--border); opacity: .7; pointer-events: none; }
+.favorite-border > span { position: absolute; inset: -160%; border: 18px solid var(--blue-medium); border-left-color: transparent; border-right-color: transparent; border-radius: 50%; animation: favorite-border-spin 4s linear infinite; }
+.favorite-card-button:hover .favorite-border, .favorite-card-button:focus-visible .favorite-border { opacity: 1; }
+.favorite-surface { position: absolute; inset: 1px; border-radius: inherit; background: var(--bg-card); overflow: hidden; pointer-events: none; transition: background 300ms; }
+.favorite-card-button:not(:disabled):hover .favorite-surface, .favorite-card-button:focus-visible .favorite-surface { background: var(--bg-subtle); }
+.favorite-sweep { position: absolute; inset-block: 0; left: 0; width: 45%; background: var(--blue-light); opacity: .35; transform: translateX(-160%) skewX(12deg); transition: transform 1200ms cubic-bezier(.16,1,.3,1); }
+.favorite-card-button:not(:disabled):hover .favorite-sweep, .favorite-card-button:focus-visible .favorite-sweep { transform: translateX(360%) skewX(12deg); }
+.favorite-leading, .favorite-label, .favorite-divider, .favorite-star { position: relative; z-index: 1; pointer-events: none; }
+.favorite-leading { display: inline-flex; font-size: 18px; }
+.favorite-divider { height: 20px; width: 1px; background: var(--border); }
+.favorite-star { display: inline-flex; width: 20px; height: 20px; margin-left: 2px; }
+.favorite-star > .anticon { position: absolute; inset: 0; font-size: 20px; transition: transform 500ms cubic-bezier(.16,1,.3,1), opacity 500ms; }
+.favorite-star-filled { opacity: 0; transform: scale(.5) rotate(-45deg); }
+.favorite-card-button:not(:disabled):hover .favorite-star-outline, .favorite-card-button:focus-visible .favorite-star-outline, .favorite-card-button.is-saved .favorite-star-outline { opacity: 0; transform: scale(.5) rotate(-45deg); }
+.favorite-card-button:not(:disabled):hover .favorite-star-filled, .favorite-card-button:focus-visible .favorite-star-filled, .favorite-card-button.is-saved .favorite-star-filled { opacity: 1; transform: scale(1) rotate(0); }
+.favorite-ring { position: absolute; inset: 0; border: 0 solid var(--primary); border-radius: 50%; opacity: 0; transform: scale(2.5); transition: all 600ms ease-out; }
+.favorite-card-button:not(:disabled):active .favorite-ring { border-width: 2px; opacity: 1; transform: scale(1); transition: none; }
+.favorite-particle { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%; background: var(--primary); opacity: 0; transform: translate(var(--particle-x), var(--particle-y)) scale(0); transition: transform 600ms cubic-bezier(.16,1,.3,1), opacity 600ms; }
+.particle-0 { --particle-x: 0px; --particle-y: -30px; }
+.particle-1 { --particle-x: 26px; --particle-y: -15px; }
+.particle-2 { --particle-x: 26px; --particle-y: 15px; }
+.particle-3 { --particle-x: 0px; --particle-y: 30px; }
+.particle-4 { --particle-x: -26px; --particle-y: 15px; }
+.particle-5 { --particle-x: -26px; --particle-y: -15px; }
+.favorite-card-button:not(:disabled):active .favorite-particle { transform: translate(0,0) scale(1); opacity: 1; transition: none; }
+.favorite-card-button.ant-btn:disabled { color: var(--text-muted); background: transparent; }
+.favorite-card-button.is-saved.ant-btn:disabled { color: var(--primary); }
+.favorite-card-button:disabled .favorite-border > span { animation: none; }
+@keyframes favorite-border-spin { to { transform: rotate(360deg); } }
+.knowledge-cards-page h2 { overflow-wrap: anywhere; }
+.knowledge-card-description { font-size: 18px; font-weight: 600; line-height: 1.8; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: var(--text-sub); }
+@media (max-width: 760px) { .favorite-card-button.ant-btn { padding-inline: 12px; gap: 7px; font-size: 13px; } .knowledge-card-description { font-size: 16px; } }
+@media (prefers-reduced-motion: reduce) { .favorite-card-button.ant-btn, .favorite-card-button *, .favorite-card-button:not(:disabled):active { animation: none !important; transition: none !important; } }
+
+.knowledge-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -1,0 +1,18 @@
+.page-recovery {
+  display: grid;
+  place-items: center;
+  min-height: 100svh;
+  padding: 24px 16px;
+}
+
+.page-recovery .ant-result {
+  max-width: 640px;
+  padding: 24px 0;
+}
+
+.page-recovery .ant-result-extra {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}

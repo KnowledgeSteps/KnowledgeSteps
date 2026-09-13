@@ -1,4 +1,5 @@
 import { Button } from 'antd'
+import { LeftOutlined, ProfileOutlined } from '@ant-design/icons'
 import type { AnswerValue, Question } from '../../api/types'
 import { OPTION_ICON } from '../../constants/answerOptions'
 
@@ -11,6 +12,7 @@ interface QuestionPanelProps {
   onBack: () => void
   canBack: boolean
   reviewing?: boolean
+  onOpenDirectory?: () => void
 }
 
 export function QuestionPanel({
@@ -22,13 +24,14 @@ export function QuestionPanel({
   onBack,
   canBack,
   reviewing = false,
+  onOpenDirectory,
 }: QuestionPanelProps) {
   return (
     <div className="question-panel">
     <span className="badge">
         {reviewing ? '复核中 · ' : ''}第 {index + 1} / {total} 题
       </span>
-      <h2>{question.questionText}</h2>
+      <h2 tabIndex={-1}>{question.questionText}</h2>
       {question.hint && <p className="sub">{question.hint}</p>}
 
       <div className="answers" role="group" aria-label="自评选项">
@@ -57,9 +60,11 @@ export function QuestionPanel({
           type="text" className="textbutton"
           disabled={!canBack || saving}
           onClick={onBack}
+          icon={<LeftOutlined aria-hidden="true" />}
         >
           返回上一题
         </Button>
+        {onOpenDirectory && <Button className="quiz-mobile-directory" type="text" icon={<ProfileOutlined aria-hidden="true" />} disabled={saving} onClick={onOpenDirectory} aria-haspopup="dialog">题目目录</Button>}
         {reviewing && <span className="muted">修改后会回到复核状态，确认无误后再查看结果</span>}
       </div>
     </div>

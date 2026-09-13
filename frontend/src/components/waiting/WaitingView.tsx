@@ -4,6 +4,7 @@ import { Progress, Steps } from 'antd'
 import { CompassOutlined } from '@ant-design/icons'
 import type { SessionDetail } from '../../api/types'
 import { isMockMode } from '../../api/config'
+import { WaitingCard } from '../ui/WaitingCard'
 
 const STEPS: Array<{
   key: SessionDetail['status']
@@ -28,10 +29,7 @@ export function WaitingView({ session, graphPercent }: { session: SessionDetail;
   const { processedNodes, totalNodes } = session.progress
   return (
     <section className="waiting enter">
-      <div className="waiting-blob-card">
-        <div className="waiting-blob-bg" aria-hidden="true" />
-        <div className="waiting-blob" aria-hidden="true" />
-        <div className="waiting-content">
+      <WaitingCard>
         <div className="engine-top"><div><h2><CompassOutlined aria-hidden="true" /> 知阶正在为你寻路</h2><p>目标：{session.target}</p></div></div>
         <>{session.status === 'SEARCHING_RESOURCES' ? <h3 className="resource-search-title">按熟悉程度整理资料</h3> : <Steps className="waiting-steps" style={{ '--graph-progress': `${graphPercent}%` } as CSSProperties} orientation="vertical" current={Math.max(0, activeIndex)} items={steps.map((step) => ({
           title: <span className="waiting-step-title"><span>{step.title}</span>{step.key === 'GENERATING_QUESTIONS' && session.status === 'GENERATING_QUESTIONS' && graphPercent >= 100 && <span className="question-generation-spinner" role="status" aria-label="正在生成自评问卷" />}</span>,
@@ -42,8 +40,7 @@ export function WaitingView({ session, graphPercent }: { session: SessionDetail;
           <Progress percent={Math.min(100, processedNodes / totalNodes * 100)} showInfo={false} />
         </div>}
         <p className="hint">{isMockMode ? '当前为 Mock 学习数据，生成过程不调用真实模型或知乎搜索。' : '生成需要一点时间，你可以稍后回到本页面查看进度。'}</p>
-        </div>
-      </div>
+      </WaitingCard>
     </section>
   )
 }

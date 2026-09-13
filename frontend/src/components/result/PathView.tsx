@@ -1,6 +1,7 @@
 import '../../design/graph-reveal.css';
 import { routeEdge, type NodeRect } from './routeEdges';
 import { GraphNodeCard } from './GraphNodeCard';
+import { GraphViewport } from './GraphViewport';
 import { CardDecoration } from '../ui/CardDecoration';
 import { AimOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import { ArrowRightOutlined } from '@ant-design/icons';
@@ -58,10 +59,12 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
                 if (!graph)
                     return;
                 const graphRect = graph.getBoundingClientRect();
+                // Rects include the mobile viewport transform; SVG paths use graph-local pixels.
+                const scale = graphRect.width / graph.offsetWidth || 1;
                 const cards: NodeRect[] = [...nodeRefs.current.entries()].map(([id, button]) => {
                     const rect = (button.querySelector('.graph-node-card') ?? button).getBoundingClientRect();
-                    return { id, left: rect.left - graphRect.left, right: rect.right - graphRect.left,
-                        top: rect.top - graphRect.top, bottom: rect.bottom - graphRect.top };
+                    return { id, left: (rect.left - graphRect.left) / scale, right: (rect.right - graphRect.left) / scale,
+                        top: (rect.top - graphRect.top) / scale, bottom: (rect.bottom - graphRect.top) / scale };
                 });
                 const nextLines = result.edges.flatMap((edge, index) => {
                     const from = cards.find(card => card.id === edge.from);
@@ -77,7 +80,7 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
                         d: points.map((point, i) => `${i ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ') }];
                 });
                 setLines(nextLines);
-                setSize({ width: graphRect.width, height: graphRect.height });
+                setSize({ width: graph.offsetWidth, height: graph.offsetHeight });
             });
         };
         measure();
@@ -95,9 +98,10 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
     }, [result.edges, result.nodes]);
     const names = new Map(result.nodes.map((node) => [node.id, node.name]));
     const visibleEdges = result.edges.filter((edge) => names.has(edge.from) && names.has(edge.to));
+    const graphWidth = Math.min(5, Math.max(...[...rows.values()].map(nodes => nodes.length))) * 324 + 8;
     return (<section className="path" aria-label="完整知识图谱">
-      <div className="path-scroll" tabIndex={0} role="region" aria-label="知识图谱，可横向滚动">
-      <div className="path-graph" ref={graphRef} style={{ minWidth: `${Math.min(5, Math.max(...[...rows.values()].map(nodes => nodes.length))) * 324 + 8}px` }}>
+      <GraphViewport width={graphWidth}>
+      <div className="path-graph" ref={graphRef} style={{ minWidth: `${graphWidth}px` }}>
         <svg className="path-edges" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true" focusable="false">
           {lines.map((line) => (<g key={line.key}>
             <path className="graph-branch-line" pathLength={1} d={line.d}/>
@@ -107,7 +111,7 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
             const nodes = rows.get(level) ?? [];
             return (<div className="path-level" key={level}>
               <div className={`path-row ${nodes.length === 1 ? 'single' : ''}`}>
-                {nodes.map((node) => (<GraphNodeCard key={`${result.sessionId}:${node.id}`} sessionId={result.sessionId} node={node} onOpen={() => onOpenNode(node)} buttonRef={(element) => {
+                {nodes.map((node) => (<GraphNodeCard key={`${result.sessionId}:${node.id}`} node={node} onOpen={() => onOpenNode(node)} buttonRef={(element) => {
                     if (element) nodeRefs.current.set(node.id, element);
                     else nodeRefs.current.delete(node.id);
                 }} />))}
@@ -115,7 +119,7 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
             </div>);
         })}
       </div>
-      </div>
+      </GraphViewport>
       {visibleEdges.length > 0 && (<div className="path-dependencies" aria-label="实际依赖关系">
           <span>依赖关系</span>
           <ul>

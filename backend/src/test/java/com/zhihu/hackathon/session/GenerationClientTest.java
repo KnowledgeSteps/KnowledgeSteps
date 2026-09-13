@@ -102,12 +102,11 @@ class GenerationClientTest {
   }
   @ParameterizedTest @ValueSource(strings={"{\"nodes\":{},\"edges\":[]}","{\"nodes\":[],\"edges\":[]} {}","not json"})
   void rejectsInvalidStructure(String content) throws Exception {
-    server.expect(anything()).andRespond(withSuccess(envelope(content,"stop"),MediaType.APPLICATION_JSON));
-    server.expect(anything()).andRespond(withSuccess(envelope(content,"stop"),MediaType.APPLICATION_JSON));
+    for(int i=0;i<3;i++) server.expect(anything()).andRespond(withSuccess(envelope(content,"stop"),MediaType.APPLICATION_JSON));
     assertThatThrownBy(()->client.generateGraph("X")).hasMessage("MODEL_JSON_PARSE_ERROR").hasNoCause();server.verify();
   }
   @Test void rejectsTruncatedResponse() throws Exception {
-    server.expect(anything()).andRespond(withSuccess(envelope("{}","length"),MediaType.APPLICATION_JSON));
+    for(int i=0;i<3;i++) server.expect(anything()).andRespond(withSuccess(envelope("{nodes:[],edges:[]}","length"),MediaType.APPLICATION_JSON));
     assertThatThrownBy(()->client.generateGraph("X")).hasMessage("MODEL_INVALID_RESPONSE");server.verify();
   }
   @Test void doesNotExposeUpstreamErrors() {
@@ -120,7 +119,7 @@ class GenerationClientTest {
     server.verify();
   }
   @Test void classifiesMalformedEnvelope() {
-    server.expect(anything()).andRespond(withSuccess("{broken",MediaType.APPLICATION_JSON));
+    for(int i=0;i<3;i++) server.expect(anything()).andRespond(withSuccess("{broken",MediaType.APPLICATION_JSON));
     assertThatThrownBy(() -> client.generateGraph("X")).hasMessage("MODEL_JSON_PARSE_ERROR").hasNoCause();
     server.verify();
   }
@@ -150,11 +149,11 @@ class GenerationClientTest {
   }
   @Test void correctionStillRejectsCyclesAndStops() throws Exception {
     String raw="{nodes:[{key:'a',name:'A'},{key:'b',name:'B'}],edges:[{from:'a',to:'b'},{from:'b',to:'a'},{from:'b',to:'target'}]}";
-    for(int i=0;i<2;i++) server.expect(anything()).andRespond(withSuccess(envelope(raw,"stop"),MediaType.APPLICATION_JSON));
+    for(int i=0;i<3;i++) server.expect(anything()).andRespond(withSuccess(envelope(raw,"stop"),MediaType.APPLICATION_JSON));
     assertThatThrownBy(()->client.generateGraph("X")).hasMessage("GRAPH_VALIDATION_FAILED");
     server.verify();
   }
-  @ParameterizedTest @ValueSource(strings={"invalid", "deep", "timeout", "shallow"})
+  @ParameterizedTest @ValueSource(strings={"invalid", "deep", "timeout", "shallow", "malformed", "truncated"})
   void depthOptimizationNeverDiscardsValidGraph(String correction) throws Exception {
     var nodes=new java.util.ArrayList<Generation.Node>();
     var edges=new java.util.ArrayList<Generation.Edge>();
@@ -166,6 +165,10 @@ class GenerationClientTest {
     server.expect(anything()).andRespond(withSuccess(envelope(deep,"stop"),MediaType.APPLICATION_JSON));
     if(correction.equals("timeout")) {
       server.expect(anything()).andRespond(request->{throw new java.net.SocketTimeoutException();});
+    } else if(correction.equals("malformed")) {
+      server.expect(anything()).andRespond(withSuccess("{broken",MediaType.APPLICATION_JSON));
+    } else if(correction.equals("truncated")) {
+      server.expect(anything()).andRespond(withSuccess(envelope(deep,"length"),MediaType.APPLICATION_JSON));
     } else {
       String raw=switch(correction) {
         case "invalid" -> "{nodes:[{key:'bad',name:'坏图'}],edges:[]}";
@@ -178,6 +181,119 @@ class GenerationClientTest {
     assertThat(result.nodes()).isEqualTo(nodes);
     if(correction.equals("shallow")) assertThat(result.edges()).allMatch(e->e.to().equals("target"));
     else assertThat(result.edges()).isEqualTo(edges);
+    server.verify();
+  }
+  @Test void correctsMalformedModelJsonAndReportsSafeParseLocation() throws Exception {
+    String malformed="{\"nodes\":[";
+    server.expect(anything()).andRespond(withSuccess(envelope(malformed,"stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages[1].content").value("Transformer"))
+        .andExpect(jsonPath("$.messages[2].content").value(malformed))
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("JSON_INCOMPLETE_LINE_")))
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("完整 JSON 对象")))
+        .andRespond(withSuccess(envelope("{nodes:[{key:'a',name:'矩阵'}],edges:[{from:'a',to:'target'}]}","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateGraph("Transformer").nodes()).extracting(Generation.Node::name).containsExactly("矩阵");
+    server.verify();
+  }
+  @Test void correctsSchemaFailuresTwiceAndKeepsOnlyTheLatestCorrectionContext() throws Exception {
+    server.expect(anything()).andRespond(withSuccess(envelope("{}","stop"),MediaType.APPLICATION_JSON));
+    String missingName="{nodes:[{key:'a'}],edges:[{from:'a',to:'target'}]}";
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("REQUIRED_ARRAY_nodes")))
+        .andRespond(withSuccess(envelope(missingName,"stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages.length()").value(4))
+        .andExpect(jsonPath("$.messages[1].content").value("Transformer"))
+        .andExpect(jsonPath("$.messages[2].content").value(missingName))
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("NONEMPTY_STRING_REQUIRED_name")))
+        .andRespond(withSuccess(envelope("{nodes:[{key:'a',name:'矩阵'}],edges:[{from:'a',to:'target'}]}","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateGraph("Transformer").nodes()).hasSize(1);
+    server.verify();
+  }
+  @Test void truncationTriggersCompleteRegenerationEvenWhenPartialContentLooksValid() throws Exception {
+    String partial="{nodes:[],edges:[]}";
+    server.expect(anything()).andRespond(withSuccess(envelope(partial,"length"),MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages[2].content").value(partial))
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("MODEL_OUTPUT_TRUNCATED")))
+        .andRespond(withSuccess(envelope("{nodes:[{key:'a',name:'矩阵'}],edges:[{from:'a',to:'target'}]}","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateGraph("Transformer").nodes()).hasSize(1);
+    server.verify();
+  }
+  @ParameterizedTest @ValueSource(strings={"{private_response_body", "{\"choices\":[],\"choices\":[]}", "{}", "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{}}]}"})
+  void retriesInvalidEnvelopesWithoutSendingProviderBodyBackToTheModel(String malformed) throws Exception {
+    server.expect(anything()).andRespond(withSuccess(malformed,MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages.length()").value(3))
+        .andExpect(jsonPath("$.messages[2].role").value("user"))
+        .andExpect(jsonPath("$.messages[2].content").value(org.hamcrest.Matchers.containsString("MODEL_ENVELOPE_")))
+        .andExpect(jsonPath("$.messages[2].content").value(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("private_response_body"))))
+        .andRespond(withSuccess(envelope("{nodes:[],edges:[]}","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateGraph("X").nodes()).isEmpty();
+    server.verify();
+  }
+  @Test void boundsRepairContextWithoutEchoingOversizedFailedContent() throws Exception {
+    String oversized="{\"private\":\""+"x".repeat(32_000);
+    server.expect(anything()).andRespond(withSuccess(envelope(oversized,"stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages.length()").value(3))
+        .andExpect(jsonPath("$.messages[2].role").value("user"))
+        .andRespond(withSuccess(envelope("{nodes:[],edges:[]}","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateGraph("X").nodes()).isEmpty();
+    server.verify();
+  }
+  @Test void questionCorrectionsMustPassBothSchemaAndNodeCoverageValidation() throws Exception {
+    var nodes=List.of(new Generation.SavedNode("1","矩阵",""),new Generation.SavedNode("2","向量",""));
+    server.expect(anything()).andRespond(withSuccess(envelope("{questions:[{nodeId:'1'}]}","stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("NONEMPTY_STRING_REQUIRED_questionText")))
+        .andRespond(withSuccess(envelope("{questions:[{nodeId:'1',questionText:'你了解矩阵吗？'}]}","stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything())
+        .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("QUESTION_COUNT_MISMATCH")))
+        .andRespond(withSuccess(envelope("{questions:[{nodeId:'2',questionText:'你了解向量吗？'},{nodeId:'1',questionText:'你了解矩阵吗？'}]}","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateQuestions(nodes)).extracting(Generation.Question::nodeId).containsExactly("1","2");
+    server.verify();
+  }
+  @Test void duplicateJsonFieldsCannotBypassValidationDuringCorrections() throws Exception {
+    String ambiguous="{nodes:[],nodes:[{key:'a',name:'A'}],edges:[]}";
+    for(int i=0;i<3;i++) server.expect(anything()).andRespond(withSuccess(envelope(ambiguous,"stop"),MediaType.APPLICATION_JSON));
+    assertThatThrownBy(()->client.generateGraph("X")).hasMessage("MODEL_JSON_PARSE_ERROR");
+    server.verify();
+  }
+  @Test void allContentCorrectionsShareOneRateLimitRetryBudget() throws Exception {
+    var delays=new java.util.ArrayList<Long>();
+    var retryClient=new SiliconFlowGenerationClient(builder.build(),json,"fake-key","gemini-3-flash","gemini-3.1-flash-lite",new ModelRateLimitBackoff(delays::add));
+    server.expect(anything()).andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS));
+    server.expect(anything()).andRespond(withSuccess(envelope("{","stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything()).andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS));
+    server.expect(anything()).andRespond(withSuccess(envelope("{","stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything()).andRespond(withStatus(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS));
+    assertThatThrownBy(()->retryClient.generateGraph("X")).hasMessage("MODEL_RATE_LIMITED");
+    assertThat(delays).hasSize(2);
+    server.verify();
+  }
+  @Test void graphObtainedOnLastCorrectionStillGetsOnlyOneOptionalLayoutAttempt() throws Exception {
+    var nodes=new java.util.ArrayList<Generation.Node>();
+    var edges=new java.util.ArrayList<Generation.Edge>();
+    for(int i=0;i<5;i++) {
+      nodes.add(new Generation.Node("n"+i,"知识"+i,""));
+      edges.add(new Generation.Edge("n"+i,i==4 ? "target" : "n"+(i+1)));
+    }
+    String deep=json.writeValueAsString(new Generation.Graph(nodes,edges,""));
+    for(int i=0;i<2;i++) server.expect(anything()).andRespond(withSuccess(envelope("{","stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything()).andRespond(withSuccess(envelope(deep,"stop"),MediaType.APPLICATION_JSON));
+    server.expect(anything()).andRespond(withSuccess(envelope("{","stop"),MediaType.APPLICATION_JSON));
+    assertThat(client.generateGraph("X").edges()).isEqualTo(edges);
+    server.verify();
+  }
+  @Test void doesNotRetryProviderRefusals() throws Exception {
+    server.expect(anything()).andRespond(withSuccess(envelope("provider_private_details","content_filter"),MediaType.APPLICATION_JSON));
+    assertThatThrownBy(()->client.generateGraph("X")).hasMessage("MODEL_RESPONSE_REJECTED").hasNoCause();
+    server.verify();
+  }
+  @Test void doesNotCallProviderWhenModelKeyIsMissing() {
+    var unconfigured=new SiliconFlowGenerationClient(builder.build(),json,"","graph","questions");
+    assertThatThrownBy(()->unconfigured.generateGraph("X")).hasMessage("MODEL_NOT_CONFIGURED");
     server.verify();
   }
   String envelope(String content,String finish) throws Exception {

@@ -259,7 +259,7 @@
   overflow: hidden;
   background: var(--bg-page, white);
   color: var(--text-sub, Highlight);
-  font-family: var(--font-family, "Chillax", "Source Han Sans SC", sans-serif);
+  font-family: var(--font-family, "Chillax", "KnowledgeSteps Han SC", sans-serif);
 }
 .ks-loading-screen .ks-loader { font-family: inherit; font-size: 4rem; max-width: 100vw; }
 .ks-loading-screen p { margin: 28px 24px 0; text-align: center; font-size: 14px; }

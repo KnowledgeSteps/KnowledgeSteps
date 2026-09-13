@@ -1,0 +1,15 @@
+[Unit]
+Description=Verified KnowledgeSteps SQLite snapshot
+
+[Service]
+Type=oneshot
+User=knowledgesteps
+Group=knowledgesteps
+UMask=0077
+StateDirectory=knowledgesteps-backups
+ExecStart=/usr/bin/python3 /opt/knowledgesteps/database_backup.py backup /var/lib/knowledgesteps/hackathon.db /var/lib/knowledgesteps-backups --keep 7
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/knowledgesteps /var/lib/knowledgesteps-backups
