@@ -112,7 +112,7 @@ public class ZhihuOAuthController {
   }
 
   static String safeReturnTo(String value) {
-    return value != null && (value.equals("/history") || value.equals("/admin/analytics") || value.matches("/sessions/[1-9][0-9]{0,18}/(questions|result)"))
+    return value != null && (value.equals("/history") || value.equals("/doubts") || value.equals("/knowledge-cards") || value.equals("/admin/analytics") || value.matches("/sessions/[1-9][0-9]{0,18}/(questions|result)"))
         ? value : "/";
   }
   private ResponseEntity<Void> failure(String error, String returnTo) {

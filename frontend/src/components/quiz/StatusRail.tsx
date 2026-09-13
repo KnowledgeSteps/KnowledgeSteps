@@ -19,7 +19,7 @@ export function StatusRail({ questions, currentIndex, onJump, disabled = false, 
         {showHeading && <h3><ProfileOutlined aria-hidden="true" /> 题目目录</h3>}
         <p className="rail-note">按顺序了解你的基础，点击题目可返回修改。</p>
       </header>
-      <div className="quiz-rail-scroll" tabIndex={0} role="region" aria-label="题目目录，可滚动">
+      <div className="quiz-rail-scroll" tabIndex={0} role="region" aria-label="题目列表">
         <ol className="quiz-directory">
           {questions.map((question, index) => {
             const current = active && index === currentIndex
@@ -60,3 +60,4 @@ function AnswerCheck({ checked }: { checked: boolean }) {
     </span>
   </span>
 }
+

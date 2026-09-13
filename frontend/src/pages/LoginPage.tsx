@@ -1,5 +1,5 @@
 import { LoadingScreen } from '../components/ui/LoadingScreen'
-import { KnowledgeCard } from '../components/ui/KnowledgeCard'
+import { InteractiveKnowledgeCard } from '../components/ui/InteractiveKnowledgeCard'
 import { Button } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
@@ -68,9 +68,9 @@ export function LoginPage() {
         <h1>告诉我你想学什么，<br /><span>帮你找到还缺的基础。</span></h1>
         <p className="gateway-description">找到学习目标需要的前置知识。<br />通过简单自评，帮你补齐基础，并推荐知乎学习资料。</p>
         <div className="gateway-features">
-          <KnowledgeCard className="ks-card-interactive" icon={<ApartmentOutlined />}> <h2>知道先学什么</h2><p>找到目标需要的前置知识，理清哪些要先学、哪些可以一起学。</p></KnowledgeCard>
-          <KnowledgeCard className="ks-card-interactive" icon={<FormOutlined />}> <h2>看看自己会多少</h2><p>回答几个简单问题，确认哪些已经会了，哪些还需要补。</p></KnowledgeCard>
-          <KnowledgeCard className="ks-card-interactive" icon={<BranchesOutlined />}> <h2>只补齐需要的</h2><p>跳过已经会的，附上知乎学习资料，帮你补齐缺少的基础。</p></KnowledgeCard>
+          <InteractiveKnowledgeCard className="ks-card-interactive" icon={<ApartmentOutlined />}> <h2>知道先学什么</h2><p>找到目标需要的前置知识，理清哪些要先学、哪些可以一起学。</p></InteractiveKnowledgeCard>
+          <InteractiveKnowledgeCard className="ks-card-interactive" icon={<FormOutlined />}> <h2>看看自己会多少</h2><p>回答几个简单问题，确认哪些已经会了，哪些还需要补。</p></InteractiveKnowledgeCard>
+          <InteractiveKnowledgeCard className="ks-card-interactive" icon={<BranchesOutlined />}> <h2>只补齐需要的</h2><p>跳过已经会的，附上知乎学习资料，帮你补齐缺少的基础。</p></InteractiveKnowledgeCard>
         </div>
         <div className="gateway-connection glitch-form-wrapper">
           <ConnectionButton label={oauthPending ? '正在前往知乎授权…' : '使用知乎授权登录'} loading={oauthPending} disabled={checking || oauthPending} onClick={startOAuth} aria-describedby="oauth-status" aria-busy={oauthPending} />

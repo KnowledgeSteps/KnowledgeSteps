@@ -100,6 +100,7 @@ export interface LearningResource {
   url: string
   summary: string | null
   authorName: string | null
+  authorUrl?: string | null
   contentDate?: string | null
   voteCount: number | null
 }

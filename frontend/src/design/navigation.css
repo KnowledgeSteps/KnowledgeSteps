@@ -1,0 +1,13 @@
+.nav-history.ant-btn.nav-menu-active,
+.nav-history.ant-btn.nav-menu-active:hover,
+.nav-history.ant-btn.nav-menu-active:focus-visible { background: var(--blue-light); border-color: var(--blue-medium); color: var(--text-main); }
+.nav-history.ant-btn { transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease; }
+.nav-history.ant-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.nav-history.ant-btn.nav-menu-active { animation: nav-active-breathe 2.8s ease-in-out infinite; }
+@keyframes nav-active-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; border-color: var(--blue-medium); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue-light) 45%, transparent), 0 0 12px color-mix(in srgb, var(--blue-medium) 30%, transparent); border-color: var(--primary); }
+}
+.menu-page-transition { min-width: 0; animation: menu-page-fade-in 220ms ease-out both; }
+@keyframes menu-page-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .menu-page-transition, .nav-history.ant-btn.nav-menu-active { animation: none; } .nav-history.ant-btn { transition: none; } }

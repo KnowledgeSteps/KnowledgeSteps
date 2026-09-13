@@ -1,8 +1,6 @@
 @import './glitch.css';
 .history-page { min-width: 0; }
-.history-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:32px; }
-.history-heading h1 { font-size:28px; margin:0 0 8px; }
-.history-heading p { color:var(--text-sub); margin:0; }
+.history-toolbar { display: flex; justify-content: flex-end; margin: 26px 0; }
 .history-pagination { margin-top:32px; justify-content:center; }
 /* From Uiverse.io by zeeshan_2112; single-piece blue-white adaptation. */
 .history-page .ticket-canvas { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:24px; min-height:200px; align-items:start; justify-items:center; }
@@ -38,7 +36,6 @@
  .history-page .ticket-canvas { grid-template-columns:minmax(0,1fr); gap:24px; }
  .history-page .t-main { padding:24px; }
  .history-page .t-title { font-size:30px; }
- .history-heading h1 { font-size:24px; }
 }
 @media (prefers-reduced-motion:reduce) {
  .history-page .ticket-wrapper .ticket { transform:none; transition:none; }

@@ -1,11 +1,13 @@
-import { CompassOutlined, ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
+import { CompassOutlined, ReloadOutlined, DeleteOutlined, HistoryOutlined } from '@ant-design/icons'
 import { Alert, Button, Empty, Pagination, Spin, Tag, Modal } from 'antd'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getSessionHistory, deleteSession } from '../api/sessions'
 import type { SessionHistory, SessionHistoryItem, SessionStatus } from '../api/types'
 import { useAuth } from '../hooks/useAuth'
+import { ReadingCard } from '../components/ui/ReadingCard'
 import '../design/history.css'
+import '../design/doubts.css'
 
 const statusNames: Record<SessionStatus, string> = {
   GENERATING_GRAPH: '生成图谱中', GENERATING_QUESTIONS: '准备问卷中',
@@ -53,7 +55,7 @@ function HistoryContent() {
   function open(item: SessionHistoryItem) {
     navigate(`/sessions/${encodeURIComponent(item.sessionId)}/${item.status === 'READY' ? 'questions' : 'result'}`)
   }
-  return <div className="history-page">
+  return <div className="history-page doubts-page">
     <Modal title="确认删除寻路？" open={deleteTarget !== null} okText="确认删除" cancelText="取消"
       okButtonProps={{ danger: true }} confirmLoading={deleting} cancelButtonProps={{ disabled: deleting }}
       closable={!deleting} keyboard={!deleting} maskClosable={!deleting}
@@ -61,8 +63,12 @@ function HistoryContent() {
       <p>删除“{deleteTarget?.target}”后，其图谱、问卷、答案和资料将从数据库永久删除，无法恢复。</p>
       {deleteError && <Alert type="error" title={deleteError} />}
     </Modal>
-    <div className="history-heading"><div><h1>历史寻路</h1>
-      <p aria-live="polite">{data ? `共 ${data.total} 次寻路` : '查看你之前的学习路径'}</p></div>
+    <ReadingCard className="history-overview"><div className="doubts-heading"><div>
+      <Tag icon={<HistoryOutlined />}>把走过的路径，留给下一次探索</Tag>
+      <h1>历史寻路</h1><p>回看每一次寻路，接着上次的进度继续学习。</p></div>
+      <div className="gap-count" aria-live="polite"><strong>{data?.total ?? '—'}</strong><span>次历史寻路</span></div>
+    </div></ReadingCard>
+    <div className="history-toolbar">
       <Button icon={<ReloadOutlined />} onClick={refresh} disabled={loading || deleting}>刷新</Button>
     </div>
     {error ? <Alert type="error" title={error} action={<Button onClick={refresh}>重试</Button>} /> :

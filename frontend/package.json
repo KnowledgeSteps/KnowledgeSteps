@@ -28,7 +28,11 @@
     "katex": "^0.18.7",
     "react": "latest",
     "react-dom": "latest",
+    "react-markdown": "^10.1.0",
     "react-router-dom": "^7.18.3",
+    "rehype-katex": "^7.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "vite": "latest"
   },
   "devDependencies": {

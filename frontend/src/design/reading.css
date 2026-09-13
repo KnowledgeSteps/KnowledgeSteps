@@ -1,0 +1,95 @@
+/* Reading surfaces reuse the result overview's white surface and soft blue edge. */
+.reading-node-panel { display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+.reading-node-description { margin: 0; font-size: 20px; line-height: 1.85; font-weight: 700; color: var(--text-main); white-space: pre-line; overflow-wrap: anywhere; }
+.reading-section-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.reading-section-heading h3 { margin: 0; font-size: 18px; color: var(--text-main); }
+.reading-section-heading .ant-tag { margin-inline-end: 0; }
+.reading-overview-heading { padding-bottom: 18px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.reading-overview-heading h3 { font-size: 24px; font-weight: 700; line-height: 1.5; }
+.reading-muted, .reading-help { color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+.reading-error { color: var(--error); font-size: 13px; }
+.reading-loading { display: flex; gap: 14px; align-items: center; min-height: 80px; padding: 14px 0; color: var(--text-sub); line-height: 1.7; }
+.reading-overview .waiting-content, .reading-state .waiting-content { padding: 26px; }
+.reading-overview-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
+.reading-empty-note { color: var(--text-sub); font-size: 14px; line-height: 1.8; }
+.reading-state h4 { margin: 0 0 10px; }
+.reading-state p { color: var(--text-sub); font-size: 14px; line-height: 1.75; margin: 0 0 16px; }
+.reading-resource-list { display: flex; flex-direction: column; gap: 16px; }
+.reading-resource-card .waiting-content { padding: 0; transition: background-color 180ms ease; }
+.reading-resource-card:is(:hover, :focus-within) .waiting-content { background-color: var(--bg-subtle); }
+.reading-resource-card .reading-resource-trigger.ant-btn:is(:hover, :active, :focus-visible) { background: transparent; }
+.reading-resource-card .reading-original-action.glitch-form-wrapper { background: transparent; }
+@media (prefers-reduced-motion: reduce) { .reading-resource-card .waiting-content { transition: none; } }
+.reading-resource-card .reading-resource-trigger { position: static; }
+.reading-resource-trigger::after { content: ''; position: absolute; inset: 0; z-index: 1; cursor: pointer; }
+.reading-resource-card .reading-original-action .submit-btn { position: relative; z-index: 2; }
+.reading-resource-card:has(.reading-resource-trigger:focus-visible) { outline: 2px solid var(--primary); outline-offset: 3px; }
+.reading-resource-trigger.ant-btn { display: block; height: auto; min-height: 168px; width: 100%; padding: 24px; text-align: left; white-space: normal; color: var(--text-main); border-radius: var(--radius-card); }
+.reading-resource-trigger.ant-btn > span { display: block; white-space: normal; }
+.reading-resource-trigger.ant-btn .reading-resource-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--primary); font-size: 12px; font-weight: 500; }
+.reading-resource-trigger.ant-btn .reading-resource-title { margin-top: 12px; font-size: 17px; font-weight: 700; line-height: 1.55; overflow-wrap: anywhere; }
+.reading-resource-trigger.ant-btn .reading-resource-preview { margin-top: 10px; font-size: 14px; color: var(--text-sub); font-weight: 400; line-height: 1.8; overflow-wrap: anywhere; }
+.reading-resource-trigger.ant-btn .reading-resource-meta { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px 14px; margin-top: 16px; color: var(--text-muted); font-size: 12px; font-weight: 400; }
+.reading-resource-trigger.ant-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: -6px; }
+.reading-modal { top: 6vh; padding-bottom: 24px; max-width: calc(100vw - 32px); }
+.reading-modal .ant-modal-container { padding: 24px; }
+.reading-modal .ant-modal-body { min-width: 0; }
+.reading-modal-scroll { max-height: 76dvh; overflow-y: auto; overflow-x: hidden; overscroll-behavior-y: contain; margin-inline: -24px; padding: 4px 24px 16px; scrollbar-gutter: stable; }
+.reading-source-heading { position: sticky; top: -4px; z-index: 3; background: var(--bg-card); padding-bottom: 16px; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+.reading-original-action.glitch-form-wrapper { justify-content: flex-start; margin-top: 14px; }
+.reading-original-action.glitch-form-wrapper .submit-btn { width: auto; min-height: 44px; margin: 0; padding: 6px 12px 6px 6px; gap: 10px; font-size: 14px; letter-spacing: normal; }
+.reading-original-action .ant-btn-icon { position: relative; z-index: 2; display: inline-flex; align-items: center; justify-content: center; flex: 0 0 20px; width: 20px; height: 20px; font-size: 16px; background: var(--primary); color: var(--bg-card); border-radius: 4px; }
+.reading-original-action .btn-text { white-space: nowrap; }
+.reading-original-action.glitch-form-wrapper .submit-btn::before,
+.reading-original-action.glitch-form-wrapper .submit-btn::after { left: 36px; width: calc(100% - 36px); padding-right: 12px; box-sizing: border-box; white-space: nowrap; }
+.reading-votes { display: inline-flex; gap: 6px; align-items: center; color: var(--text-sub); font-size: 13px; margin-top: 10px; }
+.reading-resource-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 0 24px 24px; }
+.reading-resource-footer .reading-original-action, .reading-resource-footer .reading-votes { margin-top: 0; }
+.reading-source-heading h2 { margin: 12px 0; font-size: 24px; line-height: 1.55; overflow-wrap: anywhere; }
+.reading-source-meta { display: flex; flex-wrap: wrap; gap: 8px 20px; color: var(--text-muted); font-size: 13px; line-height: 1.7; font-weight: 700; }
+.reading-source-meta > span { overflow-wrap: anywhere; }
+.reading-source-date { margin-left: auto; text-align: right; }
+.reading-prose { padding-block: 20px; }
+.reading-reader-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.reading-help { margin: 14px 0 0; }
+.reading-selectable { user-select: text; -webkit-user-select: text; overflow-wrap: anywhere; }
+.reading-selection-actions { position: fixed; z-index: 1400; transform: translate(-50%, -100%); transform-origin: center bottom; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-item); box-shadow: var(--shadow-card); animation: reading-selection-enter 280ms cubic-bezier(.2,.8,.2,1) both; transition: border-color 180ms ease, box-shadow 180ms ease; }
+.reading-selection-actions:hover, .reading-selection-actions:focus-within { border-color: var(--blue-medium); }
+.reading-selection-button.ant-btn { height: 42px; padding-inline: 10px; gap: 8px; font-weight: 600; }
+.reading-selection-button.ant-btn:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.reading-selection-bulb { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; color: var(--primary); background: var(--bg-subtle); }
+.reading-selection-bulb::before { content: ''; position: absolute; inset: 0; border: 1px solid var(--blue-medium); border-radius: inherit; opacity: 0; pointer-events: none; animation: reading-bulb-ring 750ms 100ms ease-out both; }
+.reading-selection-bulb > .anticon { font-size: 17px; transform-origin: 50% 80%; animation: reading-bulb-light 650ms 80ms ease-out both; }
+.reading-selection-button:hover .reading-selection-bulb > .anticon, .reading-selection-button:focus-visible .reading-selection-bulb > .anticon { animation: reading-bulb-nod 550ms ease-in-out; }
+@keyframes reading-selection-enter { from { opacity: 0; transform: translate(-50%, -100%) translateY(8px) scale(.96); } to { opacity: 1; transform: translate(-50%, -100%) translateY(0) scale(1); } }
+@keyframes reading-bulb-light { 0% { opacity: .5; transform: scale(.8); } 55% { opacity: 1; transform: scale(1.16); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes reading-bulb-ring { 0% { opacity: .65; transform: scale(.65); } 100% { opacity: 0; transform: scale(1.5); } }
+@keyframes reading-bulb-nod { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-12deg); } 65% { transform: rotate(9deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .reading-selection-actions, .reading-selection-bulb::before, .reading-selection-bulb > .anticon,
+  .reading-selection-button:hover .reading-selection-bulb > .anticon, .reading-selection-button:focus-visible .reading-selection-bulb > .anticon { animation: none; transition: none; }
+}
+.reading-back.ant-btn { padding-left: 0; margin-bottom: 12px; }
+.reading-explanation-title { margin: 0 0 10px; font-size: 22px; }
+.reading-explanation-title:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.reading-input-label { display: block; margin: 20px 0 8px; font-size: 14px; font-weight: 600; }
+.reading-explain-controls { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0 20px; }
+.reading-explanation-card { margin-top: 20px; }
+.reading-explanation-card .waiting-content { padding: 26px; }
+.reading-explanation-card .reading-help { margin-bottom: 16px; }
+.reading-saved-note { display: block; margin-top: 10px; font-size: 12px; color: var(--text-sub); }
+@media (max-width: 760px) {
+  .reading-node-panel { gap: 20px; padding: 18px 14px; }
+  .reading-node-description { font-size: 18px; }
+  .reading-overview-heading h3 { font-size: 22px; }
+  .reading-overview .waiting-content, .reading-state .waiting-content { padding: 22px 18px; }
+  .reading-resource-trigger.ant-btn { min-height: 160px; padding: 22px 18px; }
+  .reading-resource-trigger.ant-btn .reading-resource-title { font-size: 16px; }
+  .reading-modal { top: 12px; width: calc(100vw - 16px) !important; max-width: calc(100vw - 16px); margin: 0 auto; }
+  .reading-modal .ant-modal-container { padding: 20px 14px; }
+  .reading-modal-scroll { max-height: calc(100dvh - 126px); margin-inline: -14px; padding-inline: 14px; scrollbar-gutter: auto; }
+  .reading-source-heading h2 { font-size: 20px; }
+  .reading-explanation-card .waiting-content { padding: 22px 16px; }
+  .reading-reader-actions > .ant-btn { flex: 1 1 160px; }
+  .reading-explain-controls .ant-btn { min-height: 44px; }
+}

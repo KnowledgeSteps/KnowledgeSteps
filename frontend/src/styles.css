@@ -332,9 +332,9 @@ em { font-style: normal; color: var(--primary); }
 
 /* Keep mobile assessment navigation compact without changing other pages. */
 @media (max-width: 760px) {
-  .has-quiz-nav .nav { flex-wrap: nowrap; gap: 8px; padding: 10px 12px; }
+  .has-quiz-nav .nav { flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   .has-quiz-nav .brand-logo { width: 88px; height: 36px; }
-  .has-quiz-nav .nav-actions { flex-wrap: nowrap; gap: 8px; }
+  .has-quiz-nav .nav-actions { flex-wrap: wrap; gap: 8px; }
   .has-quiz-nav .nav-username, .has-quiz-nav .auth-status, .has-quiz-nav .nav-history-label { display: none; }
   .has-quiz-nav .nav-history.ant-btn { width: 44px; height: 44px; padding: 0; gap: 0; font-size: 18px; }
   .has-quiz-nav .nav .auth-actions { gap: 8px; }
@@ -347,3 +347,4 @@ em { font-style: normal; color: var(--primary); }
   .has-quiz-nav .nav-logout:is(:hover, :focus-visible) .sign { width: 100%; padding-left: 0; }
   .has-quiz-nav .nav-logout:is(:hover, :focus-visible) .text { display: none; }
 }
+

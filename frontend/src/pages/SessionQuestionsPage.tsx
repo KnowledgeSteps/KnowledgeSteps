@@ -112,9 +112,9 @@ function SessionQuestionsContent({ sessionId, userId }: { sessionId: string; use
         setReviewing(true);
         setDirectoryOpen(false);
     }
-    // Long mobile questions use the page scroll; each new question starts at its heading.
+    // Long questions use the page scroll; each new question starts at its heading.
     useEffect(() => {
-        if (!currentQuestionId || !window.matchMedia('(max-width: 760px)').matches) return;
+        if (!currentQuestionId) return;
         const main = quizMain.current;
         if (main && main.getBoundingClientRect().top < 0) main.scrollIntoView({ block: 'start', behavior: 'instant' });
     }, [currentQuestionId, allAnswered, reviewing]);
@@ -265,3 +265,4 @@ function LoadingPage({ label = '正在读取任务…' }: {
       <p>{label}</p>
     </section>);
 }
+

@@ -187,6 +187,7 @@ function parseResource(value: unknown): LearningResource {
     url: stringValue(record.url),
     summary: nullableString(record.summary),
     authorName: nullableString(record.authorName),
+    authorUrl: record.authorUrl == null ? null : nullableString(record.authorUrl),
     voteCount: nullableNumber(record.voteCount),
     contentDate: record.contentDate == null ? null : stringValue(record.contentDate),
   }

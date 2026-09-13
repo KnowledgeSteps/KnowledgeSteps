@@ -1,12 +1,10 @@
 import type { HTMLAttributes, ReactNode } from 'react'
-import { CardDecoration } from './CardDecoration'
+import { ReadingCard } from './ReadingCard'
 
-// Original supplied HTML: parent > card > (logo, glass, content).
+// Latest user-selected default: the same surface as the result overview.
 export function KnowledgeCard({ icon, children, className = '', ...props }: HTMLAttributes<HTMLDivElement> & { icon: ReactNode }) {
-  return <div className="uiverse-parent">
-    <div {...props} className={`uiverse-card ${className}`}>
-      <CardDecoration icon={icon} />
-      <div className="uiverse-content">{children}</div>
-    </div>
-  </div>
+  return <ReadingCard {...props} className={className}>
+    <span className="reading-card-icon" aria-hidden="true">{icon}</span>
+    {children}
+  </ReadingCard>
 }

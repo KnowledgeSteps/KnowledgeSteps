@@ -219,12 +219,19 @@ class ZhihuOAuthControllerTest {
 
   @ParameterizedTest
   @ValueSource(strings = {"https://attacker.test", "//attacker.test", "/\\attacker.test", "/history?next=evil",
-      "/sessions/1/result#redirect", "/api/v1/auth/logout", "/sessions/0/questions"})
+      "/sessions/1/result#redirect", "/api/v1/auth/logout", "/sessions/0/questions", "/doubts?next=evil"})
   void returnToCannotRedirectOutsideAllowedPagePaths(String destination) throws Exception {
     var flow = start(destination);
     mvc.perform(get("/api/v1/auth/zhihu/callback").session(flow.session())
         .param("state", flow.state()).param("authorization_code", "code"))
         .andExpect(redirectedUrl("/"));
+  }
+
+  @Test void returnsToDoubtsAfterOAuthLogin() throws Exception {
+    var flow=start("/doubts");
+    mvc.perform(get("/api/v1/auth/zhihu/callback").session(flow.session())
+        .param("state",flow.state()).param("authorization_code","code"))
+        .andExpect(redirectedUrl("/doubts"));
   }
 
   @Test void disabledProviderDoesNotCreatePendingSessionOrExchangeCode() throws Exception {

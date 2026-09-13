@@ -1,6 +1,6 @@
 /* Assessment workspace: plain surfaces, no decorative cards. */
-.quiz-layout.twocol { height: 900px; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) 320px; align-items: stretch; gap: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin: 24px 0; }
-.quiz-layout .quiz-main { padding: 32px 36px; min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--blue-light) transparent; }
+.quiz-layout.twocol { height: auto; grid-template-rows: auto; grid-template-columns: minmax(0, 1fr) 320px; align-items: stretch; gap: 0; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin: 24px 0; }
+.quiz-layout .quiz-main { padding: 32px 36px; min-width: 0; min-height: 0; overflow: visible; }
 .quiz-layout .mentor { margin-bottom: 0; padding: 24px 0; }
 .quiz-layout .mentor .spark { display: none; }
 .quiz-layout .mentor strong { font-size: 20px; }
@@ -17,13 +17,13 @@
 .quiz-desktop-directory { min-width: 0; min-height: 0; }
 .quiz-desktop-directory > .quiz-rail { height: 100%; }
 .quiz-mobile-directory.ant-btn, .quiz-mobile-intro { display: none; }
-/* Both columns keep the workspace height, including the shorter completion panel. */
-.quiz-rail-inner { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
+/* Both columns expand with their contents and share the page scroll. */
+.quiz-rail-inner { position: relative; display: flex; flex-direction: column; min-height: 0; }
 .quiz-rail-header { flex: none; padding: 28px 22px 18px; border-bottom: 1px solid var(--border); }
 .quiz-rail-header h3 { font-size: 20px; color: var(--text-main); margin: 0; font-weight: 650; }
 .quiz-rail-header h3 .anticon { color: var(--primary); }
 .quiz-rail-header .rail-note { margin: 10px 0 0; font-size: 15px; line-height: 1.8; }
-.quiz-rail-scroll { flex: 1; min-height: 0; min-width: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: var(--blue-light) transparent; padding: 0 16px 16px 22px; }
+.quiz-rail-scroll { flex: 1; min-height: 0; min-width: 0; overflow: visible; padding: 0 16px 16px 22px; }
 .quiz-rail-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
 .quiz-rail-scroll::-webkit-scrollbar { width: 6px; }
 .quiz-rail-scroll::-webkit-scrollbar-thumb { background: var(--blue-light); border-radius: 8px; }
@@ -76,7 +76,7 @@
 .quiz-directory-drawer .quiz-rail, .quiz-directory-drawer .quiz-rail-inner { position: static; height: 100%; min-height: 0; }
 .quiz-directory-drawer .quiz-rail-header { padding: 12px 20px; }
 .quiz-directory-drawer .rail-note { margin: 0; font-size: 14px; }
-.quiz-directory-drawer .quiz-rail-scroll { padding: 0 12px 12px; }
+.quiz-directory-drawer .quiz-rail-scroll { overflow-y: auto; overscroll-behavior: contain; padding: 0 12px 12px; }
 .quiz-directory-drawer .quiz-directory { padding-block: 4px; }
 .quiz-directory-drawer .ant-drawer-footer { padding: 8px 16px max(12px, env(safe-area-inset-bottom)); }
 .quiz-directory-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; font-size: 14px; }
@@ -200,3 +200,4 @@
   .quiz-result-button.ant-btn::before,
   .quiz-result-button.ant-btn::after { transition: none; }
 }
+
