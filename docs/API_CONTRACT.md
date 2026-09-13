@@ -1,6 +1,6 @@
 # API 约定
 
-> 六个寻路接口、管理员密码登录、当前用户和退出接口已实现；知乎 OAuth 登录仍待实现。数据库字段见 [数据库设计](DATABASE_DESIGN.md)。
+> 六个寻路接口、管理员密码登录、当前用户和退出接口已实现；知乎 OAuth 登录已实现，授权入口为 `/api/v1/auth/zhihu/start`，详见 [OAuth 说明](ZHIHU_OAUTH.md)。数据库字段见 [数据库设计](DATABASE_DESIGN.md)。
 
 ## 一、整体流程
 
@@ -15,7 +15,7 @@
 - 登录后使用后端会话 Cookie，生产环境设置 HttpOnly、Secure；跨站部署需明确 SameSite、CORS 白名单及 CSRF 防护。写接口验证 CSRF Token。
 - `user_id` 来自服务端登录态，禁止前端指定。所有会话、题目和节点接口都检查所属关系；不存在或无权访问统一返回 404。
 - 默认不分页：一份任务最多 20 个前置节点，每节点按自评档位最多保存 0/2/3/5 条资料；目标名称去除首尾空白后为 1～100 个字符。这些是项目自己的初版限制。
-- 刷新页面可通过任务编号恢复进度。前端每两秒轮询状态，达到 READY、COMPLETED 或 FAILED 时停止。
+- 刷新页面可通过任务编号恢复进度。前端正常以 2 秒加随机抖动轮询，后台标签页至少 30 秒；达到 READY、COMPLETED 或 FAILED 时停止。离开页面取消在途读取，网络错误有限退避重试。
 - 模型输出必须经结构、数量、重复节点和循环依赖检查。搜索无结果不允许编造链接或作者。
 
 ## 三、接口清单
@@ -200,15 +200,15 @@ SEARCHING_RESOURCES 期间禁止修改答案，返回 409。允许在 READY、CO
 
 ![知阶与知乎 OAuth 授权码登录流程](../images/结构图/OAuth原理图.png)
 
-浏览器负责跳转及用户授权，知阶后端负责交换令牌、查询知乎身份并建立自己的登录会话；数据库用知乎稳定用户标识关联内部 users.id。OAuth 当前仍在申请，图中登录和回调流程尚未实现。
+浏览器负责跳转及用户授权，知阶后端负责交换令牌、查询知乎身份并建立自己的登录会话；数据库用知乎稳定用户标识关联内部 users.id。OAuth 链路已实现并通过授权验证，配置细节见 [知乎登录说明](ZHIHU_OAUTH.md)。
 
 依据已提供的知乎接入说明，授权地址为 `https://openapi.zhihu.com/authorize`；回调参数名为 `authorization_code`。换令牌请求为 `POST https://openapi.zhihu.com/access_token`，使用 `application/x-www-form-urlencoded` 提交 app_id、app_key、grant_type=authorization_code、redirect_uri 及 code（值取自回调的 authorization_code）。app_key 和 access_token 不返回浏览器。
 
-用户信息接口、稳定身份字段、state 参数支持与回传，以及 localhost 回调是否允许，仍需知乎确认。申请公开内容权限后，收藏夹推荐也需单独对接相应接口；不能据此假设能读取私密收藏夹。搜索 Access Secret 与 OAuth 应用凭证、用户令牌用途不同，不能互相替代。
+用户信息通过 /user 获取，使用稳定 uid；state 必须通过一次性校验。本地回调还须在平台登记。申请公开内容权限后，收藏夹推荐也需单独对接相应接口；不能据此假设能读取私密收藏夹。搜索 Access Secret 与 OAuth 应用凭证、用户令牌用途不同，不能互相替代。
 
 ### 当前身份接入与本地调试
 
-管理员登录已接入，前端唯一公开入口为 `/login`，左下角按钮打开账号密码弹窗。首页、答卷、结果和其他路径都受登录保护；Mock 数据模式也需要真实认证。知乎授权按钮目前仅提示申请中，不发起尚未实现的 OAuth 请求。以下两个接口都不要求已有登录身份：
+管理员登录已接入，前端唯一公开入口为 `/login`，左下角按钮打开账号密码弹窗。首页、答卷、结果和其他路径都受登录保护；Mock 数据模式也需要真实认证。知乎授权按钮发起服务端 /api/v1/auth/zhihu/start 流程。以下两个接口都不要求已有登录身份：
 
 | 方法 | 路径 | 用途 |
 | --- | --- | --- |
@@ -219,7 +219,7 @@ SEARCHING_RESOURCES 期间禁止修改答案，返回 409。允许在 READY、CO
 
 登录成功 200 返回 `{"userId":"内部用户ID","csrfToken":"新会话令牌"}`。旧会话失效，Cookie 和 CSRF Token 轮换；后续写请求必须使用新令牌。响应带 `Cache-Control: no-store`。前端只在表单内存中短暂处理密码，不写 URL 或浏览器持久化存储；未登录访问题单或结果页会跳到登录页，并在成功后恢复安全的站内任务地址。
 
-失败：400 `INVALID_LOGIN_REQUEST`（请求体格式错误）、401 `INVALID_CREDENTIALS`（统一提示“账号或密码不正确。”）、403 `CSRF_INVALID`、429 `LOGIN_RATE_LIMITED`（Retry-After: 60）、503 `ADMIN_LOGIN_DISABLED`。单实例全局每个 60 秒窗口最多受理 10 次凭证校验，修改用户名或 Cookie 不重置计数。登录失败不创建用户，也不自动重放登录请求。
+失败：400 `INVALID_LOGIN_REQUEST`（请求体格式错误）、401 `INVALID_CREDENTIALS`（统一提示“账号或密码不正确。”）、403 `CSRF_INVALID`、429 `LOGIN_RATE_LIMITED`（Retry-After: 60）、503 `ADMIN_LOGIN_DISABLED`。管理员密码登录按来源 IP 每个 60 秒窗口最多 10 次失败，成功不消耗失败额度；全局最多同时执行 2 次密码校验，繁忙为 429 LOGIN_BUSY。不排队，修改用户名或 Cookie 不重置来源计数。登录失败不创建用户，也不自动重放登录请求。
 
 管理员登录默认关闭。`admin-local` 配置启用登录且仅监听 127.0.0.1，适合本地 HTTP；`admin-login` 配置启用登录并强制 Secure Cookie，适合 HTTPS 演示站点。任何管理员模式都不能与 local-test 身份旁路同时开启，否则启动失败。启用时必须配置合法用户名和密码哈希；缺少哈希会拒绝启动，没有公共默认密码。
 
@@ -227,11 +227,11 @@ SEARCHING_RESOURCES 期间禁止修改答案，返回 409。允许在 READY、CO
 
 密码格式为 `pbkdf2-sha256$600000$<16字节盐的Base64>$<32字节哈希的Base64>`，使用 PBKDF2-HMAC-SHA256。通过 `backend/scripts/setup-admin-login.ps1` 可生成随机初始密码和被 Git 忽略的本地配置；部署时由平台 Secret 注入用户名和哈希，不传到前端。
 
-`GET /api/v1/auth/me` 已实现，成功返回 `{"userId":"1","csrfToken":"会话绑定的随机令牌"}`；没有登录会话返回 401（local-test 自动测试身份除外）。管理员登录成功后可查询此接口，OAuth 回调仍未实现。
+`GET /api/v1/auth/me` 已实现，成功返回 `{"userId":"1","csrfToken":"会话绑定的随机令牌"}`；没有登录会话返回 401（local-test 自动测试身份除外）。管理员或知乎授权登录成功后均可查询此接口。
 
-认证代码集中在 `com.zhihu.hackathon.auth` 模块（Java 包，尚未拆成独立 Maven 工程），不依赖学习任务模块。`CurrentUserProvider` 是业务读取身份的入口；`AuthUserStore` 隔离用户存储，`SessionAuthentication` 负责会话生命周期，`CsrfTokens` 负责写请求校验，`AuthException` 及其处理器统一返回认证错误。
+认证代码集中在 `com.zhihu.hackathon.auth` 模块（Java 包，尚未拆成独立 Maven 工程）。`CurrentUserProvider` 是业务读取身份的入口；`AuthUserStore` 隔离用户存储，`SessionAuthentication` 负责会话生命周期，`CsrfTokens` 负责写请求校验，`AuthException` 及其处理器统一返回认证错误。
 
-普通配置从服务器会话的 `knowledgeSteps.userId` 读取内部用户 ID，并确认该用户仍存在且不是 local-test: 测试身份。OAuth 后续完成授权验证、令牌交换、用户信息查询和用户落库后，再调用 `SessionAuthentication.establish`：旧会话失效，新会话与 CSRF 令牌重新生成，避免沿用登录前会话。该方法不对浏览器提供设置用户 ID 的接口。
+普通配置从服务器会话的 `knowledgeSteps.userId` 读取内部用户 ID，并确认该用户仍存在且不是 local-test: 测试身份。OAuth 完成授权验证、令牌交换、用户信息查询和用户落库后，再调用 `SessionAuthentication.establish`：旧会话失效，新会话与 CSRF 令牌重新生成，避免沿用登录前会话。该方法不对浏览器提供设置用户 ID 的接口。
 
 local-test 配置创建固定测试用户，每个进程第一次读取身份时初始化一次，后续轮询不重复写 users 表。名称由服务器配置 `learning.local-user` 决定（默认 developer），不能从请求头或参数切换。此模式仍是开发身份旁路，禁止在正式环境启用。
 
@@ -248,21 +248,21 @@ Apifox 调试顺序：
 
 缺少或错误 CSRF 令牌：403 `{"error":{"code":"CSRF_INVALID","message":"请刷新页面获取有效令牌。"}}`。跨用户访问或非法任务编号：404 `{"error":{"code":"NOT_FOUND","message":"任务不存在。"}}`。额外 userId 字段不参与身份判断。
 
-当前默认使用四个工作线程（可通过 GENERATION_WORKERS 调整，范围 1–32）、最多八个排队任务；队列已满时在创建记录之前返回 429 `{"error":{"code":"RATE_LIMITED","message":"生成任务繁忙，请稍后重试。"}}`，响应头 Retry-After: 5。此限制是单实例全局容量控制，尚未实现每用户时间窗口限流。
+当前默认使用四个工作线程（可通过 GENERATION_WORKERS 调整，范围 1–32）、最多八个排队任务；队列已满时在创建记录之前返回 429 `{"error":{"code":"RATE_LIMITED","message":"生成任务繁忙，请稍后重试。"}}`，响应头 Retry-After: 5。此限制是单实例全局容量控制，同时执行每用户 2 个在途任务、滚动一分钟 10 次创建及 20 条历史上限。
 
 ### 生成职责划分
 
-GraphGenerator、QuestionGenerator、ResourceSearch 为上游端口，SessionStore 为存储端口；GenerationPipeline 负责步骤编排，GraphValidator 只做纯数据校验。默认使用硅基流动实现两个模型端口，读取 model.graph-model 和 model.question-model；网络请求与数据库短事务分离。更换供应商不需要修改 Controller 或 JDBC 存储。
+GraphGenerator、QuestionGenerator、ResourceSearch 为上游端口，SessionStore 为存储端口；GenerationPipeline 负责步骤编排，GraphValidator 只做纯数据校验。使用兼容 OpenAI 协议的远程服务实现两个模型端口，读取 model.graph-model 和 model.question-model；网络请求与数据库短事务分离。更换供应商不需要修改 Controller 或 JDBC 存储。
 
 模型 A 输出 `{"targetDescription":"目标的具体介绍与核心特点","nodes":[{"key":"n1","name":"矩阵运算","description":"用途"}],"edges":[{"from":"n1","to":"target"}]}`；nodes 仅含前置节点，目标由后端加入。拒绝超量、规范化重名、未知引用、重复边、自环、循环、目标出边和无法到达目标的节点，按最长依赖路径分层。
 
 模型 B 输出 `{"questions":[{"nodeId":"数据库节点ID","questionText":"自评问题","hint":"用途"}]}`，必须恰好覆盖全部前置节点。空前置图跳过搜索与模型 B，保存目标后进入 READY。搜索失败的 warnings 元素为 `{"nodeId":"节点ID","code":"RESOURCE_SEARCH_FAILED","message":"该节点资料搜索失败。"}`。
 
-模型使用 JSON Object 模式，不保证上游严格遵循 JSON Schema；本地忽略契约外字段，修复尾逗号等可恢复格式并补齐可选空值；拒绝重复 JSON 属性、尾随数据、截断和非法结构，语义质量仍需人工验收。生成内容校验失败时，每阶段自动纠正一次并重新校验；正常成功不增加请求，HTTP/鉴权/超时/响应信封失败不重试。纠正仍失败时，错误按本文“AI 生成失败分类”返回。重启时中断的图谱/问卷生成标记 FAILED / GENERATION_INTERRUPTED；完整答卷的搜索中任务恢复 READY，保留已处理资料。
+模型使用 JSON Object 模式，输出仍需本地结构与业务校验。图谱和问卷每阶段最多 3 次内容尝试；合法深图可额外优化 1 次，失败保留原合法图谱。429 重试整个阶段共享 2 次预算；鉴权失败、超时和明确拒绝不做内容纠错。重启中断的生成标记 GENERATION_INTERRUPTED，完整答卷的搜索中任务恢复 READY，保留已处理资料。详见 [AI JSON 校验与修复](AI_JSON_VALIDATION.md)。
 
 2026-09-09 验证：Java 21 完整 verify 的 49 项测试全部通过；独立测试库中真实 Transformer 任务到达 READY，保存 10 个前置节点、1 个目标、10 条依赖、30 条知乎资料及10道自评题，warnings 为空，外键检查无错误。该结果验证生成链路，不表示 OAuth 已完成，也不替代前端真实接口联调。
 
-OAuth 尚待实现的接口为 `GET /api/v1/auth/zhihu/login`（跳转授权）和 `GET /api/v1/auth/zhihu/callback`（校验授权响应、换取身份、建立会话）。除 app_id/app_key 外，还需确认用户信息接口、稳定 ID 字段、state 回传及回调白名单；接入时应实现授权事务有效期、一次性消费与拒绝重复回调、上游超时和错误脱敏。PKCE 是否可用需官方确认，不能假定支持。返回站内页面应使用固定或白名单地址，不接受任意跳转 URL。
+OAuth 已实现 `/api/v1/auth/zhihu/start` 和 `/api/v1/auth/zhihu/callback`，校验一次性 state、有效期和站内回跳白名单，并在建立身份后轮换会话。稳定知乎 uid 映射内部用户；不假设平台支持 PKCE，完整配置见 [知乎登录说明](ZHIHU_OAUTH.md)。
 
 2026-09-11 管理员登录回归：Java 21 完整 verify 共 81 项测试全部通过，覆盖密码验证、尝试限流、会话与 CSRF 轮换、任务归属、退出失效，以及管理员与 local-test 配置冲突（包括关闭登录开关的覆盖场景）。前端 lint、typecheck、build 通过；隔离数据库中真实 HTTP 验证登录与退出，浏览器验证错误提示、登录后返回原任务、完成任务和退出。`admin-login` 实际响应已确认包含 Secure、HttpOnly、SameSite=Lax Cookie。验收未调用模型或知乎，不表示 OAuth 授权码交换或实际 HTTPS 部署已经完成。
 
@@ -270,9 +270,9 @@ OAuth 尚待实现的接口为 `GET /api/v1/auth/zhihu/login`（跳转授权）�
 
 知乎搜索在后端执行，每个前置节点独立请求、限并发、超时控制，限次重试；返回结果以 node_id 绑定并缓存。先生成答卷，全部答案保存并提交 complete 后才按自评档位搜索，目标和非常了解节点不搜索。具体上游参数和额度以赛事官方文档为准。
 
-已根据团队提供的接口说明添加 `ZhihuSearchClient`，已接入生成流程，并已通过真实请求验证：GET `https://developer.zhihu.com/api/v1/content/zhihu_search`，Query 和 Count 参数区分大小写，客户端请求 Count=3；发送 Bearer 凭证、秒级 X-Request-Timestamp 和 application/json。凭证读取后端 `ZHIHU_ACCESS_SECRET`。响应 Code=0 时读取 Data.Items，将 Title、Url、ContentText、AuthorName、VoteUpCount 映射到资料字段，保留 Url 的 UTM 参数；缺失赞同数返回 null。空数组表示无结果，结构异常或上游错误不能当作空搜索成功。
+已根据团队提供的接口说明添加 `ZhihuSearchClient`，已接入生成流程，并已通过真实请求验证：GET `https://developer.zhihu.com/api/v1/content/zhihu_search`，Query 和 Count 参数区分大小写，客户端按自评档位请求 Count=2、3 或 5（独立搜索诊断默认 3）；发送 Bearer 凭证、秒级 X-Request-Timestamp 和 application/json。凭证读取后端 `ZHIHU_ACCESS_SECRET`。响应 Code=0 时读取 Data.Items，将 Title、Url、ContentText、AuthorName、VoteUpCount 映射到资料字段，保留 Url 的 UTM 参数；缺失赞同数返回 null。空数组表示无结果，结构异常或上游错误不能当作空搜索成功。
 
-客户端连接超时 5 秒、读取超时 15 秒，不跟随重定向，不在异常中携带上游正文或凭证。生成任务串行执行，每个前置节点最多搜索两次（只有可重试错误才重试，间隔1秒），结果按节点持久化；单节点最终失败保存 FAILED，继续处理其他节点并最终展示图谱，不建立跨用户缓存。
+客户端连接超时 5 秒、读取超时 15 秒，不跟随重定向，不在异常中携带上游正文或凭证。全站任务共用四线程；每条寻路内部按节点依次检索，每个前置节点最多搜索两次（只有可重试错误才重试，间隔1秒），结果按节点持久化；单节点最终失败保存 FAILED，继续处理其他节点并最终展示图谱，不建立跨用户缓存。
 
 每个接口改动都要在 PR 中更新本文件，并提供请求、成功响应和失败响应示例。
 
@@ -293,9 +293,9 @@ IDEA 也可仅为本地测试把有效配置文件设为 `local-test`（不是�
 | 方法 | 路径 | 请求 | 成功响应 |
 | --- | --- | --- | --- |
 | GET | `/api/test/zhihu/search?query=Transformer` | query 去空白后 1～100 字符 | `{"resources":[...]}`，最多 3 条真实资料，字段为 title、url、summary、authorName、voteCount |
-| POST | `/api/test/ai` | `{"prompt":"用一句话解释 Transformer"}`，prompt 去空白后 1～2000 字符 | `{"model":"deepseek-ai/DeepSeek-V4-Flash","content":"模型实际生成的文本"}` |
+| POST | `/api/test/ai` | `{"prompt":"解释 Transformer","stage":"graph"}`；prompt 1～2000 字，stage 可省略 | `{"model":"gemini-3-flash","content":"模型返回的 JSON 文本"}` |
 
-AI 使用 model.base-url、model.api-key 和 model.graph-model；图谱默认使用 DeepSeek V4 Flash（enable_thinking=false），问卷默认使用 Qwen/Qwen3-30B-A3B-Instruct-2507。测试接口跟随图谱模型并关闭思考。非流式调用 `/chat/completions`，最大输出 1024 Token，读取超时 60 秒。此接口只测试文本生成，不承诺业务 JSON 结构。返回达到长度上限时报告 AI_OUTPUT_TRUNCATED。
+AI 诊断与业务共用 ModelSettings、modelRestClient 和请求参数构造器。请求可带 stage=graph（默认）或 questions；默认分别使用 gemini-3-flash 与 gemini-3.1-flash-lite，Gemini 推理参数分别为 low/minimal。诊断请求 JSON Object、非流式、1024 token，连接/读取超时 5/60 秒；业务上限仍为 8192。诊断不执行完整图谱语义校验。模型别名和权限以实际账户为准。
 
 失败响应示例：400 `{"error":{"code":"INVALID_INPUT"}}`；缺失密钥返回 503；上游失败返回 502 和脱敏代码（例如 AI_UPSTREAM_HTTP_401、AI_REQUEST_FAILED、ZHIHU_AUTH_FAILED），不返回上游错误正文。
 
@@ -332,7 +332,7 @@ AI 使用 model.base-url、model.api-key 和 model.graph-model；图谱默认使
 两次模型调用均保留超时和 JSON 错误分类。返回信息不包含供应商响应正文、密钥或提示词。历史失败任务保留原错误码，重启后端后新建任务使用新分类。
 
 
-模型速度配置：业务图谱请求显式传入 `enable_thinking: false`（[硅基流动说明](https://www.siliconflow.com/blog/deepseek-v4-now-on-siliconflow-million-token-context-intelligence)）；问卷使用非思考 Instruct 模型，不额外传入思考开关。两次调用均保留 JSON 输出、8192 token 上限及现有 60 秒读取超时。配置在 backend/secrets.properties，示例配置同步更新；重启后端生效。具体延迟与账户模型可用性仍需真实接口验证。
+模型速度参数由 ModelRequest 统一管理：Gemini 图谱 low、问卷 minimal；非 Gemini 图谱保留 enable_thinking=false 的兼容行为。默认 base URL 是 https://api.openai-next.com/v1；修改配置后需重启，密钥只留在服务端。
 
 
 AI 响应入库前经过两阶段校验修复，详见 [AI JSON 校验与修复](AI_JSON_VALIDATION.md)。提示词仍要求完整字段；兼容修复层允许缺失的节点描述和目标描述补为空字符串，关键名称、关系及题干仍须通过业务校验。
@@ -340,7 +340,7 @@ AI 响应入库前经过两阶段校验修复，详见 [AI JSON 校验与修复]
 
 ### 提交前清空选择
 
-答题时的选择暂存于当前页面，点击“清空所有选择”将本轮全部选项恢复为未选择，并重置进度和侧栏。清空不调用后端接口，不删除已提交数据。点击“查看结果”时，前端通过现有 PUT 答案接口保存本轮全部答案，全部成功后再调用 complete；保存失败保留页面选择供重试。未提交选择不会在刷新后保留。
+答题时的选择暂存于当前页面，点击“清空所有选择”将本轮全部选项恢复为未选择，并重置进度和侧栏。清空不调用后端接口，不删除已提交数据。点击“查看结果”时，前端通过现有 PUT 答案接口保存本轮全部答案，全部成功后再调用 complete；保存失败保留页面选择供重试。未提交选择使用当前标签页的 sessionStorage 保存，按用户、寻路及题目版本隔离，24 小时过期。刷新时仅在服务器答案未冲突时恢复；提交成功或退出登录清理。存储不可用时继续正常答题。
 
 ## 历史寻路
 
@@ -376,4 +376,17 @@ POST 创建支持 `Idempotency-Key` 请求头，8–128 个 ASCII 字母、数�
 
 同用户、同标识、同目标在 24 小时内返回原 sessionId 和当前状态（HTTP 202），不再执行生成，也不重复计入速率、历史或在途配额。相同标识换目标返回 409 `IDEMPOTENCY_CONFLICT`；原记录已删除返回 410 `IDEMPOTENCY_DELETED`，前端下一次点击使用新标识。不同用户标识互不影响。幂等回放先于容量限制检查，满额时仍能取回原请求结果。V7 凭据保存目标 SHA-256、用户、请求标识及时间，删除后 session_id 置空，后续创建清理过期凭据，不保存目标原文。
 
-模型 HTTP 429 每次调用至多重试 2 次：默认 1 秒、2 秒指数退避，另加 250–750 毫秒随机延迟；尊重上游 Retry-After 秒数或 HTTP 日期。若要求等待超过 30 秒，直接返回模型繁忙，不提前重试。仍被限流时任务记录 `MODEL_RATE_LIMITED`，不无限重试。401、其他非 429 错误不因本规则重试，线程中断终止等待。原图谱/问卷校验修复最多一次的规则仍独立存在，每个修复调用也适用上述上限。
+模型 HTTP 429 在每个阶段（含纠错及可选布局优化）共享最多 2 次传输重试，默认 1/2 秒指数退避加 250–750 毫秒抖动，尊重 Retry-After；等待超过 30 秒直接返回繁忙。中断立即结束等待。内容纠错最多 3 次尝试，图谱最多另有 1 次合法图优化，不能按每次调用重新获得 429 预算。
+
+## 审查修复补充（已于 2026-09-13 部署）
+
+- 完成结果的 nodes 增加 description、resourceStatus、resourceCount；图谱首屏直接使用摘要，不逐节点请求全部资料。资料抽屉按需读取，缓存按用户会话和节点隔离，最多 64 项、30 秒，写入或身份变化时失效。FAILED 节点在结果页明确提示。
+- 图谱与问卷生成总时限默认 300 秒；资料检索独立时限默认 180 秒，均包含排队时间，不包含用户答题等待。生成超时标记 GENERATION_TASK_TIMEOUT；检索超时保留已有结果并标记剩余资料失败。
+- 硬删除提交后取消该用户的排队及运行任务；回滚不取消。运行任务实际退出后才释放在途名额。
+- API 返回服务端生成的 X-Request-ID，便于关联脱敏日志。
+
+## 访问统计补充（本地实现、尚未部署）
+
+`POST /api/v1/analytics/pageviews` 接受固定页面类型和 UUID 事件 ID，需 `X-Ksteps-Analytics: 1`，成功返回 204，按匿名浏览器 Cookie 和经过可信代理解析的 IP 每日去重。`GET /api/v1/analytics/summary` 仅管理员可访问，返回北京时间最近 30 天的 day/pv/uv/ip。认证响应新增字符串 role（ADMIN/USER）。详细口径、限流与响应见 [访问统计](VISITOR_ANALYTICS.md)。
+
+summary 支持 start/end 日期范围，另返回 hours/countries/regions/systems/browsers/ips 分类计数；`GET /api/v1/analytics/visits` 同样按管理员鉴权，支持 start/end/page，每页 20 条，明细最多保留最近 5000 条。日期仅允许最近 30 天且 start<=end。IP 字段为按日匿名摘要标识，不是明文地址。

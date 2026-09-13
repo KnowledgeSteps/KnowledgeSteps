@@ -35,7 +35,8 @@ async function readJson(response: Response): Promise<unknown> {
     throw new ApiError(
       response.ok ? 0 : response.status,
       'INVALID_RESPONSE',
-      '服务返回了无法解析的数据。',
+      '服务响应暂时不完整，请重试读取。',
+      retryAfterSeconds(response),
     )
   }
 }

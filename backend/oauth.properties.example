@@ -1,0 +1,6 @@
+# Copy to oauth.properties (ignored by Git). Never add a real key to this template.
+# Enable only after registering this exact callback with the Zhihu application.
+auth.zhihu.enabled=false
+auth.zhihu.app-id=459
+auth.zhihu.app-key=
+auth.zhihu.redirect-uri=http://127.0.0.1:5173/api/v1/auth/zhihu/callback

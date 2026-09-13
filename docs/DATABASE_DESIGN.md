@@ -1,6 +1,6 @@
 # 知阶数据库设计
 
-> 第一版字段设计，已提供 V1/V2/V3/V4/V5 迁移；具体数据库是否已迁移须检查其 Flyway 历史。当前主流程业务接口已实现，仍需以后端运行环境和 Flyway 历史为准确认实际库状态。不要直接删除现有表。接口见 [接口约定](API_CONTRACT.md)，迁移操作见 [迁移说明](FLYWAY.md)。
+> 当前字段设计，已提供 V1–V7 迁移；具体数据库是否已迁移须检查其 Flyway 历史。当前主流程业务接口已实现，仍需以后端运行环境和 Flyway 历史为准确认实际库状态。不要直接删除现有表。接口见 [接口约定](API_CONTRACT.md)，迁移操作见 [迁移说明](FLYWAY.md)。
 
 ## 一、数据关系
 
@@ -12,14 +12,14 @@ users → learning_sessions → knowledge_nodes → node_resources
                          └→ knowledge_edges（前置节点 → 后续节点）
 ```
 
-第一版共七张表。不单独建立最终结果表：结果从节点掌握状态和原始依赖边推导。全部节点均保留展示；非常了解的节点不搜索资料。
+七张核心业务表加雪花状态、创建事件和幂等凭据，共十张应用表（不含 Flyway 历史表）。不单独建立最终结果表：结果从节点掌握状态和原始依赖边推导。全部节点均保留展示；非常了解的节点不搜索资料。
 
 ## 二、字段规范
 
-- SQLite 主键统一 `INTEGER PRIMARY KEY`；API 中 ID 使用字符串。
+- 业务实体主键使用 `INTEGER PRIMARY KEY`；幂等凭据使用用户与请求标识联合主键。API 中 ID 使用字符串。
 - 时间使用 TEXT 保存 UTC ISO 8601，created_at、updated_at 由后端填写。
 - 布尔值使用 INTEGER，限制为 0 或 1。枚举使用 TEXT，并增加 CHECK 约束。
-- 下表“必填”表示 NOT NULL；“可空”表示允许 NULL。外键默认限制删除，用户删除与数据保留策略后续单独设计。
+- 下表“必填”表示 NOT NULL；“可空”表示允许 NULL。外键约束按迁移定义；寻路内容在事务内硬删除，幂等凭据引用置空，账户保留。
 - SQLite 每个连接都需启用 `PRAGMA foreign_keys = ON`。本地数据库文件不入 Git；数据库文件所在目录由应用启动前创建。
 
 ## 三、表结构
@@ -138,7 +138,7 @@ users → learning_sessions → knowledge_nodes → node_resources
 
 1. 原图保存时一次性写入节点和边；非法引用、重复和循环依赖在提交事务前拒绝。
 2. 结果保留全部节点、原始边和层级，不剪枝或跨接；已掌握节点不搜索资料，其他节点按自评上限返回。
-3. 单题答案更新和 complete 分别使用事务，并由服务层串行协调；前端逐题提交不是一个批量事务，中断不回滚已经保存的答案。
+3. 单题答案更新和 complete 分别使用短写事务，第一条 SQL 获取所属寻路的写锁后再读取状态；前端逐题提交不是一个批量事务，中断不回滚已经保存的答案。
 4. SQLite 单实例运行，长耗时模型调用放在事务外；使用持久化目录，设置合理忙等待，避免长时间占用写锁。
 5. 测试使用独立临时数据库，验证建表、唯一约束、外键隔离、重复答案更新、全部已掌握、搜索失败，以及空缺口结果。
 6. 后续结构变更用有版本的迁移处理，`CREATE TABLE IF NOT EXISTS` 不能完成已有表的字段升级；上线迁移前备份数据。
@@ -164,3 +164,17 @@ V5：node_resources.content_date 为可空 TEXT（YYYY-MM-DD），保存知乎�
 ### session_creation_events（V6）
 
 字段：id 主键、user_id 外键、created_at_ms 毫秒时间戳。记录每次成功受理创建的时间，用于每用户滚动 60 秒 10 次的准入限制；用户时间联合索引和时间索引支持查询与过期清理。它不引用 session ID，删除历史不能规避频率控制；过期记录在后续允许检查的创建事务中清理。历史上限 20 条直接统计 learning_sessions 的实际行数，失败记录也计入。
+
+### session_creation_keys（V7）
+
+user_id 与 request_key 联合主键，target_hash 保存目标 SHA-256，session_id 引用寻路并在删除时 SET NULL，created_at_ms 记录毫秒时间。24 小时内同用户同请求回放；删除后返回 IDEMPOTENCY_DELETED，后续创建清理过期凭据。
+
+硬删除在独立短事务内先取得写锁，再按依赖顺序删除；提交后才取消后台工作，事务回滚不触发取消。默认 busy_timeout 为 5000ms，网络调用和重试不放入事务。
+
+### 访问统计（V8，本地实现、尚未部署）
+
+新增 analytics_settings（服务端 HMAC 密钥）、analytics_daily（每日 PV）、analytics_unique（每日 UV/IP 摘要去重）与 analytics_receipts（短期请求幂等）四表。统计表不引用用户或寻路；删除寻路不改变访问统计。每天按北京时间划分，保留最近 30 天，收据有效期 10 分钟。每日表删除时级联清理去重摘要；每小时及采集时清理过期数据。详见 [访问统计](VISITOR_ANALYTICS.md)。
+
+### 统计维度与明细（V9，本地实现、尚未部署）
+
+analytics_dimensions 以 day/kind/name 为联合主键保存小时、国家、省份、系统、浏览器和按日匿名 IP 的 PV。analytics_visits 保存最近 5000 条粗粒度匿名访问明细，字段为时间、固定页面类型、按日 IP 摘要标识、国家/省份、系统/浏览器；超过上限只截断明细，不改变聚合值。两表引用每日统计并随过期级联删除，不存明文 IP、User-Agent 或用户 ID。

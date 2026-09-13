@@ -9,13 +9,14 @@ interface StatusRailProps {
   onJump: (index: number) => void
   disabled?: boolean
   active?: boolean
+  showHeading?: boolean
 }
 
-export function StatusRail({ questions, currentIndex, onJump, disabled = false, active = true }: StatusRailProps) {
+export function StatusRail({ questions, currentIndex, onJump, disabled = false, active = true, showHeading = true }: StatusRailProps) {
   return <aside className="rail quiz-rail" aria-label="题目目录">
     <div className="quiz-rail-inner">
       <header className="quiz-rail-header">
-        <h3><ProfileOutlined aria-hidden="true" /> 题目目录</h3>
+        {showHeading && <h3><ProfileOutlined aria-hidden="true" /> 题目目录</h3>}
         <p className="rail-note">按顺序了解你的基础，点击题目可返回修改。</p>
       </header>
       <div className="quiz-rail-scroll" tabIndex={0} role="region" aria-label="题目目录，可滚动">

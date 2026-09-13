@@ -11,7 +11,7 @@ zhihu:
   access-secret: ${ZHIHU_ACCESS_SECRET:}
 spring:
   config:
-    import: optional:file:./secrets.properties,optional:file:./admin-login.properties
+    import: optional:file:./secrets.properties,optional:file:./admin-login.properties,optional:file:./oauth.properties
   application:
     name: zhihu-learning-backend
   datasource:
@@ -41,8 +41,17 @@ management:
       probes:
         enabled: true
 
+auth:
+  zhihu:
+    enabled: ${ZHIHU_OAUTH_ENABLED:false}
+    app-id: ${ZHIHU_OAUTH_APP_ID:}
+    app-key: ${ZHIHU_OAUTH_APP_KEY:}
+    redirect-uri: ${ZHIHU_OAUTH_REDIRECT_URI:}
+
 app:
   generation:
     workers: ${GENERATION_WORKERS:4}
+    task-timeout-seconds: ${GENERATION_TASK_TIMEOUT_SECONDS:300}
+    search-timeout-seconds: ${SEARCH_TASK_TIMEOUT_SECONDS:180}
   session-id:
     worker-id: ${SESSION_ID_WORKER_ID:0}

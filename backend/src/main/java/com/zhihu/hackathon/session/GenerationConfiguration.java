@@ -2,7 +2,6 @@ package com.zhihu.hackathon.session;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zhihu.hackathon.zhihu.ZhihuSearchClient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestClient;
@@ -13,14 +12,14 @@ import static com.zhihu.hackathon.session.Generation.*;
 @Configuration
 public class GenerationConfiguration {
   @Bean GraphValidator graphValidator() { return new GraphValidator(); }
-  @Bean SiliconFlowGenerationClient generationClient(ObjectMapper json,
-      @Value("${model.base-url:https://api.openai-next.com/v1}") String url,
-      @Value("${model.api-key:}") String key,
-      @Value("${model.graph-model:gemini-3-flash}") String a,
-      @Value("${model.question-model:gemini-3.1-flash-lite}") String b) {
+  @Bean("modelRestClient") RestClient modelRestClient(ModelSettings settings) {
     var http=java.net.http.HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
     var factory=new JdkClientHttpRequestFactory(http);factory.setReadTimeout(Duration.ofSeconds(60));
-    return new SiliconFlowGenerationClient(RestClient.builder().baseUrl(url).requestFactory(factory).build(),json,key,a,b);
+    return RestClient.builder().baseUrl(settings.baseUrl()).requestFactory(factory).build();
+  }
+  @Bean SiliconFlowGenerationClient generationClient(ObjectMapper json, ModelSettings settings,
+      @org.springframework.beans.factory.annotation.Qualifier("modelRestClient") RestClient client) {
+    return new SiliconFlowGenerationClient(client,json,settings.apiKey(),settings.graphModel(),settings.questionModel());
   }
   @Bean ResourceSearch resourceSearch(ZhihuSearchClient client) {
     return (name, count) -> {
@@ -35,7 +34,10 @@ public class GenerationConfiguration {
       }
     };
   }
-  @Bean GenerationPipeline generationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch search,GraphValidator validator) {
-    return new GenerationPipeline(store,graphs,questions,search,validator);
+  @Bean GenerationPipeline generationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch search,GraphValidator validator,TaskDiagnostics diagnostics) {
+    return new GenerationPipeline(store,graphs,questions,search,validator,diagnostics);
+  }
+  @Bean io.micrometer.core.instrument.binder.MeterBinder taskCapacityMetrics(LearningSessionService sessions) {
+    return sessions::bindMetrics;
   }
 }

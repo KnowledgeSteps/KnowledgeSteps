@@ -1,11 +1,12 @@
 import { LoadingScreen } from '../components/ui/LoadingScreen'
 import { KnowledgeCard } from '../components/ui/KnowledgeCard'
 import { Button } from 'antd'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { ApartmentOutlined, FormOutlined, BranchesOutlined, LockOutlined, GithubOutlined, StarFilled } from '@ant-design/icons'
 import { refreshCurrentUser } from '../api/auth'
 import { safeReturnTo } from '../api/loginNavigation'
+import { oauthErrorMessage, zhihuLoginUrl } from '../api/oauthNavigation'
 import { useAuth } from '../hooks/useAuth'
 import { AdminLoginDialog } from '../components/auth/AdminLoginDialog'
 import { ConnectionButton } from '../components/auth/ConnectionButton'
@@ -15,13 +16,42 @@ export function LoginPage() {
   const auth = useAuth()
   const [searchParams] = useSearchParams()
   const [adminOpen, setAdminOpen] = useState(false)
-  const [oauthNotice, setOauthNotice] = useState(false)
-  if (auth.status === 'authenticated') return <><LoadingScreen label="正在进入主页…" /><Navigate to={safeReturnTo(searchParams.get('returnTo'))} replace /></>
+  const [oauthPending, setOauthPending] = useState(false)
+  const [navigationError, setNavigationError] = useState<string | null>(null)
+  const oauthStarting = useRef(false)
+  const oauthError = navigationError ?? oauthErrorMessage(searchParams.get('oauthError'))
   const checking = auth.status === 'loading' || auth.status === 'unknown'
+
+  useEffect(() => {
+    // The browser can restore this page from its back/forward cache after cancellation.
+    const resetNavigation = (event: PageTransitionEvent) => {
+      oauthStarting.current = false
+      setOauthPending(false)
+      if (event.persisted) void refreshCurrentUser().catch(() => undefined)
+    }
+    window.addEventListener('pageshow', resetNavigation)
+    return () => window.removeEventListener('pageshow', resetNavigation)
+  }, [])
+
+  function startOAuth() {
+    if (checking || oauthStarting.current) return
+    oauthStarting.current = true
+    setOauthPending(true)
+    setNavigationError(null)
+    try {
+      window.location.assign(zhihuLoginUrl(searchParams.get('returnTo')))
+    } catch {
+      oauthStarting.current = false
+      setOauthPending(false)
+      setNavigationError(oauthErrorMessage('OAUTH_FAILED'))
+    }
+  }
+
+  if (auth.status === 'authenticated') return <><LoadingScreen label="正在进入主页…" /><Navigate to={safeReturnTo(searchParams.get('returnTo'))} replace /></>
 
   return (
     <>
-      {checking && <LoadingScreen label={adminOpen ? '正在验证登录…' : '正在确认登录状态…'} />}
+      {(checking || oauthPending) && <LoadingScreen label={oauthPending ? '正在前往知乎授权…' : adminOpen ? '正在验证登录…' : '正在确认登录状态…'} />}
     <div className="login-gateway" hidden={checking}>
       <a className="skip-link" href="#login-main">跳到登录入口</a>
       <header className="gateway-header">
@@ -43,18 +73,19 @@ export function LoginPage() {
           <KnowledgeCard className="ks-card-interactive" icon={<BranchesOutlined />}> <h2>只补齐需要的</h2><p>跳过已经会的，附上知乎学习资料，帮你补齐缺少的基础。</p></KnowledgeCard>
         </div>
         <div className="gateway-connection glitch-form-wrapper">
-          <ConnectionButton label="使用知乎授权登录" disabled={checking} onClick={() => setOauthNotice(true)} aria-describedby="oauth-status" />
+          <ConnectionButton label={oauthPending ? '正在前往知乎授权…' : '使用知乎授权登录'} loading={oauthPending} disabled={checking || oauthPending} onClick={startOAuth} aria-describedby="oauth-status" aria-busy={oauthPending} />
         </div>
         <div className="gateway-status" id="oauth-status" aria-live="polite">
-          {checking ? <p>正在确认登录状态…</p> : oauthNotice ? <p>知乎授权正在申请中，暂未开放。团队成员可使用左下角的管理员入口。</p> : <p>仅在你授权后获取必要信息，用于登录和学习服务。</p>}
+          {checking ? <p>正在确认登录状态…</p> : oauthPending ? <p>正在前往知乎，请完成授权后返回。</p> : oauthError ? <p role="alert">{oauthError}</p> : <p>仅在你授权后获取必要信息，用于登录和学习服务。</p>}
           {auth.status === 'error' && <p role="alert">{auth.error} <Button htmlType="button" onClick={() => void refreshCurrentUser().catch(() => undefined)}>重新连接</Button></p>}
         </div>
       </main>
       <div className="gateway-admin-row">
-        <Button htmlType="button" className="gateway-admin" onClick={() => setAdminOpen(true)} disabled={checking}
+        <Button htmlType="button" className="gateway-admin" onClick={() => setAdminOpen(true)} disabled={checking || oauthPending}
           aria-haspopup="dialog" aria-expanded={adminOpen}><LockOutlined />管理员登录</Button>
       </div>
       <footer className="gateway-bottom">
+        <p>本站使用第一方匿名 Cookie 统计访问量，并统计 IP 归属地、系统及浏览器类别；统计不保存学习目标或明文 IP。Cookie 保留一年，统计保留 30 天。开启浏览器 DNT / GPC 可停止统计。</p>
         <div className="gateway-footer-brand">
           <div className="gateway-footer-name"><img src="/icon.png" alt="" /><span>KnowledgeSteps</span></div>
           <p>© 2026 知阶 KnowledgeSteps</p>

@@ -16,8 +16,9 @@ public class AuthConfiguration {
       AuthUserStore users, @Value("${learning.local-user:developer}") String name) {
     if (environment.acceptsProfiles(Profiles.of("local-test"))) {
       if (environment.acceptsProfiles(Profiles.of("admin-local", "admin-login"))
-          || environment.getProperty("auth.admin.enabled", Boolean.class, false)) {
-        throw new IllegalStateException("Admin login cannot be combined with the local-test identity bypass");
+          || environment.getProperty("auth.admin.enabled", Boolean.class, false)
+          || environment.getProperty("auth.zhihu.enabled", Boolean.class, false)) {
+        throw new IllegalStateException("Login cannot be combined with the local-test identity bypass");
       }
       return localUser(users, name);
     }

@@ -1,4 +1,4 @@
-import { HistoryOutlined, UserOutlined } from '@ant-design/icons'
+import { BarChartOutlined, HistoryOutlined, UserOutlined } from '@ant-design/icons'
 import { Avatar, Button } from 'antd'
 import { useState } from 'react'
 import { Outlet, useMatch, useNavigate } from 'react-router-dom'
@@ -35,7 +35,7 @@ export function AppShell() {
       <a className="skip-link" href="#main-content">
         跳到主要内容
       </a>
-      <header className={`site-header${isSessionPage ? ' has-session-nav' : ''}`}>
+      <header className={`site-header${isSessionPage ? ' has-session-nav' : ''}${questionMatch ? ' has-quiz-nav' : ''}`}>
         {isSessionPage && <div className="header-session-slot" ref={setHeaderSlot} />}
         <div className="nav">
           <Button
@@ -47,7 +47,8 @@ export function AppShell() {
           </Button>
 
           <div className="nav-actions">
-            <Button icon={<HistoryOutlined />} onClick={() => navigate('/history')}>历史寻路</Button>
+            {auth.user?.role === 'ADMIN' && <Button className="nav-history" aria-label="访问统计" icon={<BarChartOutlined />} onClick={() => navigate('/admin/analytics')}><span className="nav-history-label">访问统计</span></Button>}
+            <Button className="nav-history" aria-label="历史寻路" icon={<HistoryOutlined />} onClick={() => navigate('/history')}><span className="nav-history-label">历史寻路</span></Button>
             <div className="auth-actions">
               <div className="nav-user">
                 <Avatar src={auth.user?.avatarUrl} icon={<UserOutlined />} alt="用户头像" />

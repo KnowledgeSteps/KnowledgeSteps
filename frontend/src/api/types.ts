@@ -75,6 +75,9 @@ export interface KnowledgeNode {
   level: number
   answer: AnswerValue | null
   resourceLimit: number
+  description: string
+  resourceStatus: ResourceStatus
+  resourceCount: number
 }
 
 export interface GraphEdge {
@@ -110,6 +113,7 @@ export interface NodeResources {
 }
 
 export interface CurrentUser {
+  role?: 'ADMIN' | 'USER'
   nickname?: string
   avatarUrl?: string
   userId: string

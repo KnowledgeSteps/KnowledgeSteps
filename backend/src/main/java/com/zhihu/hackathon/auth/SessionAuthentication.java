@@ -19,7 +19,22 @@ public class SessionAuthentication {
   public void establish(HttpServletRequest request, long verifiedUserId) {
     if (!users.isLoginUser(verifiedUserId)) throw AuthException.unauthorized();
     var old = request.getSession(false);
-    if (old != null) old.invalidate();
+    if (old != null) {
+      synchronized (old) {
+        old.getAttribute(USER_ID); // 已被另一次身份变更失效时，不允许旧请求再新建身份。
+        old.invalidate();
+        create(request, verifiedUserId);
+      }
+    } else create(request, verifiedUserId);
+  }
+  public void establish(HttpServletRequest request, long verifiedUserId, jakarta.servlet.http.HttpSession expected) {
+    synchronized (expected) {
+      if (request.getSession(false) != expected) throw AuthException.unauthorized();
+      expected.getAttribute(USER_ID); // 容器过期等不经过应用锁的失效，同样拒绝。
+      establish(request, verifiedUserId);
+    }
+  }
+  private void create(HttpServletRequest request, long verifiedUserId) {
     request.getSession(true).setAttribute(USER_ID, verifiedUserId);
     csrf.issue(request);
   }
@@ -29,10 +44,10 @@ public class SessionAuthentication {
         ? "用户" : profile.nickname();
     String avatar = profile == null || profile.avatarUrl() == null ? "" : profile.avatarUrl();
     return java.util.Map.of("userId", Long.toString(userId), "csrfToken", csrf.issue(request),
-        "nickname", nickname, "avatarUrl", avatar);
+        "nickname", nickname, "avatarUrl", avatar, "role", users.isAdmin(userId) ? "ADMIN" : "USER");
   }
   public void logout(HttpServletRequest request) {
     var session = request.getSession(false);
-    if (session != null) session.invalidate();
+    if (session != null) synchronized (session) { session.invalidate(); }
   }
 }

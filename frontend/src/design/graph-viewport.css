@@ -1,0 +1,18 @@
+.graph-mobile-toolbar { display: none; }
+
+@media (max-width: 760px) {
+  .graph-mobile-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-bottom: 12px; }
+  .graph-gesture-hint { font-size: 12px; color: var(--text-sub); }
+  .graph-zoom-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+  .graph-zoom-actions .ant-btn { height: 44px; min-width: 44px; padding-inline: 10px; }
+  .path-scroll.graph-viewport {
+    position: relative; width: 100%; margin-inline: 0; padding: 0;
+    height: clamp(280px, 50svh, 520px); overflow: clip; touch-action: none;
+    overscroll-behavior: contain; user-select: none; -webkit-user-select: none;
+    border-radius: 12px; background: var(--example-glass); cursor: grab;
+  }
+  .graph-viewport:active { cursor: grabbing; }
+  .graph-viewport-content { position: absolute; top: 0; left: 0; width: var(--graph-width); transform-origin: 0 0; }
+  .graph-viewport:not(.is-ready) .graph-viewport-content { visibility: hidden; }
+  .graph-viewport .graph-node-parent { touch-action: none; }
+}

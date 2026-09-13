@@ -14,7 +14,11 @@
 
 英文和数字使用 **Chillax**，中文使用 **思源黑体 Source Han Sans SC**。Chillax 的 Latin unicode-range 与中文字体组合，字体采用 swap 加载；正文 14–16px，辅助文字不小于 12px。公共控件圆角 8px；通用卡片使用指定的 Uiverse 圆角叠层风格，沿用原组件的 50px 外圆角与 55px 内圆角。数字使用等宽数字特性，不替换字体。
 
-Chillax 来自 [Fontshare](https://www.fontshare.com/fonts/chillax)，遵循 public/fonts/Chillax-LICENSE.txt。字体二进制不进入 Git；`npm run dev` 和 `npm run build` 会自动执行 fonts:prepare，从官方 CDN 下载并校验固定版本，已缓存时不重复联网。首次构建需要访问 CDN。思源黑体来自 [Adobe](https://github.com/adobe-fonts/source-han-sans)，随项目保留 SIL OFL 授权和简体中文可变字体。生产页面从本站加载字体。
+Chillax 来自 [Fontshare](https://www.fontshare.com/fonts/chillax)，遵循 public/fonts/Chillax-LICENSE.txt。Chillax 二进制不进入 Git；`npm run dev` 和 `npm run build` 会自动执行 fonts:prepare，从官方 CDN 下载并校验固定版本，已缓存时不重复联网。首次构建需要访问 CDN。
+
+思源黑体来自 [Adobe](https://github.com/adobe-fonts/source-han-sans)，保留 SIL OFL 授权和原始版权。原文件位于 `scripts/font-sources`，不进入网站静态目录；实际使用 `public/fonts/han` 的真实 WOFF2 分片，按互不重叠的 `unicode-range` 按需加载。界面文案、常用汉字和其他字符分别分组，覆盖原字库中由中文字体承担的全部字符。派生字体按原许可的保留名称要求使用内部名称 `KnowledgeSteps Han SC`，字形与可变字重仍来自思源黑体，主题中仅调整 CSS 字体名称。
+
+普通开发和 CI 直接校验、使用已提交的分片，不需要 Python。需更新分片时，在独立 Python 环境安装 `scripts/font-tools-requirements.txt`，执行 `python scripts/subset-han-font.py`，一起提交分片、`src/design/han-subsets.css` 和 `scripts/han-subsets.json`。脚本检查字符覆盖、分片无重叠和可变轴；`fonts:prepare` 校验每个产物的 SHA-256。生产页面从本站加载字体，不依赖第三方字体服务器。
 
 ## 组件与页面
 
@@ -34,6 +38,10 @@ Chillax 来自 [Fontshare](https://www.fontshare.com/fonts/chillax)，遵循 pub
 新增页面运行 `npm run lint`、`npm run typecheck`、`npm run build`，并检查桌面与 390px 窄屏。不要只修改设计文档而不更新主题和实现。
 
 ## 统一卡片（Smit-Prajapati 样式）
+
+### 用户指定统计页例外
+
+`AnalyticsPage` 按用户提供的统计后台截图实现：顶部日期筛选和数据图表/访问记录切换，白色低阴影 Ant Design Card 承载曲线、地图、小时/星期分布、系统/浏览器及匿名高频 IP；不使用 KnowledgeCard 或五层圆环装饰。ECharts 按需注册折线、柱状和地图，以 SVG 渲染；保留品牌蓝色和主题字体，IP 曲线增加虚线区别。桌面下方双栏、窄屏单栏，日期控件换行，表格在容器内滚动。样式集中于 `design/analytics.css`。分享只复制汇总摘要，不生成公开访问链接；导出生成每日 CSV。
 
 除本文页面例外外，通用内容卡片使用蓝色底层、白色半透明内层、右上角五层圆环及卡片对应的 Ant Design 图标，沿用 Chillax 与思源黑体。不使用原组件的绿色、渐变、社交按钮或 View more。保留实际业务操作。
 
@@ -63,12 +71,12 @@ Loading 完成且达到最短播放时间后，以 300ms 淡出再移除；淡�
 
 以下为用户明确指定的页面差异，优先于通用五层圆环卡片规则；不要将主页示例动画套用到结果图谱。
 
-- **答题页**：`SessionQuestionsPage` 与 `StatusRail` 使用双栏工作区，不套用 KnowledgeCard 或 CardDecoration。表面采用与等待页相近的浅蓝光斑和半透明白色层，样式集中 `design/quiz.css`。桌面问卷工作区固定 900px 高，左右等高，答题完成也不缩短；左侧内容超出时内部纵向滚动，右侧标题固定、目录内部纵向滚动。760px 以下上下排列，答题区固定 900px、目录区固定 420px。
+- **答题页**：`SessionQuestionsPage` 与 `StatusRail` 使用双栏工作区，不套用 KnowledgeCard 或 CardDecoration。表面采用与等待页相近的浅蓝光斑和半透明白色层，样式集中 `design/quiz.css`。桌面问卷工作区固定 900px 高，左右等高，答题完成也不缩短；左侧内容超出时内部纵向滚动，右侧标题固定、目录内部纵向滚动。760px 以下改为自然高度单栏，使用页面滚动，不再固定 900px 答题区或在下方堆叠目录；“题目目录”按钮打开 Ant Design 底部 Drawer，目录可独立滚动，跳题关闭后聚焦新题标题。选项触区至少 52px，手机导航紧凑显示；桌面保留右侧目录。
 - **题目目录**：按题目顺序展示名称，当前题高亮，已答题右侧显示蓝色勾选动画；不按掌握状态分组，不显示“听说过”等答案标签。清空全部选择仅影响提交前的本地草稿；题目切换保留短过渡，减少动态效果时关闭。
 - **结果概览**：使用 `waiting-blob-card` 表面，不使用五层圆环，不恢复已移除的“保留完整图谱，按你的熟悉程度提供不同数量的学习资料。”文案。
 - **结果节点**：复用 `GraphNodeCard`，以用户提供的另一款 Smit-Prajapati 纹理 3D 卡片为基础，使用 parent > card > content-box + icon-box 结构。显示节点名称、描述和“查看 X 条资料”，X 为实际数量；日期替换为 Ant Design 图标，不使用五层圆环。样式集中 `design/graph-node.css`，纹理和颜色由 theme.ts 提供。
 - **节点稳定性**：卡片持续存在，不从下向上显现，整体不倾斜；悬停不显示外部按钮边框，保留键盘 focus-visible。允许纹理及内部内容深度的轻微变化，减少动态效果时关闭。
-- **层与行**：level 是最长依赖路径计算的逻辑层；同层每行最多五个节点，第六个换行，换行不修改 level。图谱可使用接近视口的宽度，超宽时在图容器横向滚动，不能裁掉节点。
+- **层与行**：level 是最长依赖路径计算的逻辑层；同层每行最多五个节点，第六个换行，换行不修改 level。桌面图谱可使用接近视口的宽度，超宽时在图容器横向滚动。760px 以下使用独立图谱视窗，首次完整适配整棵树；双指以触点中心缩放、单指拖动，提供放大、缩小和“显示全图”按钮。手势仅作用于图谱，不缩放整页，拖动结束不能误打开节点。节点说明异步加载后重新测量；用户尚未缩放时保持全图，操作后保留视角。连线与卡片同步缩放，键盘支持加减号、方向键和 0 复位。
 - **连线**：按实际卡片边界计算避让路径，统一淡蓝色直角折线，连接卡片边缘；无箭头、圆点、三色混合、曲线及逐层入场效果。样式文件 `design/graph-reveal.css` 目前只保留静态连线规则，文件名不代表启用入场动画。
 - **指定纹理特例**：全局波纹、图谱节点纹理、加载文字动画和登录标题指定行允许使用各自来源组件的渐变实现；不能扩展为任意页面渐变。登录标题渐变由 theme.ts 的 login-title-gradient 管理。
 

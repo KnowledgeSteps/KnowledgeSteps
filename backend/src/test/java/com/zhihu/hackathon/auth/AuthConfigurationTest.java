@@ -39,6 +39,11 @@ class AuthConfigurationTest {
         .run(application -> assertThat(application).hasFailed());
   }
 
+  @Test void zhihuLoginCannotBeCombinedWithAutomaticLocalIdentity() {
+    context.withPropertyValues("spring.profiles.active=local-test", "auth.zhihu.enabled=true")
+        .run(application -> assertThat(application).hasFailed());
+  }
+
   @ParameterizedTest
   @ValueSource(strings = {"admin-local", "admin-login"})
   void disablingAdminLoginCannotEnableLocalIdentityBypass(String adminProfile) {

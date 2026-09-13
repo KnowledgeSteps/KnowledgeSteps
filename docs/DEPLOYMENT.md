@@ -1,117 +1,73 @@
 # 部署说明
 
-## 前端
+当前部署架构为 Azure Ubuntu 22.04、Nginx、Java 21 与 SQLite 单实例，站点为 https://ksteps.yinbo.online 。公开身份使用知乎 OAuth，管理员登录作为独立入口；配置见 [知乎登录说明](ZHIHU_OAUTH.md)。历次发布及当时的验证结果保存在 [部署历史](DEPLOYMENT_HISTORY.md)。
 
-前端部署到 Vercel，Vercel 项目的 Root Directory 设置为 `frontend`。
+**2026-09-13 17:10（北京时间）已部署本轮审查修复及二次补修，后端服务已重启，每日同机数据库备份已启用并首次执行成功。** 未重启整台服务器；原登录会话需重新登录。修复与验证见 [审查修复进度](REVIEW_FIX_PROGRESS.md)，版本和备份位置见 [部署历史](DEPLOYMENT_HISTORY.md)。
 
-## 后端与 SQLite
+## 运行目录与配置
 
-后端部署在支持 Java 或 Docker、并提供持久化磁盘的服务上。设置 `SQLITE_JDBC_URL`，例如：
+| 项目 | 路径或设置 |
+| --- | --- |
+| 前端 | `/var/www/knowledgesteps`，同域 `/api/` 由 Nginx 代理 |
+| 后端 | `/opt/knowledgesteps/app.jar`，仅监听 `127.0.0.1:8080` |
+| 私密配置 | `/etc/knowledgesteps/application.properties`，仅 root 与服务账号可读 |
+| SQLite | `/var/lib/knowledgesteps/hackathon.db`，持久化目录，不打进镜像 |
+| 服务 | `knowledgesteps.service`，服务账号 `knowledgesteps` |
+| 前端构建变量 | `VITE_DATA_MODE=api`、`VITE_API_BASE_URL` 为空 |
+
+生产启用 Secure、HttpOnly、SameSite=Lax Cookie，写接口校验 CSRF。禁止 `local-test` 或 `admin-local` 进入生产。管理员共享账号的使用者共享历史与用户配额；知乎用户按独立身份隔离。后端会话在内存中，重启后需要重新登录。
+
+模型默认 base URL 为 `https://api.openai-next.com/v1`，图谱 `gemini-3-flash`、问卷 `gemini-3.1-flash-lite`；实际运行值以私密配置为准，不能仅根据代码默认值判断线上使用哪个 Key。所有供应商凭证只留在服务端，不放入 VITE 变量或产物。
+
+默认四工作线程、八个等待位置，每用户两个在途任务、一分钟最多成功创建十次、最多二十条历史。生成总时限默认 300 秒，搜索独立时限默认 180 秒，包含排队、不含答题等待。详见 [防护策略](PROTECTION_STRATEGY.md)。雪花 ID 节点号 `SESSION_ID_WORKER_ID` 默认为 0；API ID 始终使用字符串。数据库迁移当前 V1–V7，不修改已应用的迁移。
+
+Nginx 模板为 `deploy/ksteps-https.conf`，需要从 `http` 上下文加载。当前模板基于直连来源 IP；启用 CDN 前须恢复并验证可信代理链，不能直接信任公网提交的 X-Forwarded-For。`prepare-azure.sh` 仅用于首次引导，日常更新不要重跑，以免覆盖 HTTPS 配置。
+
+## 验证并打包同一份产物
+
+`.github/workflows/deploy.yml` 现在只负责校验与构建发布包，不再使用 Vercel 二次构建或无提交约束的后端 Webhook，也不会自动安装到 Azure。合并 main 或手动运行后，完成前端 lint/typecheck/test/build、后端 verify 及运维工具测试，再打包原产物。
+
+产物名为 `knowledgesteps-<完整提交 SHA>`，包含 `frontend/`、`app.jar`、`manifest.json`。manifest 记录源提交、工作区是否有未提交修改和每个文件的 SHA-256；不包含数据库或私密配置。不要用重新构建的产物替换已验证包。
+
+本地对应命令（Python 3.10+）：
 
 ```text
-jdbc:sqlite:/var/lib/zhihu-learning/hackathon.db
+python deploy/release_artifact.py package backend/target/release-review --allow-dirty
+python deploy/release_artifact.py verify backend/target/release-review
 ```
 
-不要把 SQLite 文件放在临时目录、容器镜像或 Git 仓库。单实例运行；每次数据库结构变更前备份数据文件。
+这两个命令不会执行测试，必须先完成前后端检查与构建。输出目录必须不存在；本地审查中的未提交内容必须用 `--allow-dirty` 显式标记，不能把它描述为纯提交构建。正式发布使用干净提交和对应 CI 产物，核对 Actions 运行的提交 SHA、manifest 和下载来源。SHA 清单能发现传输或混用错误，本身不是数字签名。
 
-生产 HTTPS 部署设置 `SESSION_COOKIE_SECURE=true`，不要启用 local-test（它提供固定开发身份和上游测试接口）。会话默认空闲 30 分钟过期，Cookie 为 HttpOnly、SameSite=Lax。若前后端跨站部署，需要另行设计 CORS、SameSite 和 CSRF 配置，不能直接放开所有来源。
+## SQLite 备份与恢复演练
 
-## 管理员登录演示站点
+工具 `deploy/database_backup.py` 仅依赖 Python 标准库，可在有 WAL 写入时取得一致快照，检查 `quick_check` 与外键，校验通过后才发布文件；复制阶段设置 60 秒时限。默认保留本工具生成的最新七份快照，不删除人工命名的备份或其他目录文件。Linux 文件以仅当前用户可读写的权限创建。
 
-后端设置 `SPRING_PROFILES_ACTIVE=admin-login`，该配置强制 Secure Cookie；不要同时启用 `local-test` 或 `admin-local`。使用平台 Secret 注入 `AUTH_ADMIN_USERNAME` 和 `AUTH_ADMIN_PASSWORD_HASH`，密码哈希格式及生成方式见 API 约定。不要将本机 `admin-credentials.txt` 明文密码文件上传到服务器、镜像或前端。
+以下是后续在服务器上执行的命令，本轮没有执行：
 
-前端构建时设置 `VITE_DATA_MODE=api`。推荐同源部署：将 `/api/*` 代理到后端，其他路径由前端承载；`/login`、`/sessions/*` 刷新时需要前端 SPA 回退。Vite 的开发代理不参与生产构建，当前仓库不会自动生成你实际域名的生产代理配置。域名和部署平台确定后，需要在平台配置 HTTPS、代理和 SPA 回退，再做实际浏览器验收。
+```bash
+sudo -u knowledgesteps python3 /opt/knowledgesteps/database_backup.py backup \
+  /var/lib/knowledgesteps/hackathon.db /var/lib/knowledgesteps-backups --keep 7
+python3 /opt/knowledgesteps/database_backup.py verify /path/to/snapshot.db
+python3 /opt/knowledgesteps/database_backup.py restore /path/to/snapshot.db /path/to/new-restored.db
+```
 
-登录路径为 `/login`，登录后使用服务器会话 Cookie，不向浏览器暴露密码哈希。管理员账号只读取自己的任务，多人共用账号会看到相同任务。退出后必须重新登录；重启后会话失效。修改密码哈希后重启后端，使配置生效并清除旧会话。
+`restore` 拒绝覆盖任何已有路径，并拒绝目标旁残留的 `-wal`、`-shm`、`-journal`（含符号链接）；不会删除这些旧文件。快照先在私有空目录生成，发布前再次检查目标，发布后重新校验完整性并比较表结构和全部行的逻辑摘要。不一致时撤回本工具刚创建的目标，不报告成功。恢复路径必须保持无人使用，不得与正在运行的 SQLite 进程共用。
 
-当前登录尝试按单实例全局限制为每分钟 10 次，团队成员共用额度；持续失败尝试也会占满窗口。此入口用于团队演示，面向更多用户开放时需要补充入口限流策略或接入正式用户登录。
+演练使用新的临时路径，核对表数量、Flyway 版本、账户与历史记录，再用隔离配置启动验证。不要让演练实例调用真实供应商。
 
-本地 HTTP 调试使用 `admin-local`：首次在 backend 目录运行 `powershell -ExecutionPolicy Bypass -File scripts/setup-admin-login.ps1`，在本机 `admin-credentials.txt` 查看生成的账号和密码。配置文件 `admin-login.properties` 只保存用户名与哈希，和初始密码文件一起被 Git 忽略。脚本不会覆盖已有文件；需要重置时，先自行保管旧凭证并明确处理这两个本地文件，再运行生成脚本。
+需要实际回滚数据库时：先暂停新请求并停止服务，另备份当前数据；保留当前数据库及其 WAL/SHM 为同一组，再切换到验证过的恢复文件，设置所属用户后启动。不能直接把旧主库覆盖在新 WAL/SHM 上。数据库回滚会丢失快照之后的变更，优先只回滚兼容的应用产物。
 
-## GitHub Secrets 与 Variables
+定时模板为 `deploy/knowledgesteps-backup.service` 与 `.timer`，计划每天服务器本地时间 04:00 加最多 15 分钟随机延迟。后续安装时将脚本放到 `/opt/knowledgesteps/database_backup.py`、unit 放到 `/etc/systemd/system/`，验证服务后再启用 timer。使用 `systemctl list-timers` 和 `journalctl -u knowledgesteps-backup` 验证真实执行结果；模板存在不代表已定时备份。
 
-部署前，在仓库 Settings → Secrets and variables → Actions 中添加：
+同机快照不能抵御整机或磁盘丢失。正式安装时还需把验证过的快照复制到受控异机存储，核对哈希，并定期恢复演练。按七份快照保留策略，历史删除不会立即抹去旧快照里的数据；恢复前需考虑删除记录的恢复风险。
 
-| 类型 | 名称 | 用途 |
-| --- | --- | --- |
-| Variable | `DEPLOY_ENABLED` | 设置为 `true` 后启用 `main` 自动部署 |
-| Secret | `VERCEL_TOKEN` | Vercel CLI 部署凭证 |
-| Secret | `VERCEL_ORG_ID` | Vercel 组织 ID |
-| Secret | `VERCEL_PROJECT_ID` | Vercel 前端项目 ID |
-| Secret | `BACKEND_DEPLOY_WEBHOOK_URL` | 后端平台的部署触发地址 |
-| Secret | `BACKEND_HEALTHCHECK_URL` | 后端的 HTTPS 健康检查地址，例如 `https://api.example.com/actuator/health` |
+## 手动更新与验收
 
-部署工作流仅在 `main` 的构建和测试通过后运行。未设置 `DEPLOY_ENABLED=true` 时，部署阶段会被跳过，但 CI 仍会正常运行。
+1. 确认发布包的提交与测试结果，检查清单；维护窗口暂停创建和完成提交，等待在途任务退出。
+2. 备份 SQLite、当前前端、后端和配置。配置含密钥，备份不可公开下载。
+3. 上传同一发布包到独立暂存目录，再运行 `release_artifact.py verify`；保留数据库和私密配置。
+4. 替换已验证 jar，启动服务并确认 Flyway 和健康检查；前端先传资源，最后原子切换 `index.html`。保留旧版哈希资源一段时间，让已打开页面完成加载。
+5. 若调整 Nginx，先 `nginx -t`，通过后重载。核对代理、安全响应头、OAuth 回调日志抑制及 IP 限流。
+6. 验证首页、登录与子路由刷新、生成、自评、资料查看、历史删除、权限隔离及移动端操作；正常后恢复创建入口。
 
-## AI、资料搜索与迁移
-
-后端模型配置为 `model.base-url`、`model.api-key`、`model.graph-model`、`model.question-model`。当前代码默认图谱模型为 `gemini-3-flash`，问卷模型为 `gemini-3.1-flash-lite`；默认名称不保证账户有调用权限。Gemini 图谱请求使用 `reasoning_effort=low`，问卷请求使用 `minimal`（需确认转发平台透传支持），两阶段均使用 JSON Object 输出、8192 token 上限、5 秒连接和 60 秒读取超时。密钥仅注入后端，参考 `backend/secrets.properties.example`，不要放入 VITE 环境变量。
-
-知乎资料搜索在答案提交后执行；凭据与配置说明见 [API 约定](API_CONTRACT.md)。图谱及问卷提示词打包在后端 classpath，更新提示词需重新构建、部署并重启；旧任务不会自动重新生成。
-
-当前数据库迁移到 V7。升级前备份，保留 Flyway 历史，不改旧迁移；V3 的旧任务恢复和资料策略见 [自评资料规则](ASSESSMENT_RESOURCES.md)。生成和资料搜索共享单实例有界队列，不支持把 SQLite 挂给多个后端实例并行运行。
-
-## 发布验收
-
-检查登录、CSRF、真实生成、自评提交、资料读取、越权拒绝及子路由刷新。CI、Mock 测试和健康接口不能替代浏览器验收；目前待验收清单见 [undo.md](../undo.md)。
-
-### 寻路 ID 配置
-
-`SESSION_ID_WORKER_ID` 为雪花算法节点号，默认 `0`，范围 `0–1023`。单实例保持默认即可；需要跨独立数据库保证 ID 唯一时，为各实例分配不同节点号。共享 SQLite 的原子持久化状态可协调同节点号分配。上线重启后端自动执行 V4；备份数据库时同时保留 session_snowflake_state，旧链接不变。
-
-
-## 当前 Azure 部署（2026-09-13）
-
-站点：https://ksteps.yinbo.online 。服务器为韩国 Azure Ubuntu 22.04，2 vCPU、1 GiB 内存，采用 Nginx + Java 21 + systemd + SQLite 单实例。当前沿用本地模型、知乎配置及管理员账号，数据库全新初始化，不包含本地历史记录。管理员初始凭据在本机被 Git 忽略的 `backend/admin-credentials.txt`，不要上传或提交该文件。
-
-- 前端：`/var/www/knowledgesteps`；构建时 `VITE_DATA_MODE=api`、`VITE_API_BASE_URL` 为空，同域访问 API。
-- 后端：`/opt/knowledgesteps/app.jar`；仅监听 `127.0.0.1:8080`。
-- 配置：`/etc/knowledgesteps/application.properties`，仅 root 与服务账号可读。
-- 数据库：`/var/lib/knowledgesteps/hackathon.db`，升级时保留整个目录。
-- 服务：`knowledgesteps.service`，开机启动，异常退出自动重启；JVM 最大堆 320 MiB，此值不等于进程总内存。
-- HTTPS：Let's Encrypt，`certbot.timer` 定期续期，部署钩子验证并重载 Nginx。80 端口保留证书验证，其余 HTTP 请求跳转 HTTPS。
-
-配置模板位于 `deploy/`。`prepare-azure.sh` 仅用于首次引导，会安装 HTTP 引导配置；日常更新不要直接重跑此脚本。日常更新在本机构建并验证后上传 jar 和前端产物，替换对应文件并执行 `sudo systemctl restart knowledgesteps`，保留数据库及私密配置。
-
-运行检查：`sudo systemctl status knowledgesteps`；日志：`sudo journalctl -u knowledgesteps -n 100 --no-pager`；本机健康检查：`curl http://127.0.0.1:8080/actuator/health`。备份使用 SQLite 在线备份命令，例如 `sudo sqlite3 /var/lib/knowledgesteps/hackathon.db ".backup /root/knowledgesteps-backup.db"`，不要在写入时只复制主数据库文件。
-
-当前使用管理员共享账号，登录该账号的成员会看到同一份历史寻路；独立用户隔离需要启用正式用户登录。浏览器桌面与移动端交互仍需人工验收。
-
-
-### 生成并发配置
-
-`GENERATION_WORKERS` 默认 `4`，有效范围 `1–32`；固定等待队列为 `8`。图谱生成、问卷生成和答题后资料搜索共享此线程池。更改环境变量并重启后生效。默认值变更尚未部署到 Azure，当前线上仍使用原单线程版本。四线程的本地测试不能替代 1 GiB 服务器环境验证。
-
-
-### Nginx IP 限流（配置已验证，尚未在线启用）
-
-`deploy/ksteps-https.conf` 须从 Nginx `http` 上下文加载，包含 map 与共享限流区。HTTPS 下按直接连接客户端 IP 使用漏桶限速：普通 `/api/` 为 20 请求/秒，额外突发 40；创建寻路 POST 为 60 请求/分钟，额外突发 20；管理员登录 POST 为 5 请求/分钟，额外突发 5。创建和登录也同时受到普通 API 限制。静态页面、资源与证书验证不计入上述规则。
-
-IP 限制保护入口；用户 10 次/滚动分钟与 20 条历史由后端执行。Nginx 被限流时返回 HTTP 429 和 JSON 错误 `IP_RATE_LIMITED`，建议 60 秒后重试。共享校园/公司公网 IP 的用户共用入口额度，因此阈值比单用户规则宽。当前 DNS-only 直连服务器，使用 `$binary_remote_addr`；未来开启 Cloudflare 代理前，必须配置只信任其官方代理地址范围的真实 IP 恢复，不能直接信任任意客户端 X-Forwarded-For。
-
-本轮仅上传独立候选配置并执行 `nginx -t` 验证，未覆盖正在使用的配置、未 reload、未部署后端。发布时先备份 SQLite，部署 V6 后端及新 Nginx 配置，验证后重载。新的后端默认也包含四工作线程变更。
-
-
-### 本地模型平台切换
-
-本地 `backend/secrets.properties` 已设为 `model.base-url=https://api.openai-next.com/v1`，实际请求路径 `/v1/chat/completions`。图谱使用平台列表中的 `gemini-3-flash`，问卷使用 `gemini-3.1-flash-lite`。在该文件的 `model.api-key=` 后填写新平台 Key，重启本地后端生效。不会把旧平台 Key 发送到新域名；原配置暂存于被 Git 忽略的 `backend/target/model-config-before-openai-next.properties`，不要提交或分享。
-
-目前仅验证请求格式和无凭证的模型列表接口返回 401。模型别名可用性、转发平台对 reasoning_effort / JSON 模式的支持及真实生成速度，需填写新 Key 后验证；线上仍使用旧平台，未部署切换。
-
-
-### 在途限制、幂等及上游退避（本地待发布）
-
-每用户 2 个在途任务，由单实例线程池提交和完成时计数，与历史删除独立。四线程仍为全站容量；同一管理员不能再同时提交四个独立任务，四线程压测应使用不同用户。没有增加每日预算限制。
-
-创建请求使用 Idempotency-Key，V7 保存 24 小时幂等凭据；更新后端、前端时一起发布。Nginx 默认会向上游传递该请求头。模型 429 增加最多两次有随机延迟的重试，单次退避最多 30 秒，更长 Retry-After 直接报告繁忙。限流退避期间也占在途位置，避免请求积压无限增长。
-
-本轮只进行本地代码和自动化验证，没有部署或重启线上服务。
-
-
-## 最新线上发布：2026-09-13
-
-前文标为“本地待发布”“尚未在线启用”的变更已在本次发布生效：四工作线程、每用户 2 个在途任务、滚动一分钟 10 次创建、20 条历史上限、24 小时幂等凭据、模型 429 有限退避，以及 Nginx IP 限流。数据库当前 V7；前端使用真实 API、同域代理。
-
-模型已切换至 `https://api.openai-next.com/v1`：图谱 `gemini-3-flash`、问卷 `gemini-3.1-flash-lite`。模型 HTTP 请求带 KnowledgeSteps User-Agent。原线上管理员和知乎凭据保留，OAuth 功能没有随此发布接通。
-
-发布前备份：`/var/backups/knowledgesteps/release-20260912T185821Z`。线上验证结果见 [防护策略](PROTECTION_STRATEGY.md) 最后一节。该备份只代表此次发布前快照，不是定时备份系统；线上有新增数据后回滚数据库前应先另做当前快照，不能直接用旧库覆盖最新记录。
+后端检查：`systemctl status knowledgesteps`、`curl http://127.0.0.1:8080/actuator/health`。公网健康不能单独证明版本正确；还应核对本机 jar、前端入口与资源哈希。诊断日志按 X-Request-ID 关联，不向公网开放指标端点或测试接口。失败时使用保存的上一版产物回退，不覆盖新数据库。

@@ -40,7 +40,7 @@ class ProviderTestControllerTest {
     upstream.expect(requestTo("https://example.invalid/v1/chat/completions"))
         .andExpect(header("Authorization", "Bearer fake-key"))
         .andExpect(content().json("""
-            {"model":"test-model","messages":[{"role":"user","content":"hello"}],"stream":false,"max_tokens":1024}
+            {"model":"test-model","messages":[{"role":"system","content":"Return a compact JSON object with an answer field."},{"role":"user","content":"hello"}],"stream":false,"max_tokens":1024,"response_format":{"type":"json_object"}}
             """))
         .andRespond(withSuccess("""
             {"choices":[{"finish_reason":"stop","message":{"content":"OK"}}],"internal":"hidden"}
@@ -49,6 +49,24 @@ class ProviderTestControllerTest {
         .andExpect(status().isOk()).andExpect(jsonPath("$.content").value("OK"))
         .andExpect(jsonPath("$.internal").doesNotExist());
     upstream.verify();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"graph", "questions"})
+  void geminiDiagnosticsUseTheSameStageSpecificOptionsAsBusiness(String stage) throws Exception {
+    var builder = RestClient.builder().baseUrl("https://example.invalid/v1");
+    var server = MockRestServiceServer.bindTo(builder).build();
+    var settings = new com.zhihu.hackathon.session.ModelSettings("https://example.invalid/v1", "fake-key", "gemini-graph", "gemini-questions");
+    var controller = new ProviderTestController(zhihu, builder.build(), settings);
+    var testMvc = MockMvcBuilders.standaloneSetup(controller).build();
+    server.expect(anything()).andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath("$.model").value("gemini-" + stage))
+        .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath("$.reasoning_effort").value(stage.equals("graph") ? "low" : "minimal"))
+        .andExpect(org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath("$.enable_thinking").doesNotExist())
+        .andRespond(withSuccess("{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"{}\"}}]}", MediaType.APPLICATION_JSON));
+    testMvc.perform(post("/api/test/ai").contentType(MediaType.APPLICATION_JSON)
+        .content("{\"prompt\":\"hello\",\"stage\":\"" + stage + "\"}"))
+        .andExpect(status().isOk()).andExpect(jsonPath("$.model").value("gemini-" + stage));
+    server.verify();
   }
 
   @ParameterizedTest

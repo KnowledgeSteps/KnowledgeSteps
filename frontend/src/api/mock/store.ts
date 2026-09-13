@@ -236,6 +236,9 @@ function buildResult(session: InternalSession): CompletionResult {
       level: baseLevels.get(n.id) ?? 0,
       answer: session.questions.find(q => q.nodeId === n.id)?.answer ?? null,
       resourceLimit: resourceLimit(session.questions.find(q => q.nodeId === n.id)?.answer ?? null),
+      description: n.reason,
+      resourceStatus: session.resourcesByNode.get(n.id)?.status ?? 'FAILED',
+      resourceCount: session.resourcesByNode.get(n.id)?.items.length ?? 0,
     }))
     .sort((a, b) => {
       const aTarget = a.isTarget ? 1 : 0
@@ -348,7 +351,8 @@ export function mockCompleteSession(userId: string, sessionId: string): Completi
   const session = findSession(userId, sessionId)
   const status = statusOf(session)
   if (status === 'COMPLETED' && session.lastResult) {
-    return session.lastResult
+    // 旧演示缓存可能缺少新摘要字段，按已保存的节点与资料重建。
+    return buildResult(session)
   }
   if (status === 'SEARCHING_RESOURCES') return buildResult(session)
   if (status !== 'READY') {

@@ -13,7 +13,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE, properties = {
+    "spring.config.import=", "spring.profiles.active=schema-test", "auth.admin.enabled=false", "auth.zhihu.enabled=false",
+    "model.api-key=", "zhihu.access-secret="
+})
 class SqliteSchemaIntegrationTest {
   private static final Path TEST_DATABASE = createTemporaryDatabase();
 
@@ -22,6 +25,7 @@ class SqliteSchemaIntegrationTest {
 
   @Autowired
   private LearningRecordService learningRecordService;
+  @Autowired org.springframework.core.env.Environment environment;
 
   @DynamicPropertySource
   static void sqliteProperties(DynamicPropertyRegistry registry) {
@@ -38,6 +42,14 @@ class SqliteSchemaIntegrationTest {
     assertThat(learningRecordService.getOwnedRecord("oauth-user-a", record.id())).isEqualTo(record);
     assertThatThrownBy(() -> learningRecordService.getOwnedRecord("oauth-user-b", record.id()))
         .isInstanceOf(LearningRecordNotFoundException.class);
+  }
+
+  @Test void doesNotImportPrivateConfigurationOrUseProviderCredentials() {
+    assertThat(environment.getProperty("spring.config.import", "missing").isEmpty()).isTrue();
+    assertThat(environment.getProperty("model.api-key", "missing").isEmpty()).isTrue();
+    assertThat(environment.getProperty("zhihu.access-secret", "missing").isEmpty()).isTrue();
+    assertThat(environment.getProperty("auth.admin.enabled", Boolean.class)).isFalse();
+    assertThat(environment.getProperty("auth.zhihu.enabled", Boolean.class)).isFalse();
   }
 
   private static Path createTemporaryDatabase() {

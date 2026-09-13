@@ -1,6 +1,7 @@
 import { apiJson, apiVoid } from './http'
 import { ApiError, type CurrentUser } from './types'
 import { objectValue, stringValue } from './validators'
+import { clearAnswerDrafts } from '../components/quiz/answerDraft'
 
 export interface AuthSnapshot {
   status: 'unknown' | 'loading' | 'authenticated' | 'anonymous' | 'error'
@@ -15,6 +16,7 @@ let mutationPending = false
 const listeners = new Set<() => void>()
 
 function publish(next: AuthSnapshot): void {
+  if (next.status === 'anonymous' || (snapshot.user && next.user && snapshot.user.userId !== next.user.userId)) clearAnswerDrafts()
   snapshot = next
   listeners.forEach((listener) => listener())
 }
@@ -32,6 +34,7 @@ function parseCurrentUser(value: unknown): CurrentUser {
   const record = objectValue(value)
   return {
     userId: stringValue(record.userId),
+    role: record.role === 'ADMIN' ? 'ADMIN' : 'USER',
     nickname: typeof record.nickname === 'string' ? record.nickname : undefined,
     avatarUrl: typeof record.avatarUrl === 'string' && /^https?:\/\//i.test(record.avatarUrl) ? record.avatarUrl : undefined,
     csrfToken: stringValue(record.csrfToken),

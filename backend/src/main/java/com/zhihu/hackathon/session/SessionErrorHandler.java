@@ -18,5 +18,9 @@ public class SessionErrorHandler {
   @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
   ResponseEntity<?> invalidParameter() { return business(new SessionException(400,"INVALID_PARAMETER","请求参数格式不正确。")); }
   @ExceptionHandler(Exception.class)
-  ResponseEntity<?> unexpected() { return business(new SessionException(500,"INTERNAL_ERROR","服务暂时不可用，请重试。")); }
+  ResponseEntity<?> unexpected(Exception error) {
+    org.slf4j.LoggerFactory.getLogger(SessionErrorHandler.class).error("Unhandled request failure requestId={} errorType={}",
+        org.slf4j.MDC.get("requestId"), TaskDiagnostics.errorType(error));
+    return business(new SessionException(500,"INTERNAL_ERROR","服务暂时不可用，请重试。"));
+  }
 }

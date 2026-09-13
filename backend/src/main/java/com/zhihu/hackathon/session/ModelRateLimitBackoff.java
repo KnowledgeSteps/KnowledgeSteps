@@ -12,6 +12,7 @@ final class ModelRateLimitBackoff {
   ModelRateLimitBackoff() { this(Thread::sleep); }
   ModelRateLimitBackoff(Sleeper sleeper) { this.sleeper=sleeper; }
   void pause(int attempt,HttpHeaders headers) {
+    GenerationTaskContext.check();
     long delay=1000L << attempt;
     String retry=headers==null ? null : headers.getFirst("Retry-After");
     if(retry!=null) {
@@ -22,7 +23,10 @@ final class ModelRateLimitBackoff {
       } catch(ArithmeticException ex) { throw new ModelGenerationException("MODEL_RATE_LIMITED"); }
     }
     if(delay>30_000) throw new ModelGenerationException("MODEL_RATE_LIMITED");
-    try { sleeper.sleep(Math.min(30_000,delay+ThreadLocalRandom.current().nextLong(250,751))); }
+    try {
+      sleeper.sleep(Math.min(30_000,delay+ThreadLocalRandom.current().nextLong(250,751)));
+      GenerationTaskContext.check();
+    }
     catch(InterruptedException ex) { Thread.currentThread().interrupt();throw new ModelGenerationException("GENERATION_INTERRUPTED"); }
   }
 }

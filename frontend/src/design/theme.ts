@@ -28,7 +28,7 @@ export const visualTokens = {
   'delete-button-hover': '#ff3636',
   'delete-button-divider': '#c41b1b',
   warning: '#AD6800',
-  'font-family': '"Chillax", "Source Han Sans SC", sans-serif',
+  'font-family': '"Chillax", "KnowledgeSteps Han SC", sans-serif',
   'radius-card': '16px',
   'radius-item': '8px',
   'shadow-card': '0 4px 20px rgb(24 44 73 / 4%)',

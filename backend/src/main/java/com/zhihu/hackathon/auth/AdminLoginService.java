@@ -14,9 +14,7 @@ public class AdminLoginService {
   private final boolean enabled;
   private final String username;
   private final AdminPassword password;
-  private final Clock clock;
-  private long windowStart;
-  private int attempts;
+  private final AdminLoginAttempts attempts;
 
   @Autowired
   public AdminLoginService(AuthUserStore users,
@@ -30,34 +28,28 @@ public class AdminLoginService {
     this.users = users;
     this.enabled = enabled;
     this.username = username;
-    this.clock = clock;
-    this.windowStart = clock.millis();
+    this.attempts = new AdminLoginAttempts(clock);
     if (enabled && (username == null || !username.matches("[A-Za-z0-9._-]{3,64}"))) {
       throw new IllegalArgumentException("Invalid auth.admin.username configuration");
     }
     this.password = enabled ? new AdminPassword(passwordHash) : null;
   }
 
-  public long login(String suppliedUsername, String suppliedPassword) {
-    acquireAttempt();
-    boolean passwordMatches = password.matches(suppliedPassword);
-    boolean usernameMatches = suppliedUsername != null && suppliedUsername.length() <= 64
-        && MessageDigest.isEqual(username.getBytes(StandardCharsets.UTF_8), suppliedUsername.getBytes(StandardCharsets.UTF_8));
-    if (!passwordMatches || !usernameMatches) {
-      throw new AuthException(401, "INVALID_CREDENTIALS", "账号或密码不正确。");
+  public long login(String source, String suppliedUsername, String suppliedPassword) {
+    if (!enabled) throw new AuthException(503, "ADMIN_LOGIN_DISABLED", "管理员登录暂未开启。");
+    var attempt = attempts.acquire(source);
+    boolean invalidCredentials = false;
+    try {
+      boolean passwordMatches = password.matches(suppliedPassword);
+      boolean usernameMatches = suppliedUsername != null && suppliedUsername.length() <= 64
+          && MessageDigest.isEqual(username.getBytes(StandardCharsets.UTF_8), suppliedUsername.getBytes(StandardCharsets.UTF_8));
+      invalidCredentials = !passwordMatches || !usernameMatches;
+      if (invalidCredentials) {
+        throw new AuthException(401, "INVALID_CREDENTIALS", "账号或密码不正确。");
+      }
+    } finally {
+      attempts.finish(attempt, invalidCredentials);
     }
     return users.adminUser(username);
-  }
-
-  private synchronized void acquireAttempt() {
-    if (!enabled) throw new AuthException(503, "ADMIN_LOGIN_DISABLED", "管理员登录暂未开启。");
-    long now = clock.millis();
-    if (now - windowStart >= 60_000 || now < windowStart) {
-      windowStart = now;
-      attempts = 0;
-    }
-    // 单实例全局限制，避免更换 Cookie 或用户名绕过尝试次数。
-    if (attempts >= 10) throw new AuthException(429, "LOGIN_RATE_LIMITED", "登录尝试过于频繁，请一分钟后重试。");
-    attempts++;
   }
 }

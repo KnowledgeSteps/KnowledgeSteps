@@ -26,6 +26,11 @@ const fonts = [
 const directory = new URL('../public/fonts/', import.meta.url)
 await mkdir(directory, { recursive: true })
 const hash = bytes => createHash('sha256').update(bytes).digest('hex')
+const hanManifest = JSON.parse(await readFile(new URL('./han-subsets.json', import.meta.url), 'utf8'))
+for (const font of hanManifest.files) {
+  const bytes = await readFile(new URL(font.file, directory))
+  if (hash(bytes) !== font.sha256) throw new Error(`Chinese font checksum mismatch: ${font.file}`)
+}
 for (const font of fonts) {
   const destination = new URL(font.file, directory)
   const existing = await readFile(destination).catch(() => null)

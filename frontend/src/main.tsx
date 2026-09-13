@@ -1,4 +1,5 @@
 import { LoadingBoundary } from './components/ui/LoadingBoundary'
+import { AppErrorBoundary } from './components/ui/AppErrorBoundary'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -19,9 +20,11 @@ createRoot(document.getElementById('root')!).render(
       theme={appTheme}
     >
       <AntApp>
+        <AppErrorBoundary>
         <BrowserRouter>
           <LoadingBoundary><App /></LoadingBoundary>
         </BrowserRouter>
+        </AppErrorBoundary>
       </AntApp>
     </ConfigProvider>
   </StrictMode>,

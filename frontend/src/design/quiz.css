@@ -6,13 +6,17 @@
 .quiz-layout .mentor strong { font-size: 20px; }
 .quiz-layout .mentor p { font-size: 16px; line-height: 1.8; }
 .quiz-layout .question-panel h2 { color: var(--text-main); font-size: clamp(24px, 2.3vw, 32px); line-height: 1.5; font-weight: 650; overflow-wrap: anywhere; }
-.quiz-layout .question-panel .sub { font-size: 17px; color: var(--text-sub); line-height: 1.8; }
+.quiz-layout .question-panel h2:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+.quiz-layout .question-panel .sub { font-size: 17px; color: var(--text-sub); line-height: 1.8; overflow-wrap: anywhere; }
 .quiz-layout .question-panel { padding-top: 24px; }
 .quiz-layout .question-panel .badge { font-size: 15px; background: transparent; color: var(--text-sub); border: 0; padding: 0; }
 .quiz-layout .ant-btn.answer { min-height: 64px; font-size: 18px; border-radius: 8px; }
 .quiz-layout .ant-btn.answer.selected { background: var(--bg-subtle); border-color: var(--primary); box-shadow: inset 3px 0 0 var(--primary); }
 .quiz-layout .navline { gap: 16px; }
 .quiz-layout .quiz-rail { position: relative; min-height: 0; min-width: 0; border-left: 1px solid var(--border); }
+.quiz-desktop-directory { min-width: 0; min-height: 0; }
+.quiz-desktop-directory > .quiz-rail { height: 100%; }
+.quiz-mobile-directory.ant-btn, .quiz-mobile-intro { display: none; }
 /* Both columns keep the workspace height, including the shorter completion panel. */
 .quiz-rail-inner { position: absolute; inset: 0; display: flex; flex-direction: column; min-height: 0; }
 .quiz-rail-header { flex: none; padding: 28px 22px 18px; border-bottom: 1px solid var(--border); }
@@ -38,14 +42,48 @@
 .quiz-rail-scroll .rail-name { overflow-wrap: anywhere; }
 @media (max-width: 1000px) { .quiz-layout.twocol { grid-template-columns: minmax(0, 1fr) 260px; } .quiz-layout .quiz-main { padding: 28px 24px; } }
 @media (max-width: 760px) {
-  .quiz-layout.twocol { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: 900px 420px; }
-  .quiz-layout .quiz-main { padding: 24px 20px; }
-  .quiz-layout .quiz-rail { border-left: 0; border-top: 1px solid var(--border); }
-  .quiz-rail-inner { position: absolute; }
-  .quiz-rail-header { padding: 22px 20px 14px; }
-  .quiz-rail-scroll { padding-left: 20px; max-height: 280px; }
-  .quiz-layout .navline { flex-wrap: wrap; }
-  .quiz-layout .navline .muted { text-align: left; max-width: none; }
+  .quiz-layout.twocol { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .quiz-layout .quiz-main { padding: 16px 18px 20px; overflow: visible; scrollbar-gutter: auto; scroll-margin-top: 12px; }
+  .quiz-desktop-directory, .quiz-layout .quiz-desktop-clear.ant-btn, .quiz-desktop-intro { display: none; }
+  .quiz-mobile-directory.ant-btn { display: inline-flex; min-height: 44px; flex-shrink: 0; font-size: 14px; }
+  .quiz-mobile-intro { display: inline; }
+  .quiz-layout .quiz-main > .between { flex-wrap: nowrap; gap: 8px; font-size: 14px; }
+  .quiz-layout .quiz-main > .between .ant-btn { font-size: 14px; padding-inline: 10px; }
+  .quiz-layout .quiz-progress { margin: 0; }
+  .quiz-layout .mentor { padding: 10px 0 14px; }
+  .quiz-layout .mentor strong { display: none; }
+  .quiz-layout .mentor p { margin: 0; font-size: 13px; line-height: 1.7; }
+  .quiz-layout .question-panel { padding-top: 16px; }
+  .quiz-layout .question-panel .badge { font-size: 13px; }
+  .quiz-layout .question-panel h2 { font-size: 22px; line-height: 1.5; margin: 12px 0; text-wrap: pretty; }
+  .quiz-layout .question-panel .sub { font-size: 14px; line-height: 1.75; margin: 0; }
+  .quiz-layout .answers { gap: 10px; margin: 20px 0; }
+  .quiz-layout .ant-btn.answer { min-height: 52px; padding: 12px 14px; font-size: 16px; gap: 12px; }
+  .quiz-layout .navline { flex-flow: row wrap; align-items: center; gap: 4px; padding-top: 10px; }
+  .quiz-layout .navline .ant-btn { min-height: 44px; padding-inline: 8px; font-size: 14px; }
+  .quiz-layout .navline .muted { flex-basis: 100%; font-size: 13px; text-align: left; max-width: none; }
+  .quiz-layout .complete-panel { padding: 24px 0 16px; }
+  .quiz-layout .complete-panel h2 { font-size: 24px; }
+  .quiz-layout .complete-panel p { font-size: 15px; }
+  .quiz-layout .complete-panel > .quiz-mobile-directory { display: flex; margin: 16px auto 0; }
+}
+
+/* The mobile directory owns its scroll area; the question uses normal page scrolling. */
+.quiz-directory-drawer.ant-drawer-section { border-radius: 20px 20px 0 0; overflow: hidden; }
+.quiz-directory-drawer .ant-drawer-header { padding: 12px 16px; }
+.quiz-directory-drawer .ant-drawer-close { min-width: 44px; min-height: 44px; }
+.quiz-directory-drawer .ant-drawer-body { padding: 0; overflow: hidden; }
+.quiz-directory-drawer .quiz-rail, .quiz-directory-drawer .quiz-rail-inner { position: static; height: 100%; min-height: 0; }
+.quiz-directory-drawer .quiz-rail-header { padding: 12px 20px; }
+.quiz-directory-drawer .rail-note { margin: 0; font-size: 14px; }
+.quiz-directory-drawer .quiz-rail-scroll { padding: 0 12px 12px; }
+.quiz-directory-drawer .quiz-directory { padding-block: 4px; }
+.quiz-directory-drawer .ant-drawer-footer { padding: 8px 16px max(12px, env(safe-area-inset-bottom)); }
+.quiz-directory-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px; font-size: 14px; }
+.quiz-directory-footer .ant-btn { min-height: 44px; }
+@media (prefers-reduced-motion: reduce) {
+  .quiz-directory-overlay .ant-drawer-mask,
+  .quiz-directory-overlay .ant-drawer-content-wrapper { animation: none !important; transition: none !important; }
 }
 
 .quiz-directory { list-style: none; padding: 16px 0; margin: 0; min-width: 0; isolation: isolate; }
@@ -71,6 +109,14 @@
   border: 0;
   border-radius: 14px;
   box-shadow: var(--waiting-shadow);
+}
+@media (max-width: 760px) {
+  .quiz-layout.twocol { box-shadow: var(--shadow-card); margin-bottom: 12px; }
+  .page.session-page-content:has(.quiz-layout) { padding: 12px 12px 24px; }
+}
+@media (max-width: 360px) {
+  .quiz-layout .quiz-main { padding-inline: 14px; }
+  .quiz-layout .question-panel h2 { font-size: 20px; }
 }
 .quiz-surface-blob {
   position: absolute;

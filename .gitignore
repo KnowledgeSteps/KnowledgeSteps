@@ -14,6 +14,9 @@ backend/admin-login.properties.*
 !backend/admin-login.properties.example
 backend/admin-credentials.txt
 backend/admin-credentials.txt.*
+backend/oauth.properties
+backend/oauth.properties.*
+!backend/oauth.properties.example
 backend/target/
 backend/**/*.db
 backend/**/*.db-*
@@ -33,3 +36,7 @@ Thumbs.db
 
 # Fontshare license: download locally, do not redistribute font binaries in Git
 frontend/public/fonts/Chillax-*.woff2
+
+# Python operational tool caches
+__pycache__/
+*.pyc

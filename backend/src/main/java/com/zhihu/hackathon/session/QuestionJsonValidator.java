@@ -12,7 +12,7 @@ public final class QuestionJsonValidator {
     for (var item:GeneratedJsonSupport.array(root,"questions")) {
       var question=GeneratedJsonSupport.object(item);
       questions.add(new Question(GeneratedJsonSupport.id(question,"nodeId"),
-          GeneratedJsonSupport.text(question,"questionText"),GeneratedJsonSupport.text(question,"hint")));
+          GeneratedJsonSupport.requiredText(question,"questionText"),GeneratedJsonSupport.text(question,"hint")));
     }
     try { return new GraphValidator().validateQuestions(nodes,questions); }
     catch (IllegalArgumentException ex) { throw new ModelGenerationException("QUESTION_VALIDATION_FAILED",ex.getMessage()); }

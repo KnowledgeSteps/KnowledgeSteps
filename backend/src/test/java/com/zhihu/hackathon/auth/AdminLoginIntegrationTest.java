@@ -109,4 +109,26 @@ class AdminLoginIntegrationTest {
     assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE zhihu_user_id='admin:admin'", Integer.class))
         .isEqualTo(1);
   }
+
+  @Test void rotatingCookiesUsernamesAndForwardedHeadersCannotBlockAnotherSource() throws Exception {
+    for (int i = 0; i <= 10; i++) {
+      var anonymous = mvc.perform(get("/api/v1/auth/csrf")).andReturn();
+      var session = (MockHttpSession) anonymous.getRequest().getSession(false);
+      String token = json.readTree(anonymous.getResponse().getContentAsString()).path("csrfToken").asText();
+      mvc.perform(post("/api/v1/auth/admin/login").session(session)
+          .with(request -> { request.setRemoteAddr("192.0.2.80"); return request; })
+          .header("X-CSRF-Token", token).header("X-Real-IP", "198.51.100." + i)
+          .header("X-Forwarded-For", "203.0.113." + i)
+          .contentType("application/json").content("{\"username\":\"wrong" + i + "\"}"))
+          .andExpect(status().is(i == 10 ? 429 : 401));
+    }
+    var anonymous = mvc.perform(get("/api/v1/auth/csrf")).andReturn();
+    var session = (MockHttpSession) anonymous.getRequest().getSession(false);
+    String token = json.readTree(anonymous.getResponse().getContentAsString()).path("csrfToken").asText();
+    mvc.perform(post("/api/v1/auth/admin/login").session(session)
+        .with(request -> { request.setRemoteAddr("192.0.2.81"); return request; })
+        .header("X-CSRF-Token", token).contentType("application/json")
+        .content("{\"username\":\"admin\",\"password\":\"test-admin-password\"}"))
+        .andExpect(status().isOk());
+  }
 }

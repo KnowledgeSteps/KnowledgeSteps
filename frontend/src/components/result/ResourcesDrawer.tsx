@@ -17,7 +17,7 @@ interface ResourcesDrawerProps {
 }
 export function ResourcesDrawer({ sessionId, node, onClose, }: ResourcesDrawerProps) {
     return (<Drawer title={node ? node.name : ''} placement="right" open={Boolean(node)} onClose={onClose} size="min(680px, 94vw)" className="path-drawer" styles={{ body: { padding: 0 } }}>
-      {node && (<NodeResourcesPanel key={node.id} sessionId={sessionId} node={node}/>)}
+      {node && (<NodeResourcesPanel key={`${sessionId}:${node.id}`} sessionId={sessionId} node={node}/>)}
     </Drawer>);
 }
 function NodeResourcesPanel({ sessionId, node, }: {
@@ -30,7 +30,11 @@ function NodeResourcesPanel({ sessionId, node, }: {
     const [retryKey, setRetryKey] = useState(0);
     useEffect(() => {
         let cancelled = false;
-        getNodeResources(sessionId, node.id)
+        const request = node.resourceCount === 0 && node.resourceStatus !== 'PENDING'
+            ? Promise.resolve({ nodeId: node.id, nodeName: node.name, reason: node.description,
+                resourceStatus: node.resourceStatus, resources: [] } satisfies NodeResources)
+            : getNodeResources(sessionId, node.id);
+        request
             .then((payload) => {
             if (!cancelled)
                 setData(payload);
@@ -46,7 +50,7 @@ function NodeResourcesPanel({ sessionId, node, }: {
         return () => {
             cancelled = true;
         };
-    }, [sessionId, node.id, retryKey]);
+    }, [sessionId, node.id, node.name, node.description, node.resourceStatus, node.resourceCount, retryKey]);
     function retry(): void {
         setData(null);
         setError(null);
