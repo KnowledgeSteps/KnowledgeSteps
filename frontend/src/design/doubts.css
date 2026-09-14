@@ -15,6 +15,7 @@
 .doubt-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 24px; }
 .doubt-quote { margin: 20px 0; border-left: 3px solid var(--blue-medium); padding: 8px 18px; font-size: 17px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
 .history-page .doubt-ticket .t-description, .doubt-quote { font-weight: 700; }
+.doubt-quote-label { color: var(--primary); }
 .doubt-detail-modal .ant-modal-container { padding: 24px; }
 .doubt-detail-modal .ant-modal-body { max-height: 75dvh; overflow-y: auto; overflow-x: hidden; margin-inline: -24px; padding: 0 24px 20px; scrollbar-gutter: stable; overscroll-behavior: contain; }
 .doubt-detail-heading { position: sticky; top: 0; z-index: 3; padding: 12px 0 16px; background: var(--bg-card); border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
@@ -37,8 +38,13 @@
   .doubt-actions .ant-btn { min-height: 44px; }
 }
 
-.doubt-ticket .t-logo { min-width: 0; }
-.doubt-ticket .t-logo > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-page .doubt-ticket .t-header { align-items: flex-start; margin-bottom: 24px; }
+.history-page .doubt-ticket .t-logo { min-width: 0; align-items: flex-start; font-size: 15px; line-height: 1.6; font-weight: 700; }
+.doubt-ticket .t-logo > span:last-child { white-space: normal; overflow-wrap: anywhere; }
+.history-page .doubt-ticket .t-logo .anticon { font-size: 20px; margin-top: 2px; }
+.history-page .doubt-ticket .history-delete { align-self: flex-start; margin-top: 2px; }
+.history-page .doubt-ticket .t-title { font-size: 24px; line-height: 1.5; font-weight: 700; margin-bottom: 20px; word-break: normal; overflow-wrap: anywhere; text-wrap: pretty; background-image: none; color: var(--primary); }
+.history-page .doubt-ticket .t-description { font-size: 15px; line-height: 1.8; color: var(--text-main); }
 .doubt-ticket .t-logo .anticon { flex-shrink: 0; }
 .collection-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 24px; }
 .collection-filters .ant-select { width: 230px; max-width: 100%; }

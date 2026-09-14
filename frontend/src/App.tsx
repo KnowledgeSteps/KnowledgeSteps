@@ -8,6 +8,7 @@ import { ensureCurrentUser } from './api/auth'
 import { PageviewTracker } from './components/analytics/PageviewTracker'
 
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
+const TutorialPage = lazy(() => import('./pages/TutorialPage').then(m => ({ default: m.TutorialPage })))
 const DoubtsPage = lazy(() => import('./pages/DoubtsPage').then(m => ({ default: m.DoubtsPage })))
 const KnowledgeCardsPage = lazy(() => import('./pages/KnowledgeCardsPage').then(m => ({ default: m.KnowledgeCardsPage })))
 
@@ -51,6 +52,7 @@ export function App() {
         <Route element={<RequireAuth />}>
           <Route element={<AppShell />}>
             <Route path="/" element={<HomePage />} />
+            <Route path="/tutorial" element={<TutorialPage />} />
             <Route path="/history" element={<SessionHistoryPage />} />
             <Route path="/doubts" element={<DoubtsPage />} />
             <Route path="/knowledge-cards" element={<KnowledgeCardsPage />} />

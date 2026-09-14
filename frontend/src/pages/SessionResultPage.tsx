@@ -16,6 +16,7 @@ import { completeSession } from '../api/sessions';
 import { isGenerating, useSession } from '../hooks/useSession';
 import { WaitingView } from '../components/waiting/WaitingView';
 import { PathView } from '../components/result/PathView';
+import { ResultOverview } from '../components/result/ResultOverview';
 import { ResourcesDrawer } from '../components/result/ResourcesDrawer';
 export function SessionResultPage() {
     const { sessionId = '' } = useParams();
@@ -81,26 +82,7 @@ function SessionResultContent({ sessionId }: { sessionId: string }) {
             return null;
         if (!result.nodes.some(node => !node.isTarget)) return <EmptyGraphNotice target={result.target}/>;
         return (<>
-        {result.missingCount > 0 && (<section className="waiting-blob-card result-overview enter" aria-label="学习结果概览">
-          <div className="waiting-blob-bg" aria-hidden="true" />
-          <div className="waiting-blob" aria-hidden="true" />
-          <div className="waiting-content">
-
-            <span className="badge">基于你的自评生成的结果</span>
-            <div className="between result-head">
-              <div>
-                <h1>
-                  学习 <em>{result.target}</em>，
-                  <br />
-                  有 {result.missingCount} 个节点建议巩固或了解
-                </h1>
-              </div>
-              <div className="gap-count">
-                <strong>{result.missingCount}</strong>
-                <span>个待巩固节点</span>
-              </div>
-            </div>
-          </div></section>)}
+        <ResultOverview result={result} />
 
         {result.nodes.some(node => node.resourceStatus === 'FAILED') && <Alert type="warning" showIcon
           title="部分节点的资料搜索未完成"

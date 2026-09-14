@@ -5,6 +5,7 @@ export const visualTokens = {
   'blue-light': '#AFD0FC',
   'blue-medium': '#629FFC',
   primary: '#2977F8',
+  'tutorial-mask': 'rgb(12 22 38 / 68%)',
   'history-ticket-grid': 'linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px)',
   'history-ticket-shine': 'linear-gradient(115deg, transparent 0%, transparent 40%, rgb(255 255 255 / 10%) 45%, rgb(255 255 255 / 85%) 50%, rgb(255 255 255 / 10%) 55%, transparent 60%, transparent 100%)',
   'login-title-gradient': 'linear-gradient(90deg, var(--blue-light) 0%, var(--blue-medium) 50%, var(--primary) 100%)',

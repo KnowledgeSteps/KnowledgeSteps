@@ -1,0 +1,16 @@
+.tutorial-page { padding: 28px 0; min-width: 0; }
+.tutorial-overlay { position: fixed; inset: 0; z-index: 2000; pointer-events: none; }
+.tutorial-overlay .ant-tour, .tutorial-overlay .tutorial-resume { pointer-events: auto; }
+.tutorial-overlay .ant-tour-mask, .tutorial-overlay .ant-tour-mask rect { pointer-events: none !important; }
+.tutorial-resume { position: fixed; right: 20px; bottom: 20px; z-index: 2001; }
+.tutorial-spotlight .ant-tour-section { border: 1px solid var(--blue-medium); box-shadow: var(--example-shadow); }
+.ant-tour.tutorial-spotlight { max-width: calc(100vw - 24px); transition: none !important; animation: none !important; }
+.ant-tour.tutorial-spotlight { position: fixed !important; top: var(--tutorial-tip-top, 12px) !important; bottom: auto !important; right: auto !important; left: 50% !important; transform: translateX(-50%) !important; }
+.tutorial-spotlight .ant-tour-arrow { display: none; }
+.tutorial-page .t-main { overflow: clip; }
+.tutorial-guide { padding: 16px 20px; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-card); }
+.tutorial-guide h2 { font-size: 20px; margin: 12px 0; }
+.tutorial-guide p { line-height: 1.8; color: var(--text-sub); }
+.tutorial-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.tutorial-guide h2:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; }
+@media (max-width: 760px) { .tutorial-guide { padding: 14px; } .tutorial-toolbar { align-items: flex-start; } }

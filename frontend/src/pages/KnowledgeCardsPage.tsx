@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { Alert, Button, Empty, Modal, Pagination, Skeleton, Tag } from 'antd'
 import { BookOutlined, DeleteOutlined, ReloadOutlined, CompassOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
-import { getAllKnowledgeCards, removeKnowledgeCard, markKnowledgeCard, type KnowledgeCardItem } from '../api/reading'
+import { type KnowledgeCardItem } from '../api/reading'
+import { useReadingServices } from '../components/reading/ReadingServices'
 import { useAuth } from '../hooks/useAuth'
 import { useRecoverableRead } from '../hooks/useRecoverableRead'
 import { ReadingCard } from '../components/ui/ReadingCard'
@@ -13,12 +14,15 @@ import '../design/history.css'
 import '../design/doubts.css'
 import '../design/knowledge-cards.css'
 
-export function KnowledgeCardsPage() {
+interface CardsPageProps { onReturn?: () => void; onCardOpened?: () => void }
+export function KnowledgeCardsPage({ onReturn, onCardOpened }: CardsPageProps = {}) {
   const auth = useAuth()
-  return <CardsContent key={auth.user?.userId} />
+  return <CardsContent key={auth.user?.userId} onReturn={onReturn} onCardOpened={onCardOpened} />
 }
-function CardsContent() {
-  const navigate = useNavigate()
+function CardsContent({ onReturn, onCardOpened }: CardsPageProps) {
+  const { getAllKnowledgeCards, removeKnowledgeCard, markKnowledgeCard } = useReadingServices()
+  const routerNavigate = useNavigate()
+  const navigate = (path: string) => onReturn ? onReturn() : routerNavigate(path)
   const [page, setPage] = useState(1)
   const [filter, setFilter] = useState(emptyCollectionFilter)
   const [selected, setSelected] = useState<KnowledgeCardItem | null>(null)
@@ -66,7 +70,7 @@ function CardsContent() {
         <h2 className="t-title">{item.nodeName}</h2><Tag className="t-status" color={item.understood ? 'blue' : undefined}>{item.understood ? '已理解' : '待理解'}</Tag>
         <p className="t-description" title={item.description}>{item.description}</p>
         <time className="t-date" dateTime={item.savedAt}>{new Date(item.savedAt).toLocaleDateString('zh-CN')}</time>
-        <Button className="history-enter" data-text="查看卡片" aria-label="查看卡片" onClick={() => setSelected(item)}><span className="history-enter-text">查看卡片</span></Button>
+        <Button className="history-enter" data-text="查看卡片" aria-label="查看卡片" onClick={() => { setSelected(item); onCardOpened?.() }}><span className="history-enter-text">查看卡片</span></Button>
       </div></div></div>
     </article>)}</div>
     {data && filtered.length > 20 && <Pagination current={currentPage} total={filtered.length} pageSize={20} showSizeChanger={false} onChange={setPage} />}

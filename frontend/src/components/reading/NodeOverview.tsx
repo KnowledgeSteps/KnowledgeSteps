@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BulbOutlined, ReloadOutlined } from '@ant-design/icons'
 import { Button, Spin } from 'antd'
-import { getNodeOverview, removeKnowledgeCard, saveKnowledgeCard } from '../../api/reading'
+import { useReadingServices } from './ReadingServices'
 import { FavoriteCardButton } from './FavoriteCardButton'
 import { ApiError } from '../../api/types'
 import type { KnowledgeNode } from '../../api/types'
@@ -11,6 +11,7 @@ import { QuoteSelection } from './QuoteSelection'
 import { ReadingModal } from './ReadingModal'
 
 export function NodeOverview({ sessionId, node }: { sessionId: string; node: KnowledgeNode }) {
+  const { getNodeOverview, removeKnowledgeCard, saveKnowledgeCard, demo } = useReadingServices()
   const [content, setContent] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -29,7 +30,7 @@ export function NodeOverview({ sessionId, node }: { sessionId: string; node: Kno
       .catch(reason => { if (!abort.signal.aborted) setError(reason instanceof ApiError ? reason.message : '讲解生成暂时失败，请重试。') })
       .finally(() => { if (!abort.signal.aborted) setLoading(false) })
     return () => { active.current = false; abort.abort() }
-  }, [sessionId, node.id, retryKey])
+  }, [sessionId, node.id, retryKey, getNodeOverview])
   async function favorite() {
     if (savingLock.current || !content) return
     savingLock.current = true; setSaving(true); setSaveError(null)
@@ -55,7 +56,7 @@ export function NodeOverview({ sessionId, node }: { sessionId: string; node: Kno
       }}>重新生成</Button></div>
         : content ? <><QuoteSelection onExplain={(selected, context) => setQuote({ quote: selected, context })}>
           <MarkdownContent text={content} />
-        </QuoteSelection><div className="reading-overview-footer"><span>AI 生成 · 在文章中使用鼠标选中不理解的句子，我为你解释。</span>
+        </QuoteSelection><div className="reading-overview-footer"><span>{demo ? '教程示例' : 'AI 生成'} · 在文章中使用鼠标选中不理解的句子，我为你解释。</span>
           <Button type="text" icon={<BulbOutlined />} onClick={() => setQuote({ quote: '', context: '' })}>解释一句话</Button></div>
         </> : null}
     {quote && content && <ReadingModal sessionId={sessionId} nodeId={node.id} nodeName={node.name}

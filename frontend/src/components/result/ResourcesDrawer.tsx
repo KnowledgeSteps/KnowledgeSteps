@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { ArrowRightOutlined, ReloadOutlined, LikeOutlined } from '@ant-design/icons'
 import { Button, Drawer, Spin, Tag } from 'antd'
 import type { KnowledgeNode, NodeResources } from '../../api/types'
-import { getNodeResources } from '../../api/sessions'
+import { useReadingServices } from '../reading/ReadingServices'
 import { isMockMode } from '../../api/config'
 import { ReadingCard } from '../ui/ReadingCard'
 import { NodeOverview } from '../reading/NodeOverview'
@@ -21,6 +21,7 @@ export function ResourcesDrawer({ sessionId, node, onClose }: ResourcesDrawerPro
 }
 
 function NodeResourcesPanel({ sessionId, node }: { sessionId: string; node: KnowledgeNode }) {
+  const { getNodeResources } = useReadingServices()
   const [data, setData] = useState<NodeResources | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +37,7 @@ function NodeResourcesPanel({ sessionId, node }: { sessionId: string; node: Know
       .catch(() => { if (!cancelled) setError('资料暂时无法加载，请重试。') })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [sessionId, node.id, node.name, node.description, node.resourceStatus, node.resourceCount, retryKey])
+  }, [sessionId, node.id, node.name, node.description, node.resourceStatus, node.resourceCount, retryKey, getNodeResources])
   function retry() { setData(null); setError(null); setLoading(true); setRetryKey(value => value + 1) }
   const status = data?.resourceStatus
   const statusMessage = status === 'EMPTY' ? '暂时没有找到匹配的知乎资料，可以先阅读知识点卡片。'

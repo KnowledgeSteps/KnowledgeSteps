@@ -8,6 +8,7 @@ import '../../design/navigation.css'
 import { isMockMode } from '../../api/config'
 import { logout } from '../../api/auth'
 import { useAuth } from '../../hooks/useAuth'
+import { TutorialWelcome } from '../reading/TutorialWelcome'
 
 export function AppShell() {
   const navigate = useNavigate()
@@ -111,6 +112,7 @@ export function AppShell() {
       </header>
 
       <main className={`page${isSessionPage ? ' session-page-content' : ''}`} id="main-content">
+        {location.pathname === '/' && <TutorialWelcome key={auth.user?.userId} />}
         {logoutError && <p className="field-error" role="alert">{logoutError}</p>}
         {navigationError && <p className="field-error" role="alert">{navigationError}</p>}
         <div key={location.pathname} ref={contentRef} className={location.pathname in menuPageLoaders ? 'menu-page-transition' : undefined} data-page-path={location.pathname}>
@@ -119,6 +121,7 @@ export function AppShell() {
       </main>
 
       <footer className="site-footer">
+        <Button type="link" aria-label="新手教程" icon={<ReadOutlined />} onClick={() => navigate('/tutorial')}>新手教程</Button>
         <div className="footer-slogan">
           <i aria-hidden="true" />
           <span>每一个知识，都有它的台阶</span>
