@@ -66,7 +66,7 @@ function TutorialContent() {
     <ResultOverview result={tutorialResult} />
     <PathView result={tutorialResult} onOpenNode={node => { setGraphVisited(true); setOpenNode(node) }} />
     <div className="result-note">结果来自你的自评，不代表能力水平。点击任意节点可以查看知识点卡片与资料。</div>
-    <ResourcesDrawer sessionId="tutorial-rag" node={openNode} onClose={() => setOpenNode(null)} />
+    <ResourcesDrawer sessionId="tutorial-linear-algebra" node={openNode} onClose={() => setOpenNode(null)} />
   </>
   return <ReadingServicesContext.Provider value={demo.services}><section className="tutorial-page">
     {current && !resetOpen && !busy && <TutorialSpotlight step={step} homeEntered={homeEntered} savedDoubt={demo.state.savedDoubt} understood={demo.state.understood} favorite={demo.state.favorite} collection={collection} graphVisited={graphVisited} cardViewed={cardViewed} />}
@@ -77,10 +77,10 @@ function TutorialContent() {
       </Space></div>
       <h2 ref={heading} tabIndex={-1}>{step === 5 ? '教程已完成' : `第 ${step + 1}/5 步 · ${step === 0 && !homeEntered ? '输入学习目标' : titles[step]}`}</h2>
       <Progress percent={step * 20} size="small" />
-      <p>当前为新手教程，示例数据与个人记录分开。五个前置知识点按 3 → 2 排列，最后汇聚到学习目标 RAG。</p>
-      {step === 0 && !homeEntered && <p>在下方“学习目标”输入 <strong>RAG</strong>，点击“开始寻路”，进入基础自评。</p>}
-      {step === 1 && <><p>点击任意节点查看内容；找到“文本分块”，接下来体验划词解释。</p><Button type="primary" disabled={busy} onClick={() => void change('advance')}>继续体验划词解释</Button></>}
-      {step === 2 && <><p>打开“文本分块”，选中“相邻文本块保留少量重叠……”这句话，点击“这段看不懂？”并解释、保存。也可点击卡片底部“解释一句话”粘贴该句。</p>
+      <p>当前为新手教程，示例数据与个人记录分开。五个前置知识点按 3 → 2 排列，最后汇聚到学习目标 线性代数。</p>
+      {step === 0 && !homeEntered && <p>在下方“学习目标”输入 <strong>线性代数</strong>，点击“开始寻路”，进入基础自评。</p>}
+      {step === 1 && <><p>点击任意节点查看内容；找到“向量与坐标”，接下来体验划词解释。</p><Button type="primary" disabled={busy} onClick={() => void change('advance')}>继续体验划词解释</Button></>}
+      {step === 2 && <><p>打开“向量与坐标”，选中“向量相加时……”这句话，点击“这段看不懂？”并解释、保存。也可点击卡片底部“解释一句话”粘贴该句。</p>
         <Button type="primary" disabled={!demo.state.savedDoubt || busy} onClick={() => void change('advance')}>进入疑惑本</Button></>}
       {step === 3 && <><p>点击“查看理解”，将这条疑惑标记为已理解。</p><Button type="primary" disabled={!demo.state.understood || busy} onClick={() => void change('advance')}>继续体验收藏卡片</Button></>}
       {step === 4 && <><p>在节点侧栏收藏知识点，再进入知识卡片页回看。所有收藏操作仅影响教程。</p>
@@ -96,7 +96,7 @@ function TutorialContent() {
       <section className="question quiz-main" aria-label="知识自评"><div className="between"><span>已回答 <em>{answered}</em> / 5</span>
         <Button type="text" icon={<ClearOutlined />} disabled={busy || !answered} onClick={() => { setQuestions(tutorialQuestions); setIndex(0) }}>清空所有选择</Button></div>
         <Progress percent={answered * 20} showInfo={false} className="quiz-progress" />
-        <div className="mentor"><CompassOutlined className="spark" /><div><strong>知阶正在确认你的基础</strong><p>没有标准答案，按真实情况选择就好。教程使用固定的 RAG 示例结果。</p></div></div>
+        <div className="mentor"><CompassOutlined className="spark" /><div><strong>知阶正在确认你的基础</strong><p>没有标准答案，按真实情况选择就好。教程使用固定的 线性代数 示例结果。</p></div></div>
         <QuestionPanel question={questions[index]} index={index} total={5} saving={busy} onAnswer={answer => { setQuestions(previous => previous.map((q, i) => i === index ? { ...q, answer } : q)); setIndex(Math.min(4, index + 1)) }} onBack={() => setIndex(Math.max(0, index - 1))} canBack={index > 0} onOpenDirectory={() => setDirectory(true)} />
         {answered === 5 && <Button className="quiz-result-button" disabled={busy} onClick={() => void change('advance')}>查看结果</Button>}
       </section>

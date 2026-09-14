@@ -8,7 +8,7 @@ import { createSession } from '../api/sessions';
 import { isMockMode } from '../api/config';
 import { ApiError } from '../api/types';
 import { loginUrl } from '../api/loginNavigation';
-const PROMPTS = ['Transformer', 'RAG', 'Spring Boot', '线性代数'];
+const PROMPTS = ['Transformer', '线性代数', '供需关系', '认知偏差'];
 export function HomePage({ onTutorialStart }: { onTutorialStart?: () => void } = {}) {
     const navigate = useNavigate();
     const location = useLocation();
@@ -26,7 +26,7 @@ export function HomePage({ onTutorialStart }: { onTutorialStart?: () => void } =
         setFieldError(null);
         setSubmitError(null);
         if (!target) {
-            setFieldError('先告诉我你想学什么，例如 Transformer 或 RAG。');
+            setFieldError('先告诉我你想学什么，例如线性代数或供需关系。');
             return;
         }
         if (target.length > 100) {
@@ -34,8 +34,8 @@ export function HomePage({ onTutorialStart }: { onTutorialStart?: () => void } =
             return;
         }
         if (onTutorialStart) {
-            if (target.toUpperCase() !== 'RAG') {
-                setFieldError('新手教程请先输入 RAG，再点击“开始寻路”。');
+            if (target !== '线性代数') {
+                setFieldError('新手教程请先输入线性代数，再点击“开始寻路”。');
                 return;
             }
             onTutorialStart();
@@ -78,19 +78,19 @@ export function HomePage({ onTutorialStart }: { onTutorialStart?: () => void } =
           <p className="home-description">告诉我你想学什么，帮你找出要补的基础，<br />找到前置基础，确认已有知识，留下需要补齐的台阶。</p>
           <form className="goal-form" onSubmit={(event) => { event.preventDefault(); void submit(goal); }} noValidate>
             <label htmlFor="learning-goal">学习目标</label>
-            <Input id="learning-goal" size="large" prefix={<SearchOutlined />} placeholder="例如：Transformer、RAG、Spring Boot" maxLength={100} value={goal} status={fieldError ? 'error' : undefined} aria-invalid={Boolean(fieldError)} aria-describedby={fieldError ? 'learning-goal-error' : undefined} onChange={(event) => { setGoal(event.target.value); setFieldError(null); }} disabled={submitting}/>
+            <Input id="learning-goal" size="large" prefix={<SearchOutlined />} placeholder={onTutorialStart ? "请输入：线性代数" : "例如：线性代数、供需关系"} maxLength={100} value={goal} status={fieldError ? 'error' : undefined} aria-invalid={Boolean(fieldError)} aria-describedby={fieldError ? 'learning-goal-error' : undefined} onChange={(event) => { setGoal(event.target.value); setFieldError(null); }} disabled={submitting}/>
             <Button htmlType="submit" type="primary" size="large" icon={<ArrowRightOutlined />} loading={submitting}>开始寻路</Button>
           </form>
           {fieldError && <p className="field-error" id="learning-goal-error" role="alert">{fieldError}</p>}
           {submitError && <Alert type="error" showIcon title={submitError}/>}
-          <div className="popular-goals" aria-label="热门知识"><span>试着了解</span>{PROMPTS.map((label) => <Button key={label} size="small" onClick={() => setGoal(label)} disabled={submitting}>{label}</Button>)}</div>
+          <div className="popular-goals" aria-label="热门知识"><span>试着了解</span>{(onTutorialStart ? ["线性代数"] : PROMPTS).map((label) => <Button key={label} size="small" onClick={() => setGoal(label)} disabled={submitting}>{label}</Button>)}</div>
         </div>
         {/* From Uiverse.io by SteveBloX */}
-        <aside className="home-example" aria-label="Transformer 前置知识示例">
+        <aside className="home-example" aria-label={onTutorialStart ? "线性代数前置知识示例" : "Transformer 前置知识示例"}>
           <div className="card__content">
 
           <div className="example-title"><ApartmentOutlined /><span>知识有来处，学习有顺序</span><Tag>示例</Tag></div>
-          <ExampleTree />
+          <ExampleTree linearAlgebra={Boolean(onTutorialStart)} />
           <p>保留完整知识关系，按熟悉程度推荐学习资料。</p>
         </div></aside>
       </section>

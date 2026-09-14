@@ -1,4 +1,5 @@
 import { CollectionFilters } from '../components/reading/CollectionFilters'
+import { renderContentModalCard } from '../components/ui/ContentModalCard'
 import { emptyCollectionFilter, filterCollection } from '../components/reading/collectionFilter'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -80,7 +81,7 @@ function DoubtsContent({ onReturn }: { onReturn?: () => void }) {
       </div></div></div>
     </article>)}</div>
     {data && filtered.length > 20 && <Pagination current={currentPage} total={filtered.length} pageSize={20} showSizeChanger={false} onChange={setPage} />}
-    <Modal open={!!selected} title="回看这条疑惑" onCancel={() => !busy && setSelected(null)} width={840} footer={null} className="doubt-detail-modal">
+    <Modal open={!!selected} title="回看这条疑惑" onCancel={() => !busy && setSelected(null)} width={840} footer={null} className="doubt-detail-modal" modalRender={renderContentModalCard}>
       {mutationError && <Alert type="error" showIcon title={mutationError} />}
       {selected && <><header className="doubt-detail-heading">
         <p>所属寻路：{selected.sessionTarget || '所属寻路'}</p>

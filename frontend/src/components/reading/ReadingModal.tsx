@@ -6,6 +6,7 @@ import type { Explanation } from '../../api/reading'
 import { ApiError } from '../../api/types'
 import { ReadingCard } from '../ui/ReadingCard'
 import { MarkdownContent } from './MarkdownContent'
+import { renderContentModalCard } from '../ui/ContentModalCard'
 import { QuoteSelection } from './QuoteSelection'
 import { OriginalArticleButton } from './OriginalArticleButton'
 
@@ -100,7 +101,7 @@ export function ReadingModal({ sessionId, nodeId, nodeName, source, initialQuote
   const tooLong = Array.from(quote).length > 1000
   const authorUrl = source.authorUrl && /^https:\/\/(?:www\.)?zhihu\.com\/(?:people|org)\/[a-zA-Z0-9_-]+\/?$/.test(source.authorUrl) ? source.authorUrl : null
 
-  return <Modal open onCancel={onClose} footer={null} width={820} className="reading-modal" destroyOnHidden
+  return <Modal open onCancel={onClose} footer={null} width={820} className="reading-modal" destroyOnHidden modalRender={renderContentModalCard}
     title={view === 'reader' ? '阅读资料' : '这段话怎么理解'}>
     <div className="reading-modal-scroll" ref={scrollArea}>
       {view === 'reader' ? <>

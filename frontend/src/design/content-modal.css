@@ -1,0 +1,5 @@
+.content-modal-card { background: var(--bg-card); box-shadow: var(--shadow-card); }
+.content-modal-card > .waiting-blob { opacity: 0.2; }
+.content-modal-card > .waiting-content { width: 100%; min-width: 0; padding: 0; }
+.content-modal-card .ant-modal-container { background: transparent; box-shadow: none; }
+.content-modal-card .ant-modal-header { background: transparent; }

@@ -19,7 +19,16 @@ const edges = [
 ]
 
 /** Esca-Byte's branch reveal, adapted to an upward prerequisite graph. */
-export function ExampleTree() {
+export function ExampleTree({ linearAlgebra = false }: { linearAlgebra?: boolean }) {
+  const target = linearAlgebra ? '线性代数' : 'Transformer'
+  const shownNodes = linearAlgebra ? [
+    { label: '线性组合', detail: '数乘后相加得到新向量', x: 25, y: 330 },
+    { label: '线性方程组', detail: '同时满足多个一次方程', x: 75, y: 330 },
+    { label: '向量与坐标', detail: '用坐标描述位移', x: 18, y: 160 },
+    { label: '代数运算', detail: '掌握基本计算规则', x: 50, y: 70 },
+    { label: '一次方程', detail: '通过等价变形求解', x: 82, y: 160 },
+  ] : nodes
+  const shownEdges = linearAlgebra ? [[50, 443, 25, 357], [50, 443, 75, 357], [25, 303, 18, 187], [25, 303, 50, 97], [75, 303, 50, 97], [75, 303, 82, 187]] : edges
   const clipId = useId()
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
@@ -59,18 +68,18 @@ export function ExampleTree() {
     <div id="example-prerequisites" aria-hidden={!expanded}>
       <svg className="branch-path-svg" viewBox="0 0 100 520" preserveAspectRatio="none" aria-hidden="true">
         <defs>
-          {edges.map(([, y1, , y2], index) => <clipPath id={`${clipId}-${index}`} key={index} clipPathUnits="userSpaceOnUse">
+          {shownEdges.map(([, y1, , y2], index) => <clipPath id={`${clipId}-${index}`} key={index} clipPathUnits="userSpaceOnUse">
             <rect className="branch-reveal" x="0" y={y2 - 4} width="100" height={y1 - y2 + 8}
               style={{ '--delay': `${index * 140}ms` } as CSSProperties} />
           </clipPath>)}
         </defs>
-        {edges.map(([x1, y1, x2, y2], index) => <g key={index} clipPath={`url(#${clipId}-${index})`} style={{ '--delay': `${index * 140}ms` } as CSSProperties}>
+        {shownEdges.map(([x1, y1, x2, y2], index) => <g key={index} clipPath={`url(#${clipId}-${index})`} style={{ '--delay': `${index * 140}ms` } as CSSProperties}>
           <path className={`branch-line ${index % 2 ? 'line-right' : 'line-left'}`}
             d={`M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`} />
           <ellipse className="branch-dot" cx={x2} cy={y2} rx="0.7" ry="3" />
         </g>)}
       </svg>
-      {nodes.map((node, index) => <div className="tooltip-content" key={node.label}
+      {shownNodes.map((node, index) => <div className="tooltip-content" key={node.label}
         style={{ left: `${node.x}%`, top: node.y, '--delay': `${200 + index * 160}ms` } as CSSProperties}>
         <div className="tooltip-header">{node.label}</div>
         <div className="tooltip-info">{node.detail}</div>
@@ -78,11 +87,11 @@ export function ExampleTree() {
     </div>
     <div className="trigger-wrapper">
       <Button className="merge-btn" icon={<ApartmentOutlined />} aria-expanded={expanded} aria-controls="example-prerequisites"
-        aria-label={`${pinned ? '收起' : '固定展开'} Transformer 前置知识`}
+        aria-label={`${pinned ? '收起' : '固定展开'} ${target} 前置知识`}
         onPointerEnter={(event) => { if (event.pointerType === 'mouse') setHovered(true) }}
         onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) setFocused(true) }}
-        onClick={() => { stopPreview(); if (pinned) collapse(); else setPinned(true) }}>Transformer</Button>
+        onClick={() => { stopPreview(); if (pinned) collapse(); else setPinned(true) }}>{target}</Button>
     </div>
-    <p className="example-tree-hint">{expanded ? '沿着分支，向上追溯前置知识' : '靠近或点击 Transformer，展开知识台阶'}</p>
+    <p className="example-tree-hint">{expanded ? '沿着分支，向上追溯前置知识' : `靠近或点击 ${target}，展开知识台阶`}</p>
   </div>
 }

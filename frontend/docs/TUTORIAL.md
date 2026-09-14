@@ -4,13 +4,13 @@
 
 ## 五步体验
 
-1. 先显示正式 HomePage，引导输入 RAG 并点击“开始寻路”，再完成五个前置知识点的自评，复用 QuestionPanel 和 StatusRail。教程主页只接受 RAG，不调用创建寻路接口。
-2. 点击示例图谱的文本分块节点。
+1. 先显示正式 HomePage，引导输入 线性代数 并点击“开始寻路”，再完成五个前置知识点的自评，复用 QuestionPanel 和 StatusRail。教程主页只接受 线性代数，不调用创建寻路接口。
+2. 点击示例图谱的向量与坐标节点。
 3. 选中重叠分块的句子，查看预先准备的解释，保存到示例疑惑本。提供“使用示例句子”作为触屏和键盘替代入口。
 4. 回看示例疑惑并标记理解。
 5. 收藏知识点、打开示例收藏，再完成教程。
 
-示例内容位于 `src/components/reading/tutorialExample.ts` 和 `tutorialServices.ts`。图谱为三层六个节点：文本分块、词嵌入、提示词 → 向量检索、上下文组织 → RAG，只有五个前置节点。
+示例内容位于 `src/components/reading/tutorialExample.ts` 和 `tutorialServices.ts`。图谱为三层六个节点：向量与坐标、词嵌入、提示词 → 向量检索、上下文组织 → 线性代数，只有五个前置节点。
 
 结果复用 ResultOverview、PathView 和 ResourcesDrawer，侧栏继续使用正式 NodeOverview 和 ReadingModal。疑惑本与知识卡片直接渲染 DoubtsPage 和 KnowledgeCardsPage，包括票券、筛选及详情弹窗。ReadingServicesContext 默认使用真实 API；仅教程 Provider 注入独立内存演示服务，不修改全局 API 或用户记录。教程未调用生成模型或知乎搜索。
 
