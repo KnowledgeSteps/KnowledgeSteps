@@ -34,8 +34,13 @@ public class GenerationConfiguration {
       }
     };
   }
-  @Bean GenerationPipeline generationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch search,GraphValidator validator,TaskDiagnostics diagnostics) {
-    return new GenerationPipeline(store,graphs,questions,search,validator,diagnostics);
+  @Bean ResourceRecommendationClient resourceRecommendationClient(ObjectMapper json, ModelSettings settings,
+      @org.springframework.beans.factory.annotation.Qualifier("modelRestClient") RestClient client) {
+    return new ResourceRecommendationClient(client,json,settings);
+  }
+  @Bean GenerationPipeline generationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch search,
+      ResourceRecommender recommender,GraphValidator validator,TaskDiagnostics diagnostics) {
+    return new GenerationPipeline(store,graphs,questions,search,recommender,validator,diagnostics);
   }
   @Bean io.micrometer.core.instrument.binder.MeterBinder taskCapacityMetrics(LearningSessionService sessions) {
     return sessions::bindMetrics;

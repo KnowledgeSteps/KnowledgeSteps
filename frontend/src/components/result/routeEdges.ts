@@ -1,5 +1,79 @@
 export interface NodeRect { id: string; left: number; top: number; right: number; bottom: number }
 export interface Point { x: number; y: number }
+export interface GraphEdgeRoute { key: string; from: string; to: string; fromLevel: number; toLevel: number }
+export interface RoutedGraphEdge extends GraphEdgeRoute { points: Point[] }
+
+const centerX = (rect: NodeRect) => (rect.left + rect.right) / 2
+
+function distributePorts(edges: GraphEdgeRoute[], cards: Map<string, NodeRect>, endpoint: 'from' | 'to') {
+  const ports = new Map<string, number>()
+  const groups = new Map<string, GraphEdgeRoute[]>()
+  for (const edge of edges) {
+    const id = edge[endpoint]
+    groups.set(id, [...(groups.get(id) ?? []), edge])
+  }
+  for (const [id, group] of groups) {
+    const card = cards.get(id)
+    if (!card) continue
+    const other = endpoint === 'from' ? 'to' : 'from'
+    group.sort((a, b) => centerX(cards.get(a[other])!) - centerX(cards.get(b[other])!) || a.key.localeCompare(b.key))
+    const usableLeft = card.left + Math.min(28, (card.right - card.left) * .16)
+    const usableRight = card.right - Math.min(28, (card.right - card.left) * .16)
+    group.forEach((edge, index) => {
+      const ratio = group.length === 1 ? .5 : (index + 1) / (group.length + 1)
+      ports.set(edge.key, usableLeft + (usableRight - usableLeft) * ratio)
+    })
+  }
+  return ports
+}
+
+/**
+ * Routes adjacent levels as one batch. Each edge gets a stable lane and its own
+ * card port, so independent shortest-path searches cannot collapse into one line.
+ * Skipped-level edges keep the obstacle-aware router below.
+ */
+export function routeGraphEdges(edges: GraphEdgeRoute[], cardList: NodeRect[]): RoutedGraphEdge[] {
+  const cards = new Map(cardList.map(card => [card.id, card]))
+  const validEdges = edges.filter(edge => cards.has(edge.from) && cards.has(edge.to))
+  const startPorts = distributePorts(validEdges, cards, 'from')
+  const endPorts = distributePorts(validEdges, cards, 'to')
+  const groups = new Map<string, GraphEdgeRoute[]>()
+  for (const edge of validEdges) {
+    const key = `${edge.fromLevel}:${edge.toLevel}`
+    groups.set(key, [...(groups.get(key) ?? []), edge])
+  }
+  const routed: RoutedGraphEdge[] = []
+  for (const group of groups.values()) {
+    const valid = group.filter(edge => cards.has(edge.from) && cards.has(edge.to))
+    const adjacent = valid.every(edge => edge.toLevel === edge.fromLevel + 1)
+    const top = Math.max(...valid.map(edge => cards.get(edge.from)!.bottom)) + 10
+    const bottom = Math.min(...valid.map(edge => cards.get(edge.to)!.top)) - 10
+    const canUseBand = valid.length > 0 && adjacent && bottom > top
+    const ordered = [...valid].sort((a, b) => {
+      const aFrom = startPorts.get(a.key)!, aTo = endPorts.get(a.key)!
+      const bFrom = startPorts.get(b.key)!, bTo = endPorts.get(b.key)!
+      return (aFrom + aTo) - (bFrom + bTo) || aFrom - bFrom || a.key.localeCompare(b.key)
+    })
+    ordered.forEach((edge, index) => {
+      const from = cards.get(edge.from)!, to = cards.get(edge.to)!
+      if (!canUseBand) {
+        const inner = routeEdge(from, to, cardList)
+        if (inner.length) routed.push({ ...edge, points: [{ x: centerX(from), y: from.bottom }, ...inner, { x: centerX(to), y: to.top }] })
+        return
+      }
+      const startX = startPorts.get(edge.key)!
+      const endX = endPorts.get(edge.key)!
+      const laneY = top + ((index + 1) / (ordered.length + 1)) * (bottom - top)
+      routed.push({ ...edge, points: [
+        { x: startX, y: from.bottom },
+        { x: startX, y: laneY },
+        { x: endX, y: laneY },
+        { x: endX, y: to.top },
+      ] })
+    })
+  }
+  return routed
+}
 
 // Orthogonal visibility grid: every segment must stay outside the padded card rectangles.
 export function routeEdge(from: NodeRect, to: NodeRect, cards: NodeRect[]): Point[] {

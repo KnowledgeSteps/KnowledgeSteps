@@ -202,7 +202,7 @@ function SessionQuestionsContent({ sessionId, userId }: { sessionId: string; use
             <CompassOutlined className="spark" aria-hidden="true"/>
             <div>
               <strong>知阶正在确认你的基础</strong>
-              <p><span className="quiz-desktop-intro">没有标准答案，按真实情况选择就好；非常了解的节点仍会保留，但不再推荐资料。</span><span className="quiz-mobile-intro">{allAnswered && !reviewing ? '自评已完成，可先检查回答，再查看学习路径。' : '按实际了解程度选择，选完自动进入下一题。'}</span></p>
+              <p><span className="quiz-desktop-intro">没有标准答案，按真实情况选择即可。知阶会按照你的理解程度，为每个知识点生成独一无二的知识卡片。</span><span className="quiz-mobile-intro">{allAnswered && !reviewing ? '自评已完成，可先检查回答，再查看学习路径。' : '按实际理解程度选择，并生成适合你的知识卡片。'}</span></p>
             </div>
           </div>
 

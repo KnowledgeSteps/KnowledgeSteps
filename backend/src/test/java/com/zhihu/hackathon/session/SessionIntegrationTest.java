@@ -51,7 +51,10 @@ class SessionIntegrationTest {
     when(search.search(anyString(),anyInt())).thenReturn(List.of(new Resource("资料","https://www.zhihu.com/question/1",null,null,null,"2024-03-10")));
     when(model.generateQuestions(anyList())).thenAnswer(invocation -> {
       List<SavedNode> ns=invocation.getArgument(0);
-      return ns.stream().map(n -> new Question(n.id(),"你了解"+n.name()+"吗？","用途")).toList();
+      return ns.stream().map(n -> new Question(n.id(),"你了解"+n.name()+"吗？","用途",
+          new ConceptCheck("这个知识点包含基础概念和常见用途。",true,"这是入门层面的概念判断。"),
+          new ConceptCheck("理解这个知识点需要区分核心概念之间的关系。",true,"这是核心层面的概念判断。"),
+          new ConceptCheck("这个知识点在所有场景下都没有适用边界。",false,"任何知识点都有适用条件和边界。"))).toList();
     });
   }
   @Test void deletingRunningHistoryDoesNotBypassUserTaskLimit() throws Exception {
@@ -247,6 +250,9 @@ class SessionIntegrationTest {
         .andExpect(jsonPath("$.questions[0].questionId").value(Long.toString(questionId)))
         .andExpect(jsonPath("$.questions[0].nodeName").value("矩阵运算"))
         .andExpect(jsonPath("$.questions[0].answer").value("VERY_FAMILIAR"))
+        .andExpect(jsonPath("$.questions[0].checks.HEARD_OF.statement").value("这个知识点包含基础概念和常见用途。"))
+        .andExpect(jsonPath("$.questions[0].checks.BASICALLY_KNOW.expected").value(true))
+        .andExpect(jsonPath("$.questions[0].checks.VERY_FAMILIAR.expected").value(false))
         .andExpect(jsonPath("$.questions[0].options[0].value").value("VERY_FAMILIAR"))
         .andExpect(jsonPath("$.questions[0].options[3].value").value("DONT_KNOW"));
   }
@@ -413,7 +419,7 @@ class SessionIntegrationTest {
     answer(id, questionId, "HEARD_OF");
     complete(id);
     long nodeId=nodeId(id, "矩阵运算");
-    jdbc.update("UPDATE node_resources SET vote_count=42 WHERE node_id=?",nodeId);
+    jdbc.update("UPDATE node_resources SET vote_count=42,recommendation_reason='适合快速入门' WHERE node_id=?",nodeId);
 
     mvc.perform(get("/api/v1/learning-sessions/"+id+"/nodes/"+nodeId+"/resources").session(session))
         .andExpect(status().isOk())
@@ -425,7 +431,8 @@ class SessionIntegrationTest {
         .andExpect(jsonPath("$.resources[0].title").value("资料"))
         .andExpect(jsonPath("$.resources[0].url").value("https://www.zhihu.com/question/1"))
         .andExpect(jsonPath("$.resources[0].voteCount").value(42))
-        .andExpect(jsonPath("$.resources[0].contentDate").value("2024-03-10"));
+        .andExpect(jsonPath("$.resources[0].contentDate").value("2024-03-10"))
+        .andExpect(jsonPath("$.resources[0].recommendationReason").value("适合快速入门"));
     long targetId=jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=? AND is_target=1",Long.class,id);
     mvc.perform(get("/api/v1/learning-sessions/"+id+"/nodes/"+targetId+"/resources").session(session))
         .andExpect(jsonPath("$.reason").value("目标的具体介绍"))

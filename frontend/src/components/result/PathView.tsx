@@ -1,5 +1,5 @@
 import '../../design/graph-reveal.css';
-import { routeEdge, type NodeRect } from './routeEdges';
+import { routeGraphEdges, type NodeRect } from './routeEdges';
 import { GraphNodeCard } from './GraphNodeCard';
 import { GraphViewport } from './GraphViewport';
 import { CardDecoration } from '../ui/CardDecoration';
@@ -50,6 +50,8 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
     const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
     const [lines, setLines] = useState<PathLine[]>([]);
     const [size, setSize] = useState({ width: 0, height: 0 });
+    const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+    const [focusedNode, setFocusedNode] = useState<string | null>(null);
     useLayoutEffect(() => {
         let frame = 0;
         const measure = () => {
@@ -66,19 +68,12 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
                     return { id, left: (rect.left - graphRect.left) / scale, right: (rect.right - graphRect.left) / scale,
                         top: (rect.top - graphRect.top) / scale, bottom: (rect.bottom - graphRect.top) / scale };
                 });
-                const nextLines = result.edges.flatMap((edge, index) => {
-                    const from = cards.find(card => card.id === edge.from);
-                    const to = cards.find(card => card.id === edge.to);
-                    if (!from || !to) return [];
-                    const points = routeEdge(from, to, cards);
-                    if (!points.length) return [];
-                    const start = { x: (from.left + from.right) / 2, y: from.bottom };
-                    const end = { x: (to.left + to.right) / 2, y: to.top };
-                    points.unshift(start);
-                    points.push(end);
-                    return [{ start, end, key: `${edge.from}-${edge.to}-${index}`,
-                        d: points.map((point, i) => `${i ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ') }];
-                });
+                const nodeLevels = new Map(result.nodes.map(node => [node.id, node.level]));
+                const nextLines = routeGraphEdges(result.edges.map((edge, index) => ({
+                    ...edge, key: `${edge.from}-${edge.to}-${index}`,
+                    fromLevel: nodeLevels.get(edge.from) ?? 0, toLevel: nodeLevels.get(edge.to) ?? 0,
+                })), cards).map(edge => ({ key: edge.key, from: edge.from, to: edge.to,
+                    d: edge.points.map((point, i) => `${i ? 'L' : 'M'} ${point.x} ${point.y}`).join(' ') }));
                 setLines(nextLines);
                 setSize({ width: graph.offsetWidth, height: graph.offsetHeight });
             });
@@ -98,20 +93,30 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
     }, [result.edges, result.nodes]);
     const names = new Map(result.nodes.map((node) => [node.id, node.name]));
     const visibleEdges = result.edges.filter((edge) => names.has(edge.from) && names.has(edge.to));
+    const activeNode = hoveredNode ?? focusedNode;
+    const neighborhood = new Set(activeNode ? [activeNode] : []);
+    if (activeNode) for (const edge of visibleEdges) {
+        if (edge.from === activeNode) neighborhood.add(edge.to);
+        if (edge.to === activeNode) neighborhood.add(edge.from);
+    }
     const graphWidth = Math.min(5, Math.max(...[...rows.values()].map(nodes => nodes.length))) * 324 + 8;
     return (<section className="path" aria-label="完整知识图谱">
       <GraphViewport width={graphWidth}>
-      <div className="path-graph" ref={graphRef} style={{ minWidth: `${graphWidth}px` }}>
+      <div className={`path-graph${activeNode ? ' is-neighborhood-active' : ''}`} ref={graphRef} style={{ minWidth: `${graphWidth}px` }}>
         <svg className="path-edges" viewBox={`0 0 ${size.width} ${size.height}`} aria-hidden="true" focusable="false">
           {lines.map((line) => (<g key={line.key}>
-            <path className="graph-branch-line" pathLength={1} d={line.d}/>
+            <path className={`graph-branch-line${activeNode && line.from !== activeNode && line.to !== activeNode ? ' is-neighborhood-muted' : ''}`} pathLength={1} d={line.d}/>
           </g>))}
         </svg>
         {levels.map((level) => {
             const nodes = rows.get(level) ?? [];
             return (<div className="path-level" key={level}>
               <div className={`path-row ${nodes.length === 1 ? 'single' : ''}`}>
-                {nodes.map((node) => (<GraphNodeCard key={`${result.sessionId}:${node.id}`} node={node} onOpen={() => onOpenNode(node)} buttonRef={(element) => {
+                {nodes.map((node) => (<GraphNodeCard key={`${result.sessionId}:${node.id}`} node={node}
+                  muted={Boolean(activeNode && !neighborhood.has(node.id))}
+                  onHoverChange={active => setHoveredNode(active ? node.id : null)}
+                  onFocusChange={active => setFocusedNode(active ? node.id : null)}
+                  onOpen={() => onOpenNode(node)} buttonRef={(element) => {
                     if (element) nodeRefs.current.set(node.id, element);
                     else nodeRefs.current.delete(node.id);
                 }} />))}
@@ -132,4 +137,4 @@ function DependencyGraph({ result, onOpenNode, rows, levels, }: PathViewProps & 
         </div>)}
     </section>);
 }
-interface PathLine { key: string; d: string; start: { x: number; y: number }; end: { x: number; y: number } }
+interface PathLine { key: string; from: string; to: string; d: string }

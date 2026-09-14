@@ -48,6 +48,16 @@
 .path-scroll .path-row { flex-wrap: wrap; gap: 24px; max-width: 1596px; margin-inline: auto; }
 .path-scroll .graph-node-parent { flex: 0 0 300px; width: 300px; }
 
+/* Desktop relationship tracing: retain the selected node and its direct neighbours. */
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .path-graph .graph-node-parent,
+  .path-graph .graph-branch-line {
+    transition: opacity 180ms ease, filter 180ms ease;
+  }
+  .path-graph.is-neighborhood-active .graph-node-parent.is-neighborhood-muted { opacity: .24; filter: saturate(.35); }
+  .path-graph.is-neighborhood-active .graph-branch-line.is-neighborhood-muted { opacity: .12; }
+}
+
 /* Let the graph use the viewport instead of the narrow reading column. */
 .path-scroll {
   width: calc(100vw - 64px);

@@ -88,10 +88,12 @@ export function AppShell() {
           </Button>
 
           <div className="nav-actions">
+            <div className="nav-menu">
             {auth.user?.role === 'ADMIN' && menuButton('/admin/analytics', '访问统计', <BarChartOutlined />)}
             {menuButton('/history', '历史寻路', <HistoryOutlined />)}
             {menuButton('/doubts', '疑惑本', <BookOutlined />)}
             {menuButton('/knowledge-cards', '知识卡片', <ReadOutlined />)}
+            </div>
             <div className="auth-actions">
               <div className="nav-user">
                 <Avatar src={auth.user?.avatarUrl} icon={<UserOutlined />} alt="用户头像" />

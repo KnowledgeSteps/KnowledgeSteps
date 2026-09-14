@@ -26,6 +26,12 @@ export interface QuestionOption {
   label: string
 }
 
+export interface ConceptCheck {
+  statement: string
+  expected: boolean
+  explanation: string
+}
+
 export interface Question {
   questionId: string
   nodeId: string
@@ -33,6 +39,7 @@ export interface Question {
   questionText: string
   hint: string | null
   options: QuestionOption[]
+  checks: Partial<Record<Exclude<AnswerValue, 'DONT_KNOW'>, ConceptCheck>>
   answer: AnswerValue | null
 }
 
@@ -103,6 +110,7 @@ export interface LearningResource {
   authorUrl?: string | null
   contentDate?: string | null
   voteCount: number | null
+  recommendationReason?: string | null
 }
 
 export interface NodeResources {

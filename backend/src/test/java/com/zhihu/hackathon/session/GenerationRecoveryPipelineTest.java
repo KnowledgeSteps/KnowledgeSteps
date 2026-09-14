@@ -33,7 +33,7 @@ class GenerationRecoveryPipelineTest {
     reply(envelope(GRAPH));
     reply(envelope("{\"questions\":["));
     reply(envelope("{\"questions\":[{\"nodeId\":\"99\",\"questionText\":\"错误映射\"}]}"));
-    reply(envelope("{\"questions\":[{\"nodeId\":\"11\",\"questionText\":\"你了解向量吗？\",\"hint\":\"\"}]}"));
+    reply(envelope("{\"questions\":[{\"nodeId\":\"11\",\"questionText\":\"你了解向量吗？\",\"hint\":\"用途\",\"heardOfCheck\":{\"statement\":\"向量有方向\",\"expected\":true,\"explanation\":\"向量包含方向信息\"},\"basicallyKnowCheck\":{\"statement\":\"向量只能表示位置\",\"expected\":false,\"explanation\":\"向量还可表示位移等\"},\"veryFamiliarCheck\":{\"statement\":\"向量空间具有封闭性\",\"expected\":true,\"explanation\":\"线性组合仍在空间内\"}}]}"));
     pipeline.run(42L, "矩阵");
     verify(store, times(1)).saveGraph(eq(42L), eq("矩阵"), any());
     verify(store, times(1)).generatingQuestions(42L);

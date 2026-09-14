@@ -62,6 +62,11 @@ final class GeneratedJsonSupport {
     JsonNode value=object.get(key);
     return value!=null && value.isIntegralNumber() ? value.asText() : requiredText(object,key);
   }
+  static boolean bool(ObjectNode object,String key) {
+    JsonNode value=object.get(key);
+    if(value==null || !value.isBoolean()) throw invalid("BOOLEAN_REQUIRED_"+key);
+    return value.booleanValue();
+  }
   private static ModelGenerationException invalid(String detail) { return new ModelGenerationException("MODEL_JSON_PARSE_ERROR",detail); }
   private GeneratedJsonSupport() {}
 }

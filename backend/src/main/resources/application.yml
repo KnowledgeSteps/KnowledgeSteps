@@ -48,6 +48,9 @@ auth:
     app-key: ${ZHIHU_OAUTH_APP_KEY:}
     redirect-uri: ${ZHIHU_OAUTH_REDIRECT_URI:}
 
+model:
+  recommendation-model: ${RECOMMENDATION_MODEL:gemini-3.1-flash-lite}
+
 app:
   generation:
     workers: ${GENERATION_WORKERS:4}

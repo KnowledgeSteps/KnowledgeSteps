@@ -13,14 +13,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @Service
 public class ReadingService {
-  public record Overview(String contentMarkdown, String generatedAt, boolean saved) {}
+  public record Overview(String contentMarkdown, String generatedAt, boolean saved, String familiarity) {}
   public record KnowledgeCard(String nodeId, String sessionId, String nodeName, String description,
-      String contentMarkdown, String generatedAt, String savedAt, String sessionTarget, boolean understood) {}
+      String contentMarkdown, String generatedAt, String savedAt, String sessionTarget, boolean understood, String familiarity) {}
   public record KnowledgeCards(List<KnowledgeCard> items, long total, int page, int pageSize) {}
   public record Explanation(String id, String sessionId, String nodeId, String nodeName, String quote,
       String explanationMarkdown, String sourceTitle, String sourceUrl, String createdAt, boolean understood, boolean saved, String sessionTarget) {}
   public record Doubts(List<Explanation> items, long total, int page, int pageSize) {}
-  private record Node(long id, long sessionId, String name, String description, String target) {}
+  private record Node(long id, long sessionId, String name, String description, String target, String familiarity) {}
   private record Source(Long resourceId, String title, String url, String context) {}
   private final JdbcTemplate jdbc;
   private final TransactionTemplate tx;
@@ -31,24 +31,30 @@ public class ReadingService {
   }
   public Overview overview(long user, String sessionId, String nodeId) {
     Node node = ownedNode(user, sessionId, nodeId);
-    Overview existing = cached(node.id());
+    Overview existing = cached(node.id(), node.familiarity());
     if (existing != null) return existing;
     return admission.execute(user, () -> {
-      Overview cached = cached(node.id());
+      Overview cached = cached(node.id(), node.familiarity());
       if (cached != null) return cached;
-      String generated = model.overview(node.target(), node.name(), node.description());
+      String generated = model.overview(node.target(), node.name(), node.description(), node.familiarity());
       return tx.execute(status -> {
         lockSession(user, node.sessionId());
         ownedNode(user, sessionId, nodeId);
-        jdbc.update("INSERT OR IGNORE INTO node_overviews(node_id,content_markdown,generated_at) VALUES (?,?,?)",
-            node.id(), generated, Instant.now().toString());
-        return cached(node.id());
+        jdbc.update("INSERT INTO node_overviews(node_id,content_markdown,generated_at,familiarity_level) VALUES (?,?,?,?) "
+                + "ON CONFLICT(node_id) DO UPDATE SET content_markdown=excluded.content_markdown,generated_at=excluded.generated_at,familiarity_level=excluded.familiarity_level",
+            node.id(), generated, Instant.now().toString(), node.familiarity());
+        return cached(node.id(), node.familiarity());
       });
     });
   }
+  private Overview cached(long node, String familiarity) {
+    var rows = jdbc.query("SELECT content_markdown,generated_at,EXISTS(SELECT 1 FROM knowledge_card_favorites f WHERE f.node_id=o.node_id) FROM node_overviews o WHERE node_id=? AND familiarity_level=?",
+        (rs, row) -> new Overview(rs.getString(1), rs.getString(2), rs.getBoolean(3), familiarity), node, familiarity);
+    return rows.isEmpty() ? null : rows.getFirst();
+  }
   private Overview cached(long node) {
-    var rows = jdbc.query("SELECT content_markdown,generated_at,EXISTS(SELECT 1 FROM knowledge_card_favorites f WHERE f.node_id=o.node_id) FROM node_overviews o WHERE node_id=?",
-        (rs, row) -> new Overview(rs.getString(1), rs.getString(2), rs.getBoolean(3)), node);
+    var rows = jdbc.query("SELECT content_markdown,generated_at,EXISTS(SELECT 1 FROM knowledge_card_favorites f WHERE f.node_id=o.node_id),familiarity_level FROM node_overviews o WHERE node_id=?",
+        (rs, row) -> new Overview(rs.getString(1), rs.getString(2), rs.getBoolean(3), rs.getString(4)), node);
     return rows.isEmpty() ? null : rows.getFirst();
   }
   public Explanation explain(long user, String sessionId, String nodeId, String resourceId, String quote, String context) {
@@ -131,8 +137,8 @@ public class ReadingService {
   }
   private Node ownedNode(long user,String sessionId,String nodeId) {
     long session = positiveId(sessionId), node = positiveId(nodeId);
-    var rows = jdbc.query("SELECT n.id,n.session_id,n.name,n.description,s.target_name FROM knowledge_nodes n JOIN learning_sessions s ON s.id=n.session_id WHERE s.user_id=? AND s.id=? AND n.id=?",
-        (rs,row) -> new Node(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getString(4),rs.getString(5)),user,session,node);
+    var rows = jdbc.query("SELECT n.id,n.session_id,n.name,n.description,s.target_name,CASE WHEN n.is_target=1 THEN 'TARGET' ELSE COALESCE((SELECT a.answer_value FROM assessment_questions q JOIN assessment_answers a ON a.question_id=q.id WHERE q.node_id=n.id LIMIT 1),'DONT_KNOW') END familiarity FROM knowledge_nodes n JOIN learning_sessions s ON s.id=n.session_id WHERE s.user_id=? AND s.id=? AND n.id=?",
+        (rs,row) -> new Node(rs.getLong(1),rs.getLong(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6)),user,session,node);
     if (rows.isEmpty()) throw missing();
     return rows.getFirst();
   }
@@ -186,8 +192,8 @@ public class ReadingService {
   public KnowledgeCards cards(long user, int page) {
     if(page < 1 || page > 10000) throw invalid("页码不正确。");
     long count = jdbc.queryForObject("SELECT count(*) FROM knowledge_card_favorites WHERE user_id=?",Long.class,user);
-    var items = jdbc.query("SELECT n.id,n.session_id,n.name,n.description,o.content_markdown,o.generated_at,f.saved_at,s.target_name,f.understood FROM knowledge_card_favorites f JOIN knowledge_nodes n ON n.id=f.node_id JOIN learning_sessions s ON s.id=n.session_id JOIN node_overviews o ON o.node_id=n.id WHERE f.user_id=? AND s.user_id=? ORDER BY f.saved_at DESC,n.id DESC LIMIT 20 OFFSET ?",
-        (rs,row)->new KnowledgeCard(rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7),rs.getString(8),rs.getInt(9)==1),user,user,(page-1)*20);
+    var items = jdbc.query("SELECT n.id,n.session_id,n.name,n.description,o.content_markdown,o.generated_at,f.saved_at,s.target_name,f.understood,o.familiarity_level FROM knowledge_card_favorites f JOIN knowledge_nodes n ON n.id=f.node_id JOIN learning_sessions s ON s.id=n.session_id JOIN node_overviews o ON o.node_id=n.id WHERE f.user_id=? AND s.user_id=? ORDER BY f.saved_at DESC,n.id DESC LIMIT 20 OFFSET ?",
+        (rs,row)->new KnowledgeCard(rs.getString(1),rs.getString(2),rs.getString(3),rs.getString(4),rs.getString(5),rs.getString(6),rs.getString(7),rs.getString(8),rs.getInt(9)==1,rs.getString(10)),user,user,(page-1)*20);
     return new KnowledgeCards(items,count,page,20);
   }
   public void removeCard(long user, String nodeId) {

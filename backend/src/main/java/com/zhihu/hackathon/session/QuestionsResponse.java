@@ -1,6 +1,7 @@
 package com.zhihu.hackathon.session;
 
 import java.util.List;
+import java.util.Map;
 
 public record QuestionsResponse(List<QuestionItem> questions) {
 
@@ -11,8 +12,11 @@ public record QuestionsResponse(List<QuestionItem> questions) {
             String questionText,
             String hint,
             List<Option> options,
+            Map<String, ConceptCheckItem> checks,
             String answer
     ) {}
+
+    public record ConceptCheckItem(String statement, boolean expected, String explanation) {}
 
     public record Option(String value, String label) {}
 

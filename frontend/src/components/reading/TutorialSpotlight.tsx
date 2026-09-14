@@ -74,8 +74,8 @@ export function TutorialSpotlight({ step, homeEntered, savedDoubt, understood, f
         } else if (detail && step === 4) {
           introduce('saved-card', '.doubt-detail-modal .reading-markdown', '阅读收藏的知识卡片', '收藏保存了这个知识点的完整讲解，方便随时复习。可以上下滚动阅读，看完点击“下一步”。')
         } else if (drawer && step === 1) {
-          if (!introduce('node-card', '.reading-overview .reading-markdown', '认识知识点卡片', '卡片介绍这个知识点是什么、为什么需要它，以及它与学习目标的关系。先阅读讲解，再点击“下一步”了解相关资料。')) {
-            introduce('resources', '.reading-resources', '认识相关资料', '这里列出这个知识点的学习资料。平时点击资料可以阅读内容，有知乎原文入口时也可以前往原文。看完点击“下一步”，再关闭侧栏。')
+          if (!introduce('node-card', '.reading-overview .reading-markdown', '认识知识点卡片', '知识卡片会根据你选择的熟练度调整讲解深度，为你生成独一无二的学习内容。先阅读讲解，再点击“下一步”了解相关资料。')) {
+            introduce('resources', '.reading-resources', '认识相关资料', '这里列出这个知识点的知乎学习资料。AI 会根据每篇文章的标题，为你生成一条不超过十个字的推荐理由，帮助你快速判断为什么值得阅读。看完点击“下一步”，再关闭侧栏。')
           }
         }
       }

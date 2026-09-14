@@ -12,9 +12,16 @@ public final class QuestionJsonValidator {
     for (var item:GeneratedJsonSupport.array(root,"questions")) {
       var question=GeneratedJsonSupport.object(item);
       questions.add(new Question(GeneratedJsonSupport.id(question,"nodeId"),
-          GeneratedJsonSupport.requiredText(question,"questionText"),GeneratedJsonSupport.text(question,"hint")));
+          GeneratedJsonSupport.requiredText(question,"questionText"),GeneratedJsonSupport.text(question,"hint"),
+          check(question,"heardOfCheck"),check(question,"basicallyKnowCheck"),check(question,"veryFamiliarCheck")));
     }
     try { return new GraphValidator().validateQuestions(nodes,questions); }
     catch (IllegalArgumentException ex) { throw new ModelGenerationException("QUESTION_VALIDATION_FAILED",ex.getMessage()); }
+  }
+  private ConceptCheck check(com.fasterxml.jackson.databind.node.ObjectNode question,String key) {
+    var value=question.get(key);
+    var check=GeneratedJsonSupport.object(value);
+    return new ConceptCheck(GeneratedJsonSupport.requiredText(check,"statement"),
+        GeneratedJsonSupport.bool(check,"expected"),GeneratedJsonSupport.requiredText(check,"explanation"));
   }
 }

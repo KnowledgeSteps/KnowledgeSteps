@@ -171,6 +171,11 @@ function createQuestions(nodes: StoredNode[]): StoredQuestion[] {
         node.questionText ?? `你了解「${node.name}」吗？`,
       hint: node.reason,
       options,
+      checks: {
+        HEARD_OF: { statement: `“${node.name}”表示一个有明确含义的知识概念。`, expected: true, explanation: `这道题只确认你是否认识“${node.name}”的基本含义。` },
+        BASICALLY_KNOW: { statement: node.reason, expected: true, explanation: node.reason },
+        VERY_FAMILIAR: { statement: `${node.name}的适用范围和限制与它的核心含义无关。`, expected: false, explanation: `深入理解${node.name}时，也需要知道它的适用范围和限制。` },
+      },
       answer: null,
     })
   }

@@ -3,12 +3,12 @@ import { apiJson, apiVoid } from './http'
 import { ApiError, type CurrentUser } from './types'
 import { booleanValue, nullableString, numberValue, objectValue, stringValue } from './validators'
 
-export interface NodeOverview { contentMarkdown: string; generatedAt: string; saved: boolean }
-export interface KnowledgeCardItem { understood?: boolean; sessionTarget?: string; nodeId: string; sessionId: string; nodeName: string; description: string; contentMarkdown: string; generatedAt: string; savedAt: string }
+export interface NodeOverview { contentMarkdown: string; generatedAt: string; saved: boolean; familiarity?: string }
+export interface KnowledgeCardItem { understood?: boolean; familiarity?: string; sessionTarget?: string; nodeId: string; sessionId: string; nodeName: string; description: string; contentMarkdown: string; generatedAt: string; savedAt: string }
 export interface KnowledgeCardPage { items: KnowledgeCardItem[]; total: number; page: number; pageSize: number }
 function parseOverview(value: unknown): NodeOverview {
   const v = objectValue(value)
-  return { contentMarkdown: stringValue(v.contentMarkdown), generatedAt: stringValue(v.generatedAt), saved: v.saved === undefined ? false : booleanValue(v.saved) }
+  return { contentMarkdown: stringValue(v.contentMarkdown), generatedAt: stringValue(v.generatedAt), saved: v.saved === undefined ? false : booleanValue(v.saved), familiarity: v.familiarity == null ? undefined : stringValue(v.familiarity) }
 }
 export interface Explanation {
   id: string; sessionId: string; nodeId: string; nodeName: string; sessionTarget?: string; quote: string
@@ -95,7 +95,7 @@ export async function getKnowledgeCards(page: number, signal: AbortSignal): Prom
     if (!Array.isArray(v.items)) throw new Error('Invalid items')
     return { total: numberValue(v.total), page: numberValue(v.page), pageSize: numberValue(v.pageSize), items: v.items.map(item => {
       const r = objectValue(item)
-      return { understood: r.understood == null ? false : booleanValue(r.understood), sessionTarget: r.sessionTarget == null ? undefined : stringValue(r.sessionTarget), nodeId: stringValue(r.nodeId), sessionId: stringValue(r.sessionId), nodeName: stringValue(r.nodeName), description: stringValue(r.description), contentMarkdown: stringValue(r.contentMarkdown), generatedAt: stringValue(r.generatedAt), savedAt: stringValue(r.savedAt) }
+      return { understood: r.understood == null ? false : booleanValue(r.understood), familiarity: r.familiarity == null ? undefined : stringValue(r.familiarity), sessionTarget: r.sessionTarget == null ? undefined : stringValue(r.sessionTarget), nodeId: stringValue(r.nodeId), sessionId: stringValue(r.sessionId), nodeName: stringValue(r.nodeName), description: stringValue(r.description), contentMarkdown: stringValue(r.contentMarkdown), generatedAt: stringValue(r.generatedAt), savedAt: stringValue(r.savedAt) }
     }) }
   }))
 }

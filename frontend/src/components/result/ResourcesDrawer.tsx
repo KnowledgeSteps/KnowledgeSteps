@@ -1,6 +1,6 @@
 import '../../design/reading.css'
 import { useEffect, useState } from 'react'
-import { ArrowRightOutlined, ReloadOutlined, LikeOutlined } from '@ant-design/icons'
+import { ArrowRightOutlined, ReloadOutlined, LikeOutlined, BulbOutlined } from '@ant-design/icons'
 import { Button, Drawer, Spin, Tag } from 'antd'
 import type { KnowledgeNode, NodeResources } from '../../api/types'
 import { useReadingServices } from '../reading/ReadingServices'
@@ -67,14 +67,21 @@ function NodeResourcesPanel({ sessionId, node }: { sessionId: string; node: Know
                   return <ReadingCard className="reading-resource-card" key={item.id}>
                     <Button type="text" className="reading-resource-trigger" onClick={() => setReading({
                       kind: 'summary', resourceId: item.id, title, text: item.summary ?? '',
-                      sourceUrl: item.url, authorName: item.authorName, authorUrl: item.authorUrl, contentDate: item.contentDate, voteCount: item.voteCount,
+                      sourceUrl: item.url, authorName: item.authorName, authorUrl: item.authorUrl, contentDate: item.contentDate,
+                      voteCount: item.voteCount, recommendationReason: item.recommendationReason,
                     })} aria-label={`阅读摘要：${title}`}>
                       <span className="reading-resource-top"><span>资料 {index + 1}</span><ArrowRightOutlined /></span>
                       <span className="reading-resource-title">{title}</span><span className="reading-resource-preview">{preview}</span>
-                      <span className="reading-resource-meta"><span>{item.authorName || '作者暂未提供'}</span><span>{item.contentDate || '日期未知'}</span></span>
+                      {item.recommendationReason && <span className="reading-resource-recommendation">
+                        <BulbOutlined aria-hidden="true" /> 推荐理由：{item.recommendationReason}
+                      </span>}
                     </Button>
                     <div className="reading-resource-footer">
-                      {item.voteCount != null && <span className="reading-votes"><LikeOutlined /> {item.voteCount.toLocaleString()} 赞同</span>}
+                      <span className="reading-resource-meta">
+                        <span>{item.authorName || '作者暂未提供'}</span>
+                        <span className="reading-votes"><LikeOutlined /> {item.voteCount == null ? '赞同数未知' : `${item.voteCount.toLocaleString()} 赞同`}</span>
+                        <time dateTime={item.contentDate ?? undefined}>{item.contentDate || '日期未知'}</time>
+                      </span>
                       <OriginalArticleButton url={item.url} />
                     </div>
                   </ReadingCard>
