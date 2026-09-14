@@ -1,4 +1,5 @@
 import { CollectionFilters } from '../components/reading/CollectionFilters'
+import { renderContentModalCard } from '../components/ui/ContentModalCard'
 import { emptyCollectionFilter, filterCollection } from '../components/reading/collectionFilter'
 import { useState } from 'react'
 import { Alert, Button, Empty, Modal, Pagination, Skeleton, Tag } from 'antd'
@@ -74,7 +75,7 @@ function CardsContent({ onReturn, onCardOpened }: CardsPageProps) {
       </div></div></div>
     </article>)}</div>
     {data && filtered.length > 20 && <Pagination current={currentPage} total={filtered.length} pageSize={20} showSizeChanger={false} onChange={setPage} />}
-    <Modal open={!!selected} title="查看知识卡片" width={840} footer={null} className="doubt-detail-modal" onCancel={() => !busy && setSelected(null)}>
+    <Modal open={!!selected} title="查看知识卡片" width={840} footer={null} className="doubt-detail-modal" onCancel={() => !busy && setSelected(null)} modalRender={renderContentModalCard}>
       {failure && !removing && <Alert type="error" title={failure} />}
       {selected && <><header className="doubt-detail-heading"><p>所属寻路：{selected.sessionTarget || '所属寻路'}</p><h2>{selected.nodeName}</h2>
         <div className="between"><div className="knowledge-detail-actions"><Button loading={busy} onClick={() => void changeStatus(selected)}>{selected.understood ? '改为待理解' : '标记已理解'}</Button><Button disabled={busy} onClick={() => { setFailure(null); setRemoving(selected) }}>取消收藏</Button><Button onClick={() => navigate(`/sessions/${selected.sessionId}/result`)}>回到这次寻路</Button></div><time dateTime={selected.savedAt}>{new Date(selected.savedAt).toLocaleDateString('zh-CN')}</time></div>

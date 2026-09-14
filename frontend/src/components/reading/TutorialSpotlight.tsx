@@ -35,7 +35,7 @@ export function TutorialSpotlight({ step, homeEntered, savedDoubt, understood, f
         else if (button('保存到疑惑本', '.reading-modal')) set(button('保存到疑惑本', '.reading-modal'), '留下这条疑惑', '点击“保存到疑惑本”，将原句和示例解释一起留下。')
         else set(visible('.reading-modal .reading-explain-controls'), '看看这句话的解释', '确认上方句子后，点击“解释这段话”。教程展示预先准备的解释。')
         const input = visible('#reading-quote-input') as HTMLTextAreaElement | null
-        if (!savedDoubt && input && !input.value.trim()) set(input, '输入不理解的句子', '粘贴这句：相邻文本块保留少量重叠，可以减少边界处的信息丢失。然后点击解释。')
+        if (!savedDoubt && input && !input.value.trim()) set(input, '输入不理解的句子', '粘贴这句：向量相加时，对应位置的坐标分别相加。然后点击解释。')
       } else if (detail) {
         if (step === 3) set(understood ? visible('.doubt-detail-modal .ant-modal-close') : button('标记已理解', '.doubt-detail-modal'), understood ? '已经标记完成' : '确认你已经理解', understood ? '关闭弹窗，继续体验知识卡片。' : '阅读解释后，点击“标记已理解”。')
         else set(visible('.doubt-detail-modal .ant-modal-close'), '随时回看收藏', '这里可以阅读完整知识点卡片。关闭弹窗后完成教程。')
@@ -44,23 +44,23 @@ export function TutorialSpotlight({ step, homeEntered, savedDoubt, understood, f
         else if ((step === 2 && savedDoubt) || (step === 4 && favorite)) set(visible('.reading-drawer .ant-drawer-close'), '操作已保存', '关闭侧栏，到对应的列表中回看。')
         else if (step === 4) set(visible('.reading-overview .favorite-card-button'), '收藏这张知识卡片', '点击“收藏卡片”，以后可以从知识卡片页再次阅读。')
         else {
-          const paragraph = [...document.querySelectorAll<HTMLElement>('.reading-overview .reading-selectable p')].find(el => el.textContent?.includes('相邻文本块保留少量重叠'))
+          const paragraph = [...document.querySelectorAll<HTMLElement>('.reading-overview .reading-selectable p')].find(el => el.textContent?.includes('向量相加时'))
           const selection = visible('.reading-selection-actions')
           if (selection) set(selection, '这段看不懂？', '点击这个选项，打开句子解释。')
           else set(paragraph ?? visible('.reading-overview-footer'), '选中这句不懂的话', '用鼠标拖选高亮句子，手机可长按选字。选中后点击“这段看不懂？”。')
         }
       } else if (step === 0 && !homeEntered) {
         const input = visible('#learning-goal') as HTMLInputElement | null
-        const valid = input?.value.trim().toUpperCase() === 'RAG'
-        set(valid ? visible('.goal-form button') : visible('.goal-form'), valid ? '开始这次示例寻路' : '先告诉知阶你想学什么', valid ? '点击“开始寻路”，接下来了解你的基础。' : '在“学习目标”中输入 RAG。这里与平时寻路的操作相同。')
+        const valid = input?.value.trim().toUpperCase() === '线性代数'
+        set(valid ? visible('.goal-form button') : visible('.goal-form'), valid ? '开始这次示例寻路' : '先告诉知阶你想学什么', valid ? '点击“开始寻路”，接下来了解你的基础。' : '在“学习目标”中输入 线性代数。这里与平时寻路的操作相同。')
       } else if (step === 0) {
         const result = button('查看结果')
-        set(result ?? visible('.question-panel'), result ? '自评完成' : '选择你的熟悉程度', result ? '点击“查看结果”，看看 RAG 的前置知识图谱。' : '根据自己的情况点击一个选项，选完会进入下一题。')
+        set(result ?? visible('.question-panel'), result ? '自评完成' : '选择你的熟悉程度', result ? '点击“查看结果”，看看 线性代数 的前置知识图谱。' : '根据自己的情况点击一个选项，选完会进入下一题。')
       } else if (step === 1) {
-        set(graphVisited ? button('继续体验划词解释') : visible('[aria-label="文本分块，查看 1 条资料"]'), graphVisited ? '继续体验阅读' : '打开一个知识点', graphVisited ? '点击这里，体验选句解释和保存疑惑。' : '点击“文本分块”节点，查看知识点卡片和资料。')
-      } else if (step === 2) set(savedDoubt ? button('进入疑惑本') : visible('[aria-label="文本分块，查看 1 条资料"]'), savedDoubt ? '去疑惑本回看' : '打开文本分块', savedDoubt ? '点击进入疑惑本，找到刚保存的句子。' : '点击节点，然后在知识点卡片中选中不理解的句子。')
+        set(graphVisited ? button('继续体验划词解释') : visible('[aria-label="向量与坐标，查看 1 条资料"]'), graphVisited ? '继续体验阅读' : '打开一个知识点', graphVisited ? '点击这里，体验选句解释和保存疑惑。' : '点击“向量与坐标”节点，查看知识点卡片和资料。')
+      } else if (step === 2) set(savedDoubt ? button('进入疑惑本') : visible('[aria-label="向量与坐标，查看 1 条资料"]'), savedDoubt ? '去疑惑本回看' : '打开向量与坐标', savedDoubt ? '点击进入疑惑本，找到刚保存的句子。' : '点击节点，然后在知识点卡片中选中不理解的句子。')
       else if (step === 3) set(understood ? button('继续体验收藏卡片') : button('查看理解'), understood ? '接下来收藏知识' : '回看你的疑惑', understood ? '点击这里进入最后一步。' : '点击“查看理解”，阅读保存的解释并标记已理解。')
-      else if (step === 4) set(collection ? button(cardViewed ? '完成教程' : '查看卡片') : favorite ? button('进入知识卡片') : visible('[aria-label="文本分块，查看 1 条资料"]'), collection ? (cardViewed ? '完成这次体验' : '打开刚收藏的卡片') : favorite ? '去知识卡片回看' : '收藏值得记住的知识', collection ? (cardViewed ? '你已经回看了收藏，点击完成教程。' : '点击“查看卡片”，阅读刚才收藏的知识点。') : favorite ? '点击进入知识卡片，查看刚才的收藏。' : '点击“文本分块”，再点击卡片右上角的收藏按钮。')
+      else if (step === 4) set(collection ? button(cardViewed ? '完成教程' : '查看卡片') : favorite ? button('进入知识卡片') : visible('[aria-label="向量与坐标，查看 1 条资料"]'), collection ? (cardViewed ? '完成这次体验' : '打开刚收藏的卡片') : favorite ? '去知识卡片回看' : '收藏值得记住的知识', collection ? (cardViewed ? '你已经回看了收藏，点击完成教程。' : '点击“查看卡片”，阅读刚才收藏的知识点。') : favorite ? '点击进入知识卡片，查看刚才的收藏。' : '点击“向量与坐标”，再点击卡片右上角的收藏按钮。')
       const introduce = (key: string, selector: string, title: string, description: string) => {
         const element = visible(selector)
         if (!introduced.includes(key) && element) { next = { element, title, description, introduction: key }; return true }
