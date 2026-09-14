@@ -20,6 +20,7 @@ export interface ReadingSource {
   authorUrl?: string | null
   voteCount?: number | null
   contentDate?: string | null
+  recommendationReason?: string | null
 }
 
 export function ReadingModal({ sessionId, nodeId, nodeName, source, initialQuote, onClose }: {
@@ -107,11 +108,15 @@ export function ReadingModal({ sessionId, nodeId, nodeName, source, initialQuote
       {view === 'reader' ? <>
         <div className="reading-source-heading">{source.kind === 'overview' && <Tag>{demo ? '教程示例讲解' : 'AI 讲解'}</Tag>}
           <h2>{source.title}</h2>
+          {source.recommendationReason && <div className="reading-source-recommendation">
+            <BulbOutlined aria-hidden="true" /> 推荐理由：{source.recommendationReason}
+          </div>}
           <div className="reading-source-meta"><span>{authorUrl && source.authorName
             ? <Typography.Link href={authorUrl} target="_blank" rel="noopener noreferrer">{source.authorName}</Typography.Link>
             : source.authorName || (source.kind === 'overview' ? '知阶 AI' : '作者暂未提供')}</span>
+            {source.kind === 'summary' && <span className="reading-votes"><LikeOutlined />
+              {source.voteCount == null ? '赞同数未知' : `${source.voteCount.toLocaleString()} 赞同`}</span>}
             {source.contentDate && <span className="reading-source-date">发布／更新：<time dateTime={source.contentDate}>{source.contentDate}</time></span>}</div>
-          {source.voteCount != null && <div className="reading-votes"><LikeOutlined /> {source.voteCount.toLocaleString()} 赞同</div>}
           <OriginalArticleButton url={source.sourceUrl} />
         </div>
         <div className="reading-prose">

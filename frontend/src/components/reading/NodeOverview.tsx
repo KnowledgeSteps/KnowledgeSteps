@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { BulbOutlined, ReloadOutlined } from '@ant-design/icons'
-import { Button, Spin } from 'antd'
+import { Button, Space, Spin, Tag } from 'antd'
 import { useReadingServices } from './ReadingServices'
 import { FavoriteCardButton } from './FavoriteCardButton'
 import { ApiError } from '../../api/types'
@@ -14,6 +14,7 @@ export function NodeOverview({ sessionId, node }: { sessionId: string; node: Kno
   const { getNodeOverview, removeKnowledgeCard, saveKnowledgeCard, demo } = useReadingServices()
   const [content, setContent] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  const [familiarity, setFamiliarity] = useState<string | undefined>()
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const active = useRef(false)
@@ -26,7 +27,7 @@ export function NodeOverview({ sessionId, node }: { sessionId: string; node: Kno
     active.current = true
     const abort = new AbortController()
     getNodeOverview(sessionId, node.id, abort.signal)
-      .then(result => { if (!abort.signal.aborted) { setContent(result.contentMarkdown); setSaved(result.saved) } })
+      .then(result => { if (!abort.signal.aborted) { setContent(result.contentMarkdown); setSaved(result.saved); setFamiliarity(result.familiarity) } })
       .catch(reason => { if (!abort.signal.aborted) setError(reason instanceof ApiError ? reason.message : '讲解生成暂时失败，请重试。') })
       .finally(() => { if (!abort.signal.aborted) setLoading(false) })
     return () => { active.current = false; abort.abort() }
@@ -48,7 +49,7 @@ export function NodeOverview({ sessionId, node }: { sessionId: string; node: Kno
   }
   return <ReadingCard className="reading-overview">
     <div className="reading-section-heading reading-overview-heading"><h3>知识点卡片</h3>
-      <FavoriteCardButton saved={saved} loading={saving} disabled={loading || !content} onClick={() => void favorite()} /></div>
+      <Space wrap><Tag color="blue">熟练度：{familiarityName(familiarity ?? node.answer ?? (node.isTarget ? 'TARGET' : undefined))}</Tag><FavoriteCardButton saved={saved} loading={saving} disabled={loading || !content} onClick={() => void favorite()} /></Space></div>
     {saveError && <p className="reading-error" role="alert">{saveError}</p>}
     {loading ? <div className="reading-loading" role="status"><Spin /><span>正在整理通俗讲解，生成后会自动保存…</span></div>
       : error ? <div className="reading-state"><p role="alert">{error}</p><Button icon={<ReloadOutlined />} onClick={() => {
@@ -63,4 +64,8 @@ export function NodeOverview({ sessionId, node }: { sessionId: string; node: Kno
       source={{ kind: 'overview', title: `${node.name} · 知识点卡片`, text: content }} initialQuote={quote}
       onClose={() => setQuote(null)} />}
   </ReadingCard>
+}
+
+function familiarityName(value?: string) {
+  return ({ VERY_FAMILIAR: '非常了解', BASICALLY_KNOW: '基本了解', HEARD_OF: '听说过', DONT_KNOW: '不了解', TARGET: '学习目标' } as Record<string, string>)[value ?? ''] ?? '未自评'
 }

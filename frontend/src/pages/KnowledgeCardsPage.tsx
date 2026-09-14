@@ -68,7 +68,7 @@ function CardsContent({ onReturn, onCardOpened }: CardsPageProps) {
       <div className="ticket"><div className="t-main"><div className="t-grid" aria-hidden="true" /><div className="t-content">
         <div className="t-header"><div className="t-logo"><CompassOutlined /><span title={item.sessionTarget}>{item.sessionTarget || '所属寻路'}</span></div>
           <Button className="history-delete" danger disabled={busy} aria-label={`取消收藏：${item.nodeName}`} onClick={() => { setFailure(null); setRemoving(item) }}><span className="delete-text">取消</span><span className="delete-icon" aria-hidden="true"><DeleteOutlined /></span></Button></div>
-        <h2 className="t-title">{item.nodeName}</h2><Tag className="t-status" color={item.understood ? 'blue' : undefined}>{item.understood ? '已理解' : '待理解'}</Tag>
+        <h2 className="t-title">{item.nodeName}</h2><Tag className="t-status" color={item.understood ? 'blue' : undefined}>{item.understood ? '已理解' : '待理解'}</Tag><Tag color="blue">熟练度：{familiarityName(item.familiarity)}</Tag>
         <p className="t-description" title={item.description}>{item.description}</p>
         <time className="t-date" dateTime={item.savedAt}>{new Date(item.savedAt).toLocaleDateString('zh-CN')}</time>
         <Button className="history-enter" data-text="查看卡片" aria-label="查看卡片" onClick={() => { setSelected(item); onCardOpened?.() }}><span className="history-enter-text">查看卡片</span></Button>
@@ -77,7 +77,7 @@ function CardsContent({ onReturn, onCardOpened }: CardsPageProps) {
     {data && filtered.length > 20 && <Pagination current={currentPage} total={filtered.length} pageSize={20} showSizeChanger={false} onChange={setPage} />}
     <Modal open={!!selected} title="查看知识卡片" width={840} footer={null} className="doubt-detail-modal" onCancel={() => !busy && setSelected(null)} modalRender={renderContentModalCard}>
       {failure && !removing && <Alert type="error" title={failure} />}
-      {selected && <><header className="doubt-detail-heading"><p>所属寻路：{selected.sessionTarget || '所属寻路'}</p><h2>{selected.nodeName}</h2>
+      {selected && <><header className="doubt-detail-heading"><p>所属寻路：{selected.sessionTarget || '所属寻路'}</p><h2>{selected.nodeName}</h2><Tag color="blue">熟练度：{familiarityName(selected.familiarity)}</Tag>
         <div className="between"><div className="knowledge-detail-actions"><Button loading={busy} onClick={() => void changeStatus(selected)}>{selected.understood ? '改为待理解' : '标记已理解'}</Button><Button disabled={busy} onClick={() => { setFailure(null); setRemoving(selected) }}>取消收藏</Button><Button onClick={() => navigate(`/sessions/${selected.sessionId}/result`)}>回到这次寻路</Button></div><time dateTime={selected.savedAt}>{new Date(selected.savedAt).toLocaleDateString('zh-CN')}</time></div>
       </header><MarkdownContent text={selected.contentMarkdown} /></>}
     </Modal>
@@ -85,4 +85,7 @@ function CardsContent({ onReturn, onCardOpened }: CardsPageProps) {
       <p>原寻路及知识点讲解会保留，以后可以重新收藏。</p>{failure && <Alert type="error" title={failure} />}
     </Modal>
   </section>
+}
+function familiarityName(value?: string) {
+  return ({ VERY_FAMILIAR: '非常了解', BASICALLY_KNOW: '基本了解', HEARD_OF: '听说过', DONT_KNOW: '不了解', TARGET: '学习目标' } as Record<string, string>)[value ?? ''] ?? '未自评'
 }

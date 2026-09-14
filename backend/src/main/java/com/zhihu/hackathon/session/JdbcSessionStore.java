@@ -2,6 +2,8 @@ package com.zhihu.hackathon.session;
 
 import java.time.Instant;
 import java.time.Clock;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import org.springframework.beans.factory.annotation.Autowired;
 import java.util.*;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -114,8 +116,8 @@ public class JdbcSessionStore implements SessionStore {
       jdbc.update("DELETE FROM node_resources WHERE node_id=?", nodeId);
       for (int i=0;i<resources.size();i++) {
         Resource r=resources.get(i);
-        jdbc.update("INSERT INTO node_resources(node_id,title,url,summary,author_name,vote_count,sort_order,fetched_at,content_date) VALUES (?,?,?,?,?,?,?,?,?)",
-            nodeId,r.title(),r.url(),r.summary(),r.authorName(),r.voteCount(),i,Instant.now().toString(),r.contentDate());
+        jdbc.update("INSERT INTO node_resources(node_id,title,url,summary,author_name,vote_count,sort_order,fetched_at,content_date,recommendation_reason) VALUES (?,?,?,?,?,?,?,?,?,?)",
+            nodeId,r.title(),r.url(),r.summary(),r.authorName(),r.voteCount(),i,Instant.now().toString(),r.contentDate(),r.recommendationReason());
       }
       jdbc.update("UPDATE knowledge_nodes SET resource_status=? WHERE id=?",failed?"FAILED":resources.isEmpty()?"EMPTY":"READY",nodeId);
     });
@@ -148,7 +150,16 @@ public class JdbcSessionStore implements SessionStore {
       requireExistingSession(id);
       for(int i=0;i<questions.size();i++) {
         Question q=questions.get(i);
-        jdbc.update("INSERT INTO assessment_questions(node_id,question_text,hint,sort_order) VALUES (?,?,?,?)",Long.parseLong(q.nodeId()),q.questionText(),q.hint(),i);
+        jdbc.update("""
+            INSERT INTO assessment_questions(node_id,question_text,hint,sort_order,
+              heard_check_text,heard_check_expected,heard_check_explanation,
+              basic_check_text,basic_check_expected,basic_check_explanation,
+              familiar_check_text,familiar_check_expected,familiar_check_explanation)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """,Long.parseLong(q.nodeId()),q.questionText(),q.hint(),i,
+            text(q.heardOfCheck()),expected(q.heardOfCheck()),explanation(q.heardOfCheck()),
+            text(q.basicallyKnowCheck()),expected(q.basicallyKnowCheck()),explanation(q.basicallyKnowCheck()),
+            text(q.veryFamiliarCheck()),expected(q.veryFamiliarCheck()),explanation(q.veryFamiliarCheck()));
       }
       status(id,"READY");
     });
@@ -188,6 +199,9 @@ public class JdbcSessionStore implements SessionStore {
           n.name AS node_name,
           q.question_text,
           q.hint,
+          q.heard_check_text, q.heard_check_expected, q.heard_check_explanation,
+          q.basic_check_text, q.basic_check_expected, q.basic_check_explanation,
+          q.familiar_check_text, q.familiar_check_expected, q.familiar_check_explanation,
           a.answer_value
         FROM assessment_questions q
         JOIN knowledge_nodes n ON n.id = q.node_id
@@ -203,6 +217,7 @@ public class JdbcSessionStore implements SessionStore {
                       rs.getString("question_text"),
                       rs.getString("hint"),
                       QuestionsResponse.FIXED_OPTIONS,
+                      checks(rs),
                       rs.getString("answer_value")
               ),
               sessionId
@@ -210,6 +225,21 @@ public class JdbcSessionStore implements SessionStore {
 
       return new QuestionsResponse(questions);
     });
+  }
+
+  private static String text(ConceptCheck check) { return check == null ? null : check.statement(); }
+  private static Integer expected(ConceptCheck check) { return check == null ? null : check.expected() ? 1 : 0; }
+  private static String explanation(ConceptCheck check) { return check == null ? null : check.explanation(); }
+  private static Map<String,QuestionsResponse.ConceptCheckItem> checks(ResultSet rs) throws SQLException {
+    var result=new LinkedHashMap<String,QuestionsResponse.ConceptCheckItem>();
+    addCheck(result,"HEARD_OF",rs,"heard");
+    addCheck(result,"BASICALLY_KNOW",rs,"basic");
+    addCheck(result,"VERY_FAMILIAR",rs,"familiar");
+    return Map.copyOf(result);
+  }
+  private static void addCheck(Map<String,QuestionsResponse.ConceptCheckItem> result,String answer,ResultSet rs,String prefix) throws SQLException {
+    String statement=rs.getString(prefix+"_check_text");
+    if(statement!=null) result.put(answer,new QuestionsResponse.ConceptCheckItem(statement,rs.getInt(prefix+"_check_expected")==1,rs.getString(prefix+"_check_explanation")));
   }
 
   public AnswerResponse saveAnswerOwned(long userId, long sessionId, long questionId, String answer) {
@@ -322,12 +352,12 @@ public class JdbcSessionStore implements SessionStore {
         return new ResourcesResponse(Long.toString(nodeId), node.name, node.description, "NOT_APPLICABLE", List.of());
       }
       List<ResourcesResponse.ResourceItem> resources = jdbc.query("""
-          SELECT id,title,url,summary,author_name,vote_count,content_date
+          SELECT id,title,url,summary,author_name,vote_count,content_date,recommendation_reason
           FROM node_resources WHERE node_id=? ORDER BY sort_order,id
           """, (rs, row) -> {
             Number voteCount = (Number) rs.getObject(6);
             return new ResourcesResponse.ResourceItem(Long.toString(rs.getLong(1)), rs.getString(2),
-                rs.getString(3), rs.getString(4), rs.getString(5), voteCount == null ? null : voteCount.longValue(),rs.getString(7));
+                rs.getString(3), rs.getString(4), rs.getString(5), voteCount == null ? null : voteCount.longValue(),rs.getString(7),rs.getString(8));
           }, nodeId);
       return new ResourcesResponse(Long.toString(nodeId), node.name, node.description, node.resourceStatus, resources);
     });

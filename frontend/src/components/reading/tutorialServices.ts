@@ -18,7 +18,7 @@ export const tutorialResult: CompletionResult = {
   nodes: definitions.map(([id, name, description, level]) => ({ id, name, description, level, isTarget: id === 'linear-algebra', answer: 'HEARD_OF', resourceLimit: 1, resourceCount: id === 'linear-algebra' ? 0 : 1, resourceStatus: id === 'linear-algebra' ? 'NOT_APPLICABLE' : 'READY' })),
   edges: [['vector', 'combination'], ['arithmetic', 'combination'], ['arithmetic', 'system'], ['equation', 'system'], ['combination', 'linear-algebra'], ['system', 'linear-algebra']].map(([from, to]) => ({ from, to })),
 }
-export const tutorialQuestions: Question[] = tutorialResult.nodes.filter(n => !n.isTarget).map(n => ({ questionId: `tutorial-${n.id}`, nodeId: n.id, nodeName: n.name, questionText: `你了解${n.name}吗？`, hint: n.description, options: ANSWER_OPTIONS, answer: null }))
+export const tutorialQuestions: Question[] = tutorialResult.nodes.filter(n => !n.isTarget).map(n => ({ questionId: `tutorial-${n.id}`, nodeId: n.id, nodeName: n.name, questionText: `你了解${n.name}吗？`, hint: n.description, options: ANSWER_OPTIONS, checks: {}, answer: null }))
 const date = '2026-09-14T00:00:00Z'
 const content = (id: string) => id === 'vector' ? tutorialExample.overview : `## ${tutorialResult.nodes.find(n => n.id === id)?.name}\n\n${tutorialResult.nodes.find(n => n.id === id)?.description}\n\n这是教程预先准备的知识点说明。点击向量与坐标节点，可以继续体验划词解释。`
 export function createTutorialServices(notify: () => void) {
@@ -28,7 +28,7 @@ export function createTutorialServices(notify: () => void) {
   const services: ReadingServices = {
     demo: true,
     getNodeOverview: async (_session, id) => ({ contentMarkdown: content(id), generatedAt: date, saved: favorites.has(id) }),
-    getNodeResources: async (_session, id) => ({ nodeId: id, nodeName: tutorialResult.nodes.find(n => n.id === id)!.name, reason: '', resourceStatus: 'READY', resources: [{ id: `tutorial-resource-${id}`, title: '知阶示例资料 · '+tutorialResult.nodes.find(n => n.id === id)!.name, summary: content(id), url: '', authorName: '知阶教程', contentDate: '2026-09-14', voteCount: null }] }),
+    getNodeResources: async (_session, id) => ({ nodeId: id, nodeName: tutorialResult.nodes.find(n => n.id === id)!.name, reason: '', resourceStatus: 'READY', resources: [{ id: `tutorial-resource-${id}`, title: '知阶示例资料 · '+tutorialResult.nodes.find(n => n.id === id)!.name, summary: content(id), url: '', authorName: '知阶教程', contentDate: '2026-09-14', voteCount: null, recommendationReason: '适合巩固基础' }] }),
     saveKnowledgeCard: async (_session, id) => {
       const node = tutorialResult.nodes.find(n => n.id === id)!
       favorites.set(id, { nodeId: id, nodeName: node.name, sessionId: 'tutorial-linear-algebra', sessionTarget: '线性代数', description: node.description, contentMarkdown: content(id), generatedAt: date, savedAt: date, understood: false })

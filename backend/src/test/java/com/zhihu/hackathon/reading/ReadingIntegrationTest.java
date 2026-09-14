@@ -50,7 +50,7 @@ class ReadingIntegrationTest {
     nodeId=jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=?",Long.class,sessionId);
     jdbc.update("INSERT INTO node_resources(node_id,title,url,summary,sort_order,fetched_at) VALUES (?,'词嵌入原文','https://www.zhihu.com/question/123','将词语映射为连续向量，方便计算。',0,?)",nodeId,Instant.now().toString());
     resourceId=jdbc.queryForObject("SELECT id FROM node_resources WHERE node_id=?",Long.class,nodeId);
-    when(model.overview(anyString(),anyString(),anyString())).thenReturn("## 它是什么\n"+"知识点介绍。".repeat(30));
+    when(model.overview(anyString(),anyString(),anyString(),anyString())).thenReturn("## 它是什么\n"+"知识点介绍。".repeat(30));
     when(model.explain(anyString(),anyString(),anyString(),anyString())).thenReturn("## 通俗解释\n"+"把词语理解为坐标。".repeat(20));
   }
   private String token(MockHttpSession session) throws Exception {
@@ -83,7 +83,7 @@ class ReadingIntegrationTest {
     mvc.perform(delete("/api/v1/knowledge-cards/"+nodeId).session(session).header("X-CSRF-Token",csrf)).andExpect(status().isNoContent());
     assertThat(reading.cards(user,1).total()).isZero();
     assertThat(reading.overview(user,""+sessionId,""+nodeId).saved()).isFalse();
-    verify(model,times(1)).overview(anyString(),anyString(),anyString());
+    verify(model,times(1)).overview(anyString(),anyString(),anyString(),anyString());
   }
   @Test void favoritesRequireAuthCsrfAndExistingOverviewAndCascadeWithHistory() throws Exception {
     String body=json.writeValueAsString(Map.of("sessionId",""+sessionId,"nodeId",""+nodeId));
@@ -108,10 +108,26 @@ class ReadingIntegrationTest {
   @Test void cachesOverviewAndAllowsTargetNodesWithoutResources() throws Exception {
     for(int i=0;i<2;i++) mvc.perform(post(base()+"/overview").session(session).header("X-CSRF-Token",csrf)).andExpect(status().isOk())
         .andExpect(jsonPath("$.contentMarkdown").isString()).andExpect(header().string("Cache-Control","no-store"));
-    verify(model,times(1)).overview("Transformer","词嵌入","将词映射到向量");
+    verify(model,times(1)).overview("Transformer","词嵌入","将词映射到向量","DONT_KNOW");
     jdbc.update("INSERT INTO knowledge_nodes(session_id,name,description,is_target,level,resource_status) VALUES (?,'Transformer','学习目标',1,1,'NOT_APPLICABLE')",sessionId);
     long target=jdbc.queryForObject("SELECT id FROM knowledge_nodes WHERE session_id=? AND is_target=1",Long.class,sessionId);
     mvc.perform(post("/api/v1/learning-sessions/"+sessionId+"/nodes/"+target+"/overview").session(session).header("X-CSRF-Token",csrf)).andExpect(status().isOk());
+  }
+  @Test void regeneratesOverviewWhenTheUsersFamiliarityChanges() {
+    when(model.overview(anyString(),anyString(),anyString(),anyString()))
+        .thenReturn("## 零基础讲解\n"+"详细解释。".repeat(30), "## 熟悉者摘要\n"+"进阶提醒。".repeat(30));
+    assertThat(reading.overview(user,""+sessionId,""+nodeId).contentMarkdown()).contains("零基础讲解");
+    reading.saveCard(user,""+sessionId,""+nodeId);
+    jdbc.update("INSERT INTO assessment_questions(node_id,question_text,sort_order) VALUES (?,'了解吗',0)",nodeId);
+    long question=jdbc.queryForObject("SELECT id FROM assessment_questions WHERE node_id=?",Long.class,nodeId);
+    jdbc.update("INSERT INTO assessment_answers(question_id,answer_value,answered_at) VALUES (?,'VERY_FAMILIAR',?)",question,Instant.now().toString());
+    var regenerated=reading.overview(user,""+sessionId,""+nodeId);
+    assertThat(regenerated.contentMarkdown()).contains("熟悉者摘要");
+    assertThat(regenerated.saved()).isTrue();
+    verify(model).overview("Transformer","词嵌入","将词映射到向量","DONT_KNOW");
+    verify(model).overview("Transformer","词嵌入","将词映射到向量","VERY_FAMILIAR");
+    assertThat(reading.overview(user,""+sessionId,""+nodeId).contentMarkdown()).contains("熟悉者摘要");
+    verifyNoMoreInteractions(model);
   }
   @Test void sourceComesFromOwnedResourceAndOnlyExplicitSaveAddsToDoubts() throws Exception {
     String id=explain();
@@ -166,7 +182,7 @@ class ReadingIntegrationTest {
     assertThat(jdbc.queryForList("PRAGMA foreign_key_check")).isEmpty();
   }
   @Test void deletedDuringModelCallCannotCreateOrphanData() {
-    when(model.overview(anyString(),anyString(),anyString())).thenAnswer(call->{deletion.deleteOwned(user,sessionId,()->{});return "正常讲解";});
+    when(model.overview(anyString(),anyString(),anyString(),anyString())).thenAnswer(call->{deletion.deleteOwned(user,sessionId,()->{});return "正常讲解";});
     assertThatThrownBy(()->reading.overview(user,Long.toString(sessionId),Long.toString(nodeId))).isInstanceOf(com.zhihu.hackathon.session.SessionException.class);
     assertThat(jdbc.queryForObject("SELECT count(*) FROM node_overviews WHERE node_id=?",Integer.class,nodeId)).isZero();
   }

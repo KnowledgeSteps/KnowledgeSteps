@@ -86,6 +86,43 @@
   .quiz-directory-overlay .ant-drawer-content-wrapper { animation: none !important; transition: none !important; }
 }
 
+.concept-check-panel .concept-check-context { margin: 18px 0 8px; color: var(--text-sub); }
+.concept-check-answers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 28px 0 20px; }
+.concept-check-answers .ant-btn { position: relative; min-height: 56px; overflow: visible; font-weight: 600; }
+.concept-check-answers .ant-btn.selected { color: var(--primary); border-color: var(--primary); background: var(--bg-subtle); }
+.concept-check-panel .ant-alert { margin-top: 18px; }
+.concept-check-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.concept-success-stars { position: absolute; inset: 0; pointer-events: none; }
+.concept-star {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  color: var(--primary);
+  filter: drop-shadow(0 0 4px var(--blue-light));
+  opacity: 0;
+  z-index: 2;
+}
+.concept-star svg { display: block; width: 100%; height: auto; fill: currentColor; }
+.concept-answer-correct .concept-star { animation: concept-star-burst 700ms cubic-bezier(0.05, 0.83, 0.43, 0.96) both; }
+.concept-answer-correct .concept-star-1 { --star-x: -52px; --star-y: -38px; width: 20px; }
+.concept-answer-correct .concept-star-2 { --star-x: -20px; --star-y: -46px; width: 13px; animation-delay: 40ms; }
+.concept-answer-correct .concept-star-3 { --star-x: -34px; --star-y: 25px; width: 7px; animation-delay: 80ms; }
+.concept-answer-correct .concept-star-4 { --star-x: 37px; --star-y: 20px; width: 9px; animation-delay: 30ms; }
+.concept-answer-correct .concept-star-5 { --star-x: 55px; --star-y: -22px; width: 15px; animation-delay: 70ms; }
+.concept-answer-correct .concept-star-6 { --star-x: 22px; --star-y: -50px; width: 7px; animation-delay: 110ms; }
+@keyframes concept-star-burst {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.2) rotate(0); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--star-x)), calc(-50% + var(--star-y))) scale(1) rotate(35deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .concept-answer-correct .concept-star { animation: none; }
+}
+@media (max-width: 600px) {
+  .concept-check-actions .ant-btn { flex: 1 1 auto; min-height: 44px; }
+}
+
 .quiz-directory { list-style: none; padding: 16px 0; margin: 0; min-width: 0; isolation: isolate; }
 .quiz-directory li { position: relative; min-width: 0; margin: 4px 0; }
 /* Keep button backgrounds below every check, including checks in neighboring rows. */

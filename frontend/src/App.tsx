@@ -6,6 +6,7 @@ import { AppShell } from './components/layout/AppShell'
 import { RequireAuth } from './components/layout/RequireAuth'
 import { ensureCurrentUser } from './api/auth'
 import { PageviewTracker } from './components/analytics/PageviewTracker'
+import { TouchFeedback } from './components/ui/TouchFeedback'
 
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })))
 const TutorialPage = lazy(() => import('./pages/TutorialPage').then(m => ({ default: m.TutorialPage })))
@@ -43,7 +44,7 @@ export function App() {
   }, [])
 
   return (
-    <><PageviewTracker />
+    <><PageviewTracker /><TouchFeedback />
     <Suspense
       fallback={<LoadingScreen />}
     >

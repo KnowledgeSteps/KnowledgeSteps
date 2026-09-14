@@ -44,7 +44,7 @@ class GenerationClientTest {
         .andExpect(jsonPath("$.messages[0].content").value(questionPrompt))
         .andExpect(jsonPath("$.messages[1].role").value("user"))
         .andExpect(jsonPath("$.messages[1].content").value(json.writeValueAsString(nodes)))
-        .andRespond(withSuccess(envelope("{\"questions\":[{\"nodeId\":\"1\",\"questionText\":\"Q\",\"hint\":null}]}","stop"),MediaType.APPLICATION_JSON));
+        .andRespond(withSuccess(envelope("{\"questions\":["+validQuestion("1","Q")+"]}","stop"),MediaType.APPLICATION_JSON));
     var graph = client.generateGraph(target);
     assertThat(graph.nodes()).isEmpty();
     assertThat(graph.targetDescription()).isEqualTo("目标介绍");
@@ -95,7 +95,7 @@ class GenerationClientTest {
         .andExpect(jsonPath("$.reasoning_effort").value("minimal"))
         .andExpect(jsonPath("$.enable_thinking").doesNotExist())
         .andExpect(jsonPath("$.response_format.type").value("json_object"))
-        .andRespond(withSuccess(envelope("{questions:[{nodeId:'1',questionText:'你了解这个概念吗？'}]}","stop"),MediaType.APPLICATION_JSON));
+        .andRespond(withSuccess(envelope("{\"questions\":["+validQuestion("1","你了解这个概念吗？")+"]}","stop"),MediaType.APPLICATION_JSON));
     assertThat(gemini.generateGraph("目标").nodes()).isEmpty();
     assertThat(gemini.generateQuestions(List.of(new Generation.SavedNode("1","概念","说明")))).hasSize(1);
     server.verify();
@@ -143,7 +143,7 @@ class GenerationClientTest {
     var nodes=List.of(new Generation.SavedNode("1","A",""));
     server.expect(anything()).andRespond(withSuccess(envelope("{questions:[]}","stop"),MediaType.APPLICATION_JSON));
     server.expect(anything()).andExpect(jsonPath("$.model").value("Qwen/Qwen3-30B-A3B-Instruct-2507"))
-        .andRespond(withSuccess(envelope("{questions:[{nodeId:'1',questionText:'Q'}]}","stop"),MediaType.APPLICATION_JSON));
+        .andRespond(withSuccess(envelope("{\"questions\":["+validQuestion("1","Q")+"]}","stop"),MediaType.APPLICATION_JSON));
     assertThat(client.generateQuestions(nodes)).hasSize(1);
     server.verify();
   }
@@ -247,12 +247,19 @@ class GenerationClientTest {
     server.expect(anything()).andRespond(withSuccess(envelope("{questions:[{nodeId:'1'}]}","stop"),MediaType.APPLICATION_JSON));
     server.expect(anything())
         .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("NONEMPTY_STRING_REQUIRED_questionText")))
-        .andRespond(withSuccess(envelope("{questions:[{nodeId:'1',questionText:'你了解矩阵吗？'}]}","stop"),MediaType.APPLICATION_JSON));
+        .andRespond(withSuccess(envelope("{\"questions\":["+validQuestion("1","你了解矩阵吗？")+"]}","stop"),MediaType.APPLICATION_JSON));
     server.expect(anything())
         .andExpect(jsonPath("$.messages[3].content").value(org.hamcrest.Matchers.containsString("QUESTION_COUNT_MISMATCH")))
-        .andRespond(withSuccess(envelope("{questions:[{nodeId:'2',questionText:'你了解向量吗？'},{nodeId:'1',questionText:'你了解矩阵吗？'}]}","stop"),MediaType.APPLICATION_JSON));
+        .andRespond(withSuccess(envelope("{\"questions\":["+validQuestion("2","你了解向量吗？")+","+validQuestion("1","你了解矩阵吗？")+"]}","stop"),MediaType.APPLICATION_JSON));
     assertThat(client.generateQuestions(nodes)).extracting(Generation.Question::nodeId).containsExactly("1","2");
     server.verify();
+  }
+
+  private static String validQuestion(String nodeId,String text) {
+    return "{\"nodeId\":\""+nodeId+"\",\"questionText\":\""+text+"\",\"hint\":\"用途\","+
+        "\"heardOfCheck\":{\"statement\":\"基础陈述\",\"expected\":true,\"explanation\":\"基础说明\"},"+
+        "\"basicallyKnowCheck\":{\"statement\":\"核心陈述\",\"expected\":false,\"explanation\":\"核心说明\"},"+
+        "\"veryFamiliarCheck\":{\"statement\":\"深入陈述\",\"expected\":true,\"explanation\":\"深入说明\"}}";
   }
   @Test void duplicateJsonFieldsCannotBypassValidationDuringCorrections() throws Exception {
     String ambiguous="{nodes:[],nodes:[{key:'a',name:'A'}],edges:[]}";

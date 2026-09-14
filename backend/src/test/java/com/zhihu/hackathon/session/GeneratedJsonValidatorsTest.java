@@ -33,13 +33,13 @@ class GeneratedJsonValidatorsTest {
     assertThatThrownBy(()->questions.validateAndRepair("{questions:null}",List.of())).hasMessage("MODEL_JSON_PARSE_ERROR");
   }
   @Test void repairsQuestionIdsAndMissingHint() {
-    var result=questions.validateAndRepair("{questions:[{nodeId:1,questionText:'你了解矩阵吗？',},]}",nodes);
+    var result=questions.validateAndRepair("{questions:[{nodeId:1,questionText:'你了解矩阵吗？',heardOfCheck:{statement:'矩阵是一种数学对象',expected:true,explanation:'矩阵按行列组织元素'},basicallyKnowCheck:{statement:'矩阵乘法总能交换顺序',expected:false,explanation:'矩阵乘法通常不满足交换律'},veryFamiliarCheck:{statement:'可逆方阵的秩等于其阶数',expected:true,explanation:'满秩方阵可逆'}}]}",nodes);
     assertThat(result.getFirst().nodeId()).isEqualTo("1");
     assertThat(result.getFirst().hint()).isEmpty();
   }
   @Test void preservesEscapesInsideText() {
     var result=questions.validateAndRepair("""
-        {"questions":[{"nodeId":"1","questionText":"你了解 https://example.com/a 吗？","hint":"括号 },] 不应改写"}]}
+        {"questions":[{"nodeId":"1","questionText":"你了解 https://example.com/a 吗？","hint":"括号 },] 不应改写","heardOfCheck":{"statement":"矩阵按行列排列元素","expected":true,"explanation":"这是矩阵的基本形式"},"basicallyKnowCheck":{"statement":"矩阵乘法总可交换","expected":false,"explanation":"通常不可交换"},"veryFamiliarCheck":{"statement":"可逆方阵满秩","expected":true,"explanation":"可逆等价于满秩"}}]}
         """,nodes);
     assertThat(result.getFirst().hint()).isEqualTo("括号 },] 不应改写");
   }
@@ -52,7 +52,7 @@ class GeneratedJsonValidatorsTest {
     assertThatThrownBy(()->graph.validateAndRepair("{nodes:[{key:'a'}],edges:[{from:'a',to:'target'}]}","X")).hasMessage("MODEL_JSON_PARSE_ERROR");
     assertThatThrownBy(()->questions.validateAndRepair("{}",nodes)).hasMessage("MODEL_JSON_PARSE_ERROR");
     assertThatThrownBy(()->questions.validateAndRepair("{questions:[{nodeId:1}]}",nodes)).hasMessage("MODEL_JSON_PARSE_ERROR");
-    assertThatThrownBy(()->questions.validateAndRepair("{questions:[{nodeId:2,questionText:'Q'}]}",nodes)).hasMessage("QUESTION_VALIDATION_FAILED");
+    assertThatThrownBy(()->questions.validateAndRepair("{questions:[{nodeId:2,questionText:'Q',heardOfCheck:{statement:'A',expected:true,explanation:'A'},basicallyKnowCheck:{statement:'B',expected:false,explanation:'B'},veryFamiliarCheck:{statement:'C',expected:true,explanation:'C'}}]}",nodes)).hasMessage("QUESTION_VALIDATION_FAILED");
   }
   @Test void syntaxDiagnosticContainsOnlyCategoryAndLocation() {
     var failure=catchThrowableOfType(()->graph.validateAndRepair("{private_user_data:","X"),ModelGenerationException.class);

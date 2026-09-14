@@ -102,6 +102,17 @@ function parseQuestionOption(value: unknown): QuestionOption {
 
 function parseQuestion(value: unknown): Question {
   const record = objectValue(value)
+  const checks = record.checks == null ? {} : objectValue(record.checks)
+  const parseCheck = (answer: 'VERY_FAMILIAR' | 'BASICALLY_KNOW' | 'HEARD_OF') => {
+    if (checks[answer] == null) return undefined
+    const check = objectValue(checks[answer])
+    return { statement: stringValue(check.statement), expected: booleanValue(check.expected), explanation: stringValue(check.explanation) }
+  }
+  const parsedChecks: Question['checks'] = {}
+  for (const answer of ['VERY_FAMILIAR', 'BASICALLY_KNOW', 'HEARD_OF'] as const) {
+    const check = parseCheck(answer)
+    if (check) parsedChecks[answer] = check
+  }
   return {
     questionId: stringValue(record.questionId),
     nodeId: stringValue(record.nodeId),
@@ -109,6 +120,7 @@ function parseQuestion(value: unknown): Question {
     questionText: stringValue(record.questionText),
     hint: nullableString(record.hint),
     options: arrayValue(record.options, parseQuestionOption),
+    checks: parsedChecks,
     answer:
       record.answer === null
         ? null
@@ -190,6 +202,7 @@ function parseResource(value: unknown): LearningResource {
     authorUrl: record.authorUrl == null ? null : nullableString(record.authorUrl),
     voteCount: nullableNumber(record.voteCount),
     contentDate: record.contentDate == null ? null : stringValue(record.contentDate),
+    recommendationReason: record.recommendationReason == null ? null : stringValue(record.recommendationReason),
   }
 }
 

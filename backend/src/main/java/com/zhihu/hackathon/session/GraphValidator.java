@@ -57,10 +57,16 @@ public class GraphValidator {
     for (Question q : questions) {
       if (q == null || !remaining.remove(q.nodeId()) || q.questionText() == null
           || q.questionText().isBlank() || q.questionText().length() > 1000
-          || (q.hint() != null && q.hint().length() > 1000)) invalid("INVALID_QUESTION_OR_NODE_MAPPING");
+          || (q.hint() != null && q.hint().length() > 1000)
+          || invalidCheck(q.heardOfCheck()) || invalidCheck(q.basicallyKnowCheck()) || invalidCheck(q.veryFamiliarCheck())) invalid("INVALID_QUESTION_OR_NODE_MAPPING");
       byId.put(q.nodeId(), q);
     }
     return nodes.stream().map(n -> byId.get(n.id())).toList();
+  }
+
+  private static boolean invalidCheck(ConceptCheck check) {
+    return check != null && (check.statement() == null || check.statement().isBlank() || check.statement().length() > 1000
+        || check.explanation() == null || check.explanation().isBlank() || check.explanation().length() > 1000);
   }
 
   private static String normalize(String s) { return s == null ? "" : Normalizer.normalize(s, Normalizer.Form.NFKC).strip(); }

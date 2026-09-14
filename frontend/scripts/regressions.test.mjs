@@ -366,6 +366,31 @@ test('answer drafts restore by user/session and reject changed questions, answer
   save(); memory.set('unrelated', 'keep'); clearAnswerDrafts(); assert.deepEqual([...memory], [['unrelated', 'keep']])
 })
 
+test('adjacent graph edges receive ordered lanes and separate node ports', async () => {
+  const { routeGraphEdges } = await server.ssrLoadModule('/src/components/result/routeEdges.ts')
+  const cards = [
+    { id: 'a', left: 0, right: 200, top: 0, bottom: 200 },
+    { id: 'b', left: 240, right: 440, top: 0, bottom: 200 },
+    { id: 'c', left: 0, right: 200, top: 300, bottom: 500 },
+    { id: 'd', left: 240, right: 440, top: 300, bottom: 500 },
+  ]
+  const edges = [
+    { key: 'a-c', from: 'a', to: 'c', fromLevel: 0, toLevel: 1 },
+    { key: 'a-d', from: 'a', to: 'd', fromLevel: 0, toLevel: 1 },
+    { key: 'b-c', from: 'b', to: 'c', fromLevel: 0, toLevel: 1 },
+    { key: 'b-d', from: 'b', to: 'd', fromLevel: 0, toLevel: 1 },
+  ]
+  const routes = routeGraphEdges(edges, cards)
+  assert.equal(routes.length, edges.length)
+  assert.equal(new Set(routes.map(route => route.points[1].y)).size, edges.length)
+  assert.equal(new Set(routes.filter(route => route.from === 'a').map(route => route.points[0].x)).size, 2)
+  assert.equal(new Set(routes.filter(route => route.to === 'c').map(route => route.points.at(-1).x)).size, 2)
+  for (const route of routes) {
+    assert.equal(route.points.length, 4)
+    assert(route.points[1].y > 200 && route.points[1].y < 300)
+  }
+})
+
 test('polling jitter, background cadence and visibility preserve retry cooldowns', async () => {
   let hidden = false, clock = 0, changed, unsubscribed = false
   const timers = [], recoveries = []
@@ -506,7 +531,7 @@ test('invalid JSON and invalid question shapes recover through the real response
   const real = await server.ssrLoadModule('/src/api/real/sessions.ts')
   let user
   let calls = 0
-  const question = { questionId: 'q1', nodeId: 'n1', nodeName: '向量', questionText: '熟悉向量吗？', hint: null, options: [{ value: 'DONT_KNOW', label: '不了解' }], answer: null }
+  const question = { questionId: 'q1', nodeId: 'n1', nodeName: '向量', questionText: '熟悉向量吗？', hint: null, options: [{ value: 'DONT_KNOW', label: '不了解' }], checks: {}, answer: null }
   try {
     globalThis.fetch = async url => {
       if (String(url).endsWith('/auth/me')) return new Response(JSON.stringify({ userId: 'recover-user', csrfToken: 'recover-csrf' }))

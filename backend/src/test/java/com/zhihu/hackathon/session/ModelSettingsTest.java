@@ -11,6 +11,7 @@ class ModelSettingsTest {
       assertThat(settings.baseUrl()).isEqualTo("https://api.openai-next.com/v1");
       assertThat(settings.graphModel()).isEqualTo("gemini-3-flash");
       assertThat(settings.questionModel()).isEqualTo("gemini-3.1-flash-lite");
+      assertThat(settings.recommendationModel()).isEqualTo("gemini-3.1-flash-lite");
     });
     var settings = new ModelSettings("https://example.invalid", "SECRET-key", "graph", "questions");
     assertThat(settings.toString()).doesNotContain("SECRET-key");

@@ -5,18 +5,25 @@ import static com.zhihu.hackathon.session.Generation.*;
 
 /** 网络调用在存储事务之外；搜索失败只影响当前节点。 */
 public class GenerationPipeline {
+  private static final org.slf4j.Logger LOG=org.slf4j.LoggerFactory.getLogger(GenerationPipeline.class);
   private final SessionStore store;
   private final GraphGenerator graphs;
   private final QuestionGenerator questions;
   private final ResourceSearch resources;
+  private final ResourceRecommender recommender;
   private final GraphValidator validator;
   private final TaskDiagnostics diagnostics;
   public GenerationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch resources,GraphValidator validator) {
-    this(store, graphs, questions, resources, validator, new TaskDiagnostics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
+    this(store, graphs, questions, resources, (node, found) -> found, validator, new TaskDiagnostics(new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
   }
   public GenerationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch resources,
       GraphValidator validator, TaskDiagnostics diagnostics) {
+    this(store, graphs, questions, resources, (node, found) -> found, validator, diagnostics);
+  }
+  public GenerationPipeline(SessionStore store,GraphGenerator graphs,QuestionGenerator questions,ResourceSearch resources,
+      ResourceRecommender recommender, GraphValidator validator, TaskDiagnostics diagnostics) {
     this.store=store;this.graphs=graphs;this.questions=questions;this.resources=resources;this.validator=validator;
+    this.recommender=recommender;
     this.diagnostics=diagnostics;
   }
   public void run(long id,String target) {
@@ -73,9 +80,18 @@ public class GenerationPipeline {
       for (SessionStore.ResourceRequest node : diagnostics.measure(id,"resource_pending", () -> store.pendingResources(id))) {
         if (GenerationTaskContext.isCancelled()) return;
         try {
-          var found = diagnostics.measure(id,"resource_request", () -> resources.search(node.name(), node.count()));
+          var found = diagnostics.measure(id,"resource_request", () -> resources.search(node.name(), node.count())).stream().limit(node.count()).toList();
           GenerationTaskContext.check();
-          diagnostics.measure(id,"resource_store", () -> { store.saveResources(id, node.id(), found.stream().limit(node.count()).toList(), false); return null; });
+          var searched=found;
+          try {
+            found=diagnostics.measure(id,"resource_recommendation", () -> recommender.recommend(node.name(), searched));
+          } catch (RuntimeException recommendationFailure) {
+            if (GenerationTaskContext.isCancelled()) return;
+            LOG.warn("Resource recommendation unavailable; keeping searched resources: sessionId={}, nodeId={}",
+                id,node.id());
+          }
+          var enriched=found;
+          diagnostics.measure(id,"resource_store", () -> { store.saveResources(id, node.id(), enriched, false); return null; });
         } catch (RuntimeException ex) {
           if (GenerationTaskContext.isCancelled()) return;
           diagnostics.measure(id,"resource_failure_store", () -> { store.saveResources(id, node.id(), List.of(), true); return null; });
