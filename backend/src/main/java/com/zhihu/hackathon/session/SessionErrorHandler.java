@@ -5,7 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 
-@RestControllerAdvice(assignableTypes={LearningSessionController.class,SessionHistoryController.class,com.zhihu.hackathon.reading.ReadingController.class})
+@RestControllerAdvice(assignableTypes={LearningSessionController.class,SessionHistoryController.class,com.zhihu.hackathon.reading.ReadingController.class,com.zhihu.hackathon.tutorial.TutorialController.class})
 public class SessionErrorHandler {
   @ExceptionHandler(SessionException.class)
   ResponseEntity<?> business(SessionException ex) {

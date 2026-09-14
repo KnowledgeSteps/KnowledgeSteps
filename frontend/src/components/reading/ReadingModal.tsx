@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ArrowLeftOutlined, BookOutlined, BulbOutlined, CheckOutlined, LikeOutlined } from '@ant-design/icons'
 import { Alert, Button, Input, Modal, Spin, Tag, Typography } from 'antd'
-import { explainQuote, saveDoubt } from '../../api/reading'
+import { useReadingServices } from './ReadingServices'
 import type { Explanation } from '../../api/reading'
 import { ApiError } from '../../api/types'
 import { ReadingCard } from '../ui/ReadingCard'
@@ -26,6 +26,7 @@ export function ReadingModal({ sessionId, nodeId, nodeName, source, initialQuote
   initialQuote?: { quote: string; context: string }
   onClose: () => void
 }) {
+  const { explainQuote, saveDoubt, demo } = useReadingServices()
   const [view, setView] = useState<'reader' | 'explanation'>(initialQuote ? 'explanation' : 'reader')
   const [quote, setQuote] = useState(initialQuote?.quote ?? '')
   const [context, setContext] = useState(initialQuote?.context ?? '')
@@ -103,7 +104,7 @@ export function ReadingModal({ sessionId, nodeId, nodeName, source, initialQuote
     title={view === 'reader' ? '阅读资料' : '这段话怎么理解'}>
     <div className="reading-modal-scroll" ref={scrollArea}>
       {view === 'reader' ? <>
-        <div className="reading-source-heading">{source.kind === 'overview' && <Tag>AI 讲解</Tag>}
+        <div className="reading-source-heading">{source.kind === 'overview' && <Tag>{demo ? '教程示例讲解' : 'AI 讲解'}</Tag>}
           <h2>{source.title}</h2>
           <div className="reading-source-meta"><span>{authorUrl && source.authorName
             ? <Typography.Link href={authorUrl} target="_blank" rel="noopener noreferrer">{source.authorName}</Typography.Link>
@@ -134,9 +135,9 @@ export function ReadingModal({ sessionId, nodeId, nodeName, source, initialQuote
         {error && <Alert type="error" showIcon title={error} />}
         {loading && <div className="reading-loading" role="status"><Spin /><span>正在结合知识点解释这段话…</span></div>}
         {explanation && <ReadingCard className="reading-explanation-card">
-          <div className="reading-section-heading"><h3>通俗解释</h3><Tag icon={<BulbOutlined />}>AI 生成</Tag></div>
+          <div className="reading-section-heading"><h3>通俗解释</h3><Tag icon={<BulbOutlined />}>{demo ? '教程示例' : 'AI 生成'}</Tag></div>
           <MarkdownContent text={explanation.explanationMarkdown} />
-          <p className="reading-help">AI 解释用于辅助理解，可结合原文核对。</p>
+          <p className="reading-help">{demo ? '本段为预先准备的示例解释，不调用 AI。' : 'AI 解释用于辅助理解，可结合原文核对。'}</p>
           <Button icon={explanation.saved ? <CheckOutlined /> : <BookOutlined />} loading={saving}
             disabled={explanation.saved} onClick={() => void save()}>{explanation.saved ? '已保存到疑惑本' : '保存到疑惑本'}</Button>
           {explanation.saved && <span role="status" className="reading-saved-note">可从导航栏的疑惑本再次查看。</span>}

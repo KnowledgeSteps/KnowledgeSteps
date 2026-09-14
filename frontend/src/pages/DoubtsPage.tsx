@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { App, Alert, Button, Empty, Modal, Pagination, Skeleton, Space, Tag } from 'antd'
 import { BookOutlined, CheckOutlined, DeleteOutlined, ReloadOutlined, CompassOutlined } from '@ant-design/icons'
-import { getAllDoubts, updateDoubt, deleteDoubt, type Explanation } from '../api/reading'
+import { type Explanation } from '../api/reading'
+import { useReadingServices } from '../components/reading/ReadingServices'
 import { useAuth } from '../hooks/useAuth'
 import { useRecoverableRead } from '../hooks/useRecoverableRead'
 import { ReadingCard } from '../components/ui/ReadingCard'
@@ -12,13 +13,15 @@ import { MarkdownContent } from '../components/reading/MarkdownContent'
 import '../design/doubts.css'
 import '../design/history.css'
 
-export function DoubtsPage() {
+export function DoubtsPage({ onReturn }: { onReturn?: () => void } = {}) {
   const auth = useAuth()
-  return <DoubtsContent key={auth.user?.userId} />
+  return <DoubtsContent key={auth.user?.userId} onReturn={onReturn} />
 }
-function DoubtsContent() {
+function DoubtsContent({ onReturn }: { onReturn?: () => void }) {
+  const { getAllDoubts, updateDoubt, deleteDoubt } = useReadingServices()
   const { message } = App.useApp()
-  const navigate = useNavigate()
+  const routerNavigate = useNavigate()
+  const navigate = (path: string) => onReturn ? onReturn() : routerNavigate(path)
   const [page, setPage] = useState(1)
   const [filter, setFilter] = useState(emptyCollectionFilter)
   const [selected, setSelected] = useState<Explanation | null>(null)
@@ -71,7 +74,7 @@ function DoubtsContent() {
           <Button className="history-delete" danger aria-label={`删除疑惑：${item.quote}`} disabled={busy} onClick={() => { setMutationError(null); setRemoving(item) }}><span className="delete-text">删除</span><span className="delete-icon" aria-hidden="true"><DeleteOutlined /></span></Button></div>
         <h2 className="t-title">{item.nodeName}</h2>
         <Tag className="t-status" color={item.understood ? 'blue' : undefined}>{item.understood ? '已理解' : '待理解'}</Tag>
-        <p className="t-description" title={item.quote}>{item.quote}</p>
+        <p className="t-description" title={`你的疑惑：${item.quote}`}><span className="doubt-quote-label">你的疑惑：</span>{item.quote}</p>
         <time className="t-date" dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString('zh-CN')}</time>
         <Button className="history-enter" data-text="查看理解" aria-label="查看理解" onClick={() => { setMutationError(null); setSelected(item) }}><span className="history-enter-text">查看理解</span></Button>
       </div></div></div>
@@ -84,7 +87,7 @@ function DoubtsContent() {
         <h2>{selected.nodeName}</h2>
         <div className="between"><Space wrap>
           <Button icon={<CheckOutlined />} loading={busy} onClick={() => void changeStatus(selected)}>{selected.understood ? '改为待理解' : '标记已理解'}</Button>
-          <Button onClick={() => navigate(`/sessions/${selected.sessionId}/result`)}>回到这次寻路</Button>
+          <Button onClick={() => onReturn ? onReturn() : navigate(`/sessions/${selected.sessionId}/result`)}>回到这次寻路</Button>
         </Space><time dateTime={selected.createdAt}>{new Date(selected.createdAt).toLocaleDateString('zh-CN')}</time></div>
       </header>
         <blockquote className="doubt-quote">{selected.quote}</blockquote><MarkdownContent text={selected.explanationMarkdown} />

@@ -9,14 +9,14 @@ import { isMockMode } from '../api/config';
 import { ApiError } from '../api/types';
 import { loginUrl } from '../api/loginNavigation';
 const PROMPTS = ['Transformer', 'RAG', 'Spring Boot', '线性代数'];
-export function HomePage() {
+export function HomePage({ onTutorialStart }: { onTutorialStart?: () => void } = {}) {
     const navigate = useNavigate();
     const location = useLocation();
     const active = useRef(false);
     const submitLock = useRef(false);
     const pendingRequest = useRef<{ target: string; key: string } | null>(null);
     useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
-    const [goal, setGoal] = useState(() => typeof location.state?.draftTarget === 'string' ? location.state.draftTarget.slice(0, 100) : '');
+    const [goal, setGoal] = useState(() => !onTutorialStart && typeof location.state?.draftTarget === 'string' ? location.state.draftTarget.slice(0, 100) : '');
     const [fieldError, setFieldError] = useState<string | null>(null);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [submitting, setSubmitting] = useState(false);
@@ -31,6 +31,14 @@ export function HomePage() {
         }
         if (target.length > 100) {
             setFieldError('目标太长了，请精简到 100 个字以内。');
+            return;
+        }
+        if (onTutorialStart) {
+            if (target.toUpperCase() !== 'RAG') {
+                setFieldError('新手教程请先输入 RAG，再点击“开始寻路”。');
+                return;
+            }
+            onTutorialStart();
             return;
         }
         submitLock.current = true;
